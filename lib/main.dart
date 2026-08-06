@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/favorites_store.dart';
 import 'screens/start_screen.dart';
 
 Future<void> main() async {
@@ -10,7 +12,16 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  runApp(const FantasyColorApp());
+
+  final favorites = FavoritesStore();
+  await favorites.load();
+
+  runApp(
+    ChangeNotifierProvider.value(
+      value: favorites,
+      child: const FantasyColorApp(),
+    ),
+  );
 }
 
 class FantasyColorApp extends StatelessWidget {
