@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/coloring_page.dart';
 
-/// Ausmalbild auf weißem Papier im exakten Seitenverhältnis der SVG.
-///
-/// So verschwinden fleckige Transparenzstellen, ohne weiße Seitenbalken
-/// neben dem Motiv zu erzeugen.
+/// Ausmalbild auf weißem Papier im exakten Seitenverhältnis.
 class ColoringPageImage extends StatelessWidget {
   const ColoringPageImage({
     super.key,
@@ -27,20 +23,13 @@ class ColoringPageImage extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget image = ColoredBox(
       color: Colors.white,
-      child: SvgPicture.asset(
+      child: Image.asset(
         page.assetPath,
         fit: fit,
         alignment: Alignment.center,
-        allowDrawingOutsideViewBox: false,
-        placeholderBuilder: (_) => Center(
-          child: SizedBox(
-            width: placeholderSize,
-            height: placeholderSize,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: placeholderColor,
-            ),
-          ),
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => Center(
+          child: Icon(Icons.broken_image_outlined, color: placeholderColor),
         ),
       ),
     );
