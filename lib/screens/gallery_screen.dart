@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../widgets/coloring_page_image.dart';
 import 'coloring_preview_screen.dart';
 import 'favorites_screen.dart';
 
@@ -236,26 +236,11 @@ class _ColoringPageTile extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(4),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: SizedBox.expand(
-                              child: SvgPicture.asset(
-                                page.assetPath,
-                                fit: BoxFit.cover,
-                                alignment: Alignment.center,
-                                placeholderBuilder: (_) => const Center(
-                                  child: SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFF8FA0C8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: ColoringPageImage(
+                          page: page,
+                          fit: BoxFit.cover,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),

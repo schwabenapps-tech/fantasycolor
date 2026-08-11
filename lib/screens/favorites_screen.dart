@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../widgets/coloring_page_image.dart';
 import 'coloring_preview_screen.dart';
 
 /// Rasteransicht aller favorisierten Ausmalbilder.
@@ -213,15 +213,11 @@ class _FavoriteGridTile extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(3),
-                      child: ClipRRect(
+                      child: ColoringPageImage(
+                        page: page,
+                        fit: BoxFit.cover,
                         borderRadius: BorderRadius.circular(11),
-                        child: SizedBox.expand(
-                          child: SvgPicture.asset(
-                            page.assetPath,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                          ),
-                        ),
+                        placeholderSize: 22,
                       ),
                     ),
                   ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../models/coloring_page.dart';
+import '../widgets/coloring_page_image.dart';
 
 /// Vollbild-Ansicht eines Ausmalbilds in echter Seitenproportion.
 class ColoringPreviewScreen extends StatelessWidget {
@@ -28,21 +28,9 @@ class ColoringPreviewScreen extends StatelessWidget {
                 Positioned.fill(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
-                    child: SvgPicture.asset(
-                      page.assetPath,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      allowDrawingOutsideViewBox: false,
-                      placeholderBuilder: (_) => const Center(
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Color(0xFF8FA0C8),
-                          ),
-                        ),
-                      ),
+                    child: ColoringPageSheet(
+                      page: page,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                 ),
