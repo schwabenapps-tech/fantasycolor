@@ -66,8 +66,9 @@ flutter_launcher_icons:
   image_path: assets/images/appicon_fantasycolor.png
   remove_alpha_ios: true
   background_color_ios: "#12263F"
-  adaptive_icon_background: "#12263F"
-  adaptive_icon_foreground: assets/images/appicon_fantasycolor.png
+  adaptive_icon_background: assets/images/appicon_background.png
+  adaptive_icon_foreground: assets/images/appicon_foreground.png
+  adaptive_icon_foreground_inset: 0
   min_sdk_android: 21
 
 # For information on the generic Dart part of this file, see the
@@ -84,6 +85,7 @@ flutter:
   assets:
     - assets/images/
     - assets/coloring_pages/
+    - assets/puzzle_images/
     - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see

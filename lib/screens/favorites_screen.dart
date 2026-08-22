@@ -184,72 +184,48 @@ class _FavoriteGridTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onOpen,
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFFF4F7FC),
-                          Color(0xFFB8C0D0),
-                          Color(0xFF8E97A8),
-                          Color(0xFFE6EAF2),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: ColoringPageImage(
-                        page: page,
-                        fit: BoxFit.cover,
-                        borderRadius: BorderRadius.circular(11),
-                        placeholderSize: 22,
-                      ),
-                    ),
-                  ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFF4F7FC),
+                    Color(0xFFB8C0D0),
+                    Color(0xFF8E97A8),
+                    Color(0xFFE6EAF2),
+                  ],
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: FavoriteStarButton(
-                    isFavorite: isFavorite,
-                    onPressed: onToggleFavorite,
-                    size: 34,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
                   ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: ColoringPageImage(
+                  page: page,
+                  fit: BoxFit.cover,
+                  borderRadius: BorderRadius.circular(11),
+                  placeholderSize: 22,
                 ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            page.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              shadows: const [
-                Shadow(
-                  color: Color(0xAA000000),
-                  blurRadius: 6,
-                  offset: Offset(0, 1),
-                ),
-              ],
+          Positioned(
+            top: 8,
+            right: 8,
+            child: FavoriteStarButton(
+              isFavorite: isFavorite,
+              onPressed: onToggleFavorite,
+              size: 34,
             ),
           ),
         ],

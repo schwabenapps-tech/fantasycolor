@@ -165,6 +165,13 @@ class _GalleryScreenState extends State<GalleryScreen>
                   ),
                   Positioned(
                     top: 10,
+                    left: 12,
+                    child: _SilverBackButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
                     right: 16,
                     child: GoldenFavoritesButton(onPressed: _openFavorites),
                   ),
@@ -200,83 +207,103 @@ class _ColoringPageTile extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: Column(
+      child: Stack(
         children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: onTap,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFFF4F7FC),
-                            Color(0xFFB8C0D0),
-                            Color(0xFF8E97A8),
-                            Color(0xFFE6EAF2),
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF9EC8FF).withValues(alpha: 0.28),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: ColoringPageImage(
-                          page: page,
-                          fit: BoxFit.cover,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onTap,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFF4F7FC),
+                      Color(0xFFB8C0D0),
+                      Color(0xFF8E97A8),
+                      Color(0xFFE6EAF2),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF9EC8FF).withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      spreadRadius: 1,
                     ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: ColoringPageImage(
+                    page: page,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: FavoriteStarButton(
-                    isFavorite: isFavorite,
-                    onPressed: onToggleFavorite,
-                    size: 42,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            page.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-              shadows: const [
-                Shadow(
-                  color: Color(0xAA000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 1),
-                ),
-              ],
+          Positioned(
+            top: 12,
+            right: 12,
+            child: FavoriteStarButton(
+              isFavorite: isFavorite,
+              onPressed: onToggleFavorite,
+              size: 42,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SilverBackButton extends StatelessWidget {
+  const _SilverBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Ink(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFF7F9FC),
+                Color(0xFFC5CCD8),
+                Color(0xFF9AA3B5),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            color: Color(0xFF243044),
+            size: 22,
+          ),
+        ),
       ),
     );
   }
