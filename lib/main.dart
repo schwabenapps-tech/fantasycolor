@@ -21,32 +21,48 @@ Future<void> main() async {
   await progress.load();
 
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: favorites),
-        ChangeNotifierProvider.value(value: progress),
-      ],
-      child: const FantasyColorApp(),
+    FantasyColorApp(
+      favorites: favorites,
+      progress: progress,
     ),
   );
 }
 
 class FantasyColorApp extends StatelessWidget {
-  const FantasyColorApp({super.key});
+  const FantasyColorApp({
+    super.key,
+    this.favorites,
+    this.progress,
+  });
+
+  /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
+  final FavoritesStore? favorites;
+  final ColoringProgressStore? progress;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Fantasy Color',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5B6FBF),
-          brightness: Brightness.dark,
+    // Provider hier (nicht nur in main), damit Hot-Reload den Baum mitnimmt.
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(
+          value: favorites ?? FavoritesStore(),
         ),
-        useMaterial3: true,
+        ChangeNotifierProvider.value(
+          value: progress ?? ColoringProgressStore(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Fantasy Color',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF5B6FBF),
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+        ),
+        home: const StartScreen(),
       ),
-      home: const StartScreen(),
     );
   }
 }

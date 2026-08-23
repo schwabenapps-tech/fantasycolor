@@ -23,9 +23,10 @@ class ColoringPageImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = context.watch<ColoringProgressStore>();
-    final file = progress.fileFor(page.id);
-    final version = progress.versionOf(page.id);
+    // Nullable-Lookup: kein Crash, wenn der Provider nach Hot-Reload noch fehlt.
+    final progress = context.watch<ColoringProgressStore?>();
+    final file = progress?.fileFor(page.id);
+    final version = progress?.versionOf(page.id) ?? 0;
 
     Widget image = ColoredBox(
       color: Colors.white,
