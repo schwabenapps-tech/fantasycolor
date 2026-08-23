@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
+import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/paint_side_rail.dart';
@@ -18,25 +22,66 @@ class ColoringPreviewScreen extends StatefulWidget {
   State<ColoringPreviewScreen> createState() => _ColoringPreviewScreenState();
 }
 
-class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
+class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
+    with TickerProviderStateMixin {
   late final ColoringSession _session;
-  late final Future<ColoringBitmap> _bitmapFuture;
+  Future<ColoringBitmap>? _bitmapFuture;
+  bool _celebrating = false;
+  late final AnimationController _celebrateController;
 
   @override
   void initState() {
     super.initState();
     _session = ColoringSession();
-    _bitmapFuture = ColoringBitmap.load(widget.page.assetPath);
+    _celebrateController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bitmapFuture ??= _loadBitmap();
+  }
+
+  Future<ColoringBitmap> _loadBitmap() async {
+    final progress = context.read<ColoringProgressStore>();
+    final bitmap = await ColoringBitmap.load(widget.page.assetPath);
+    if (!mounted) return bitmap;
+    final saved = await progress.loadProgressBytes(widget.page.id);
+    if (saved != null && bitmap.applyWorkingPng(saved)) {
+      _session.markLoadedProgress();
+    }
+    return bitmap;
   }
 
   @override
   void dispose() {
+    _celebrateController.dispose();
     _session.dispose();
     super.dispose();
   }
 
-  void _finish() {
+  Future<void> _finish() async {
+    if (_celebrating) return;
+
+    final progress = context.read<ColoringProgressStore>();
+    final png = await _session.exportColoredPng();
+    if (png != null) {
+      await progress.saveProgress(widget.page.id, png);
+    }
+
+    if (!mounted) return;
+    setState(() => _celebrating = true);
+    await _celebrateController.forward(from: 0);
+    if (!mounted) return;
     Navigator.of(context).pop();
+  }
+
+  Future<void> _resetAllColors() async {
+    _session.resetAll();
+    await context.read<ColoringProgressStore>().clearProgress(widget.page.id);
   }
 
   @override
@@ -113,7 +158,11 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                   icon: Icons.undo_rounded,
                                   onPressed:
                                       _session.canUndo ? _session.undo : null,
-                                  dimmed: !_session.canUndo,
+                                  onLongPress: _session.canReset
+                                      ? _resetAllColors
+                                      : null,
+                                  dimmed: !_session.canUndo &&
+                                      !_session.canReset,
                                 ),
                                 const SizedBox(width: 10),
                                 _DoneButton(onPressed: _finish),
@@ -129,7 +178,117 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
               ],
             ),
           ),
+          if (_celebrating)
+            _FinishCelebration(animation: _celebrateController),
         ],
+      ),
+    );
+  }
+}
+
+class _FinishCelebration extends StatelessWidget {
+  const _FinishCelebration({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, _) {
+          final t = animation.value;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(
+                color: Colors.black.withValues(alpha: 0.35 * t.clamp(0, 1)),
+              ),
+              ...List.generate(28, (i) {
+                final seed = i * 37.0;
+                final x = (math.sin(seed) * 0.5 + 0.5);
+                final y = (0.15 + (t * (0.55 + (i % 5) * 0.08)))
+                    .clamp(0.0, 1.0);
+                final size = 6.0 + (i % 4) * 3.0;
+                final colors = const [
+                  Color(0xFFFFD56A),
+                  Color(0xFFFF85A1),
+                  Color(0xFFC9A6FF),
+                  Color(0xFF6EE0FF),
+                  Color(0xFFB6F5C8),
+                ];
+                return Positioned(
+                  left: MediaQuery.sizeOf(context).width * x,
+                  top: MediaQuery.sizeOf(context).height * y,
+                  child: Opacity(
+                    opacity:
+                        (1.0 - (t - 0.15).clamp(0.0, 1.0)).clamp(0.2, 1.0),
+                    child: Transform.rotate(
+                      angle: t * 4 + i,
+                      child: Icon(
+                        i.isEven
+                            ? Icons.auto_awesome_rounded
+                            : Icons.star_rounded,
+                        size: size,
+                        color: colors[i % colors.length],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              Center(
+                child: Opacity(
+                  opacity: Curves.easeOut.transform(t.clamp(0, 1)),
+                  child: Transform.scale(
+                    scale: 0.85 +
+                        0.2 * Curves.elasticOut.transform(t.clamp(0, 1)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Wunderbar!',
+                          style: TextStyle(
+                            color: const Color(0xFFFFD56A),
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            shadows: [
+                              Shadow(
+                                color: const Color(0xFFFFD56A)
+                                    .withValues(alpha: 0.6),
+                                blurRadius: 18,
+                              ),
+                              const Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 10,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Dein Bild ist gespeichert',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -184,11 +343,13 @@ class _RoundIconButton extends StatelessWidget {
   const _RoundIconButton({
     required this.icon,
     required this.onPressed,
+    this.onLongPress,
     this.dimmed = false,
   });
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
   final bool dimmed;
 
   @override
@@ -199,6 +360,7 @@ class _RoundIconButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
+          onLongPress: onLongPress,
           customBorder: const CircleBorder(),
           child: Ink(
             width: 44,

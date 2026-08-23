@@ -16,8 +16,8 @@ void paintGlitterEffect(
   if (shortest <= 0) return;
 
   final random = _SparkleRandom(base.toARGB32() ^ bounds.left.toInt() ^ seed);
-  final count = (shortest * 1.1).clamp(22, 90).toInt();
-  final radiusBase = (shortest * 0.055).clamp(2.8, 16.0);
+  final count = (shortest * 2.4).clamp(36, 160).toInt();
+  final radiusBase = (shortest * 0.08).clamp(3.2, 18.0);
 
   canvas.save();
   canvas.clipPath(path);
@@ -25,34 +25,53 @@ void paintGlitterEffect(
   final fillPaint = Paint()..style = PaintingStyle.fill;
   final glowPaint = Paint()
     ..style = PaintingStyle.fill
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.2);
 
   for (var i = 0; i < count; i++) {
     final x = bounds.left + random.nextDouble() * bounds.width;
     final y = bounds.top + random.nextDouble() * bounds.height;
     final pos = Offset(x, y);
-    final radius = radiusBase * (0.35 + random.nextDouble() * 0.9);
-    final bright = Color.lerp(
-      Colors.white,
-      base,
-      random.nextDouble() * 0.25,
-    )!;
+    final radius = radiusBase * (0.35 + random.nextDouble() * 1.05);
+    final roll = random.nextDouble();
 
-    glowPaint.color = bright.withValues(alpha: 0.55);
-    canvas.drawCircle(pos, radius * 1.8, glowPaint);
+    final Color bright;
+    if (roll < 0.4) {
+      bright = Colors.white;
+    } else if (roll < 0.75) {
+      bright = Color.lerp(Colors.white, base, 0.2)!;
+    } else {
+      bright = Color.lerp(const Color(0xFFFFE29A), Colors.white, 0.35)!;
+    }
 
-    fillPaint.color = bright.withValues(alpha: 0.85 + random.nextDouble() * 0.15);
+    glowPaint.color = bright.withValues(alpha: 0.6);
+    canvas.drawCircle(pos, radius * 2.1, glowPaint);
+
+    fillPaint.color = bright.withValues(alpha: 0.88 + random.nextDouble() * 0.12);
     canvas.drawCircle(pos, radius, fillPaint);
 
-    // Kleine Kreuz-Sternchen für echten Glitzer-Look.
-    if (random.nextDouble() > 0.55) {
-      final arm = radius * (1.6 + random.nextDouble());
+    // Kreuz-Sternchen für echten Glitzer-Look.
+    if (random.nextDouble() > 0.35) {
+      final arm = radius * (1.8 + random.nextDouble() * 1.2);
       final star = Paint()
-        ..color = Colors.white.withValues(alpha: 0.9)
-        ..strokeWidth = math.max(1.0, radius * 0.35)
+        ..color = Colors.white.withValues(alpha: 0.95)
+        ..strokeWidth = math.max(1.1, radius * 0.4)
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(Offset(x - arm, y), Offset(x + arm, y), star);
       canvas.drawLine(Offset(x, y - arm), Offset(x, y + arm), star);
+
+      if (random.nextDouble() > 0.5) {
+        final diag = arm * 0.7;
+        canvas.drawLine(
+          Offset(x - diag, y - diag),
+          Offset(x + diag, y + diag),
+          star,
+        );
+        canvas.drawLine(
+          Offset(x - diag, y + diag),
+          Offset(x + diag, y - diag),
+          star,
+        );
+      }
     }
   }
 

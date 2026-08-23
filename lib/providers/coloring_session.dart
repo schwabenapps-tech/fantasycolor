@@ -1,10 +1,15 @@
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
 import '../data/paint_catalog.dart';
 import '../painting/coloring_bitmap.dart';
+import '../widgets/freehand_stroke_painter.dart';
+
+/// Stiftstärke für kindgerechte Auswahl.
+enum PenSize { thin, medium, thick }
 
 /// Ein freier Stift- oder Radierer-Strich (Overlay).
 class FreehandStroke {
@@ -41,24 +46,33 @@ class AddStrokeAction extends ColoringAction {
 
 /// Zustand einer Mal-Session für ein PNG-Ausmalbild.
 class ColoringSession extends ChangeNotifier {
-  ColoringSession();
+  ColoringSession() {
+    _category = PaintCatalog.categories.first;
+    final swatches = PaintCatalog.swatchesFor(_category!);
+    _swatch = swatches.isEmpty ? null : swatches.first;
+  }
 
   PaintCategory? _category;
   PaintTool _tool = PaintTool.brush;
   PaintTool _lastDrawTool = PaintTool.brush;
   PaintSwatch? _swatch;
+  PenSize _penSize = PenSize.medium;
   ColoringBitmap? _bitmap;
   final List<FreehandStroke> _strokes = <FreehandStroke>[];
   final List<ColoringAction> _undoStack = <ColoringAction>[];
   int _generation = 0;
+  Size? sheetSize;
+  bool _dirty = false;
 
   PaintCategory? get category => _category;
   PaintTool get tool => _tool;
   PaintTool get lastDrawTool => _lastDrawTool;
   PaintSwatch? get swatch => _swatch;
+  PenSize get penSize => _penSize;
   ColoringBitmap? get bitmap => _bitmap;
   List<FreehandStroke> get strokes => _strokes;
   bool get canUndo => _undoStack.isNotEmpty;
+  bool get canReset => _dirty || _undoStack.isNotEmpty || _strokes.isNotEmpty;
   bool get hasCategory => _category != null;
   int get generation => _generation;
 
@@ -76,6 +90,10 @@ class ColoringSession extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  void markLoadedProgress() {
+    _dirty = true;
   }
 
   void selectCategory(PaintCategory category) {
@@ -110,6 +128,25 @@ class ColoringSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectPenSize(PenSize size) {
+    _penSize = size;
+    if (_tool == PaintTool.eraser) {
+      _tool = PaintTool.pen;
+    } else if (_tool != PaintTool.pen) {
+      _tool = PaintTool.pen;
+    }
+    notifyListeners();
+  }
+
+  /// Stiftstärke in Zeichenkoordinaten.
+  double penStrokeSize() {
+    return switch (_penSize) {
+      PenSize.thin => 9,
+      PenSize.medium => 16,
+      PenSize.thick => 28,
+    };
+  }
+
   PathFillStyle? currentFillStyle() {
     final selected = _swatch;
     final cat = _category;
@@ -141,6 +178,7 @@ class ColoringSession extends ChangeNotifier {
     if (_undoStack.length > 25) {
       _undoStack.removeAt(0);
     }
+    _dirty = true;
     _generation++;
     notifyListeners();
     return true;
@@ -152,6 +190,7 @@ class ColoringSession extends ChangeNotifier {
     if (_undoStack.length > 25) {
       _undoStack.removeAt(0);
     }
+    _dirty = true;
     _generation++;
     notifyListeners();
   }
@@ -167,6 +206,61 @@ class ColoringSession extends ChangeNotifier {
     }
     _generation++;
     notifyListeners();
+  }
+
+  /// Alle Farben und Striche zurücksetzen (Bild wie neu).
+  void resetAll() {
+    _bitmap?.resetToOriginal();
+    _strokes.clear();
+    _undoStack.clear();
+    _dirty = false;
+    _generation++;
+    notifyListeners();
+  }
+
+  /// Ausgemaltes Bild inkl. Stift-Striche als PNG exportieren.
+  Future<Uint8List?> exportColoredPng() async {
+    final bitmap = _bitmap;
+    if (bitmap == null) return null;
+
+    if (_strokes.isEmpty) {
+      return bitmap.encodeWorkingPng();
+    }
+
+    final sheet = sheetSize;
+    final base = await bitmap.toUiImage();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, bitmap.width.toDouble(), bitmap.height.toDouble()),
+    );
+    canvas.drawImage(base, Offset.zero, Paint());
+
+    if (sheet != null && sheet.width > 0 && sheet.height > 0) {
+      canvas.save();
+      canvas.scale(bitmap.width / sheet.width, bitmap.height / sheet.height);
+      FreehandStrokePainter(
+        strokes: List<FreehandStroke>.from(_strokes),
+        generation: _generation,
+      ).paint(canvas, sheet);
+      canvas.restore();
+    }
+
+    final picture = recorder.endRecording();
+    final composed = await picture.toImage(bitmap.width, bitmap.height);
+    final bytes = await composed.toByteData(format: ui.ImageByteFormat.png);
+    base.dispose();
+    composed.dispose();
+
+    final png = bytes?.buffer.asUint8List();
+    if (png != null) {
+      bitmap.applyWorkingPng(png);
+      _strokes.clear();
+      _undoStack.clear();
+      _generation++;
+      notifyListeners();
+    }
+    return png;
   }
 }
 

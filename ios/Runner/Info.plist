@@ -63,5 +63,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Fantasy Color speichert Ausmalvorlagen in deinen Fotos zum Ausdrucken.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Fantasy Color speichert Ausmalvorlagen in deinen Fotos zum Ausdrucken.</string>
 </dict>
 </plist>

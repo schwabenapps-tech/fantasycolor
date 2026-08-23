@@ -23,11 +23,13 @@ class ColoringCanvas extends StatefulWidget {
   State<ColoringCanvas> createState() => _ColoringCanvasState();
 }
 
-class _ColoringCanvasState extends State<ColoringCanvas> {
+class _ColoringCanvasState extends State<ColoringCanvas>
+    with SingleTickerProviderStateMixin {
   final TransformationController _transform = TransformationController();
   ui.Image? _frame;
   int _frameGeneration = -1;
   bool _encoding = false;
+  AnimationController? _zoomAnim;
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _ColoringCanvasState extends State<ColoringCanvas> {
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
+    _zoomAnim?.dispose();
     _transform.dispose();
     _frame?.dispose();
     super.dispose();
@@ -97,27 +100,21 @@ class _ColoringCanvasState extends State<ColoringCanvas> {
 
   @override
   Widget build(BuildContext context) {
-    final allowPan = widget.session.tool == PaintTool.brush ||
-        widget.session.eraserClearsFills;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final sheetSize = _sheetSizeFor(constraints.biggest);
-        // Nur Pinch-Zoom (zwei Finger) — kein Doppel-Tap-Reset.
-        return InteractiveViewer(
-          transformationController: _transform,
-          minScale: 1,
-          maxScale: 6,
-          panEnabled: allowPan,
-          scaleEnabled: true,
-          boundaryMargin: const EdgeInsets.all(160),
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight,
-            child: Center(
-              child: SizedBox(
-                width: sheetSize.width,
-                height: sheetSize.height,
+        widget.session.sheetSize = sheetSize;
+
+        return Stack(
+          children: [
+            Center(
+              child: _FramedZoomSheet(
+                sheetSize: sheetSize,
+                transform: _transform,
+                onDoubleTapAt: _onSoftZoom,
+                onInteraction: () {
+                  if (mounted) setState(() {});
+                },
                 child: _PaintSurface(
                   bitmap: widget.bitmap,
                   session: widget.session,
@@ -126,10 +123,57 @@ class _ColoringCanvasState extends State<ColoringCanvas> {
                 ),
               ),
             ),
-          ),
+            if (_isZoomed)
+              Positioned(
+                right: 8,
+                bottom: 8,
+                child: _ZoomResetChip(onPressed: _resetZoom),
+              ),
+          ],
         );
       },
     );
+  }
+
+  bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
+
+  void _onSoftZoom(Offset localPos) {
+    final current = _transform.value.getMaxScaleOnAxis();
+    if (current > 1.2) {
+      _resetZoom();
+      return;
+    }
+
+    const targetScale = 2.4;
+    // Zoom zur Tipp-Stelle, bleibt durch den Rahmen geclippt.
+    final matrix = Matrix4.identity()
+      ..translateByDouble(localPos.dx, localPos.dy, 0, 1)
+      ..scaleByDouble(targetScale, targetScale, 1, 1)
+      ..translateByDouble(-localPos.dx, -localPos.dy, 0, 1);
+    _animateTo(matrix);
+  }
+
+  void _resetZoom() => _animateTo(Matrix4.identity());
+
+  void _animateTo(Matrix4 target) {
+    _zoomAnim?.dispose();
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _zoomAnim = controller;
+    final animation = Matrix4Tween(
+      begin: _transform.value.clone(),
+      end: target,
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+    animation.addListener(() {
+      _transform.value = animation.value;
+      if (mounted) setState(() {});
+    });
+    controller.forward().whenComplete(() {
+      controller.dispose();
+      if (_zoomAnim == controller) _zoomAnim = null;
+    });
   }
 
   Size _sheetSizeFor(Size max) {
@@ -141,6 +185,72 @@ class _ColoringCanvasState extends State<ColoringCanvas> {
       width = height * ratio;
     }
     return Size(width, height);
+  }
+}
+
+/// Fester Bilderrahmen: nur Zoomen, kein Verschieben nach draußen.
+class _FramedZoomSheet extends StatelessWidget {
+  const _FramedZoomSheet({
+    required this.sheetSize,
+    required this.transform,
+    required this.onDoubleTapAt,
+    required this.onInteraction,
+    required this.child,
+  });
+
+  final Size sheetSize;
+  final TransformationController transform;
+  final ValueChanged<Offset> onDoubleTapAt;
+  final VoidCallback onInteraction;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.55),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: sheetSize.width,
+          height: sheetSize.height,
+          child: GestureDetector(
+            behavior: HitTestBehavior.deferToChild,
+            onDoubleTapDown: (details) => onDoubleTapAt(details.localPosition),
+            onDoubleTap: () {},
+            child: InteractiveViewer(
+              transformationController: transform,
+              minScale: 1,
+              maxScale: 5,
+              panEnabled: false,
+              scaleEnabled: true,
+              constrained: true,
+              clipBehavior: Clip.hardEdge,
+              boundaryMargin: EdgeInsets.zero,
+              onInteractionUpdate: (_) => onInteraction(),
+              onInteractionEnd: (_) => onInteraction(),
+              child: SizedBox(
+                width: sheetSize.width,
+                height: sheetSize.height,
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -184,48 +294,35 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     final session = widget.session;
     final frame = widget.frame;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Listener(
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: _onPointerDown,
-          onPointerMove: _onPointerMove,
-          onPointerUp: _onPointerUp,
-          onPointerCancel: _onPointerCancel,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (frame != null)
-                RawImage(image: frame, fit: BoxFit.fill)
-              else
-                const Center(
-                  child: SizedBox(
-                    width: 28,
-                    height: 28,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              CustomPaint(
-                painter: FreehandStrokePainter(
-                  strokes: session.strokes,
-                  activeStroke: _localStroke,
-                  generation: session.generation,
+    return ColoredBox(
+      color: Colors.white,
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        onPointerCancel: _onPointerCancel,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (frame != null)
+              RawImage(image: frame, fit: BoxFit.fill)
+            else
+              const Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
-            ],
-          ),
+            CustomPaint(
+              painter: FreehandStrokePainter(
+                strokes: session.strokes,
+                activeStroke: _localStroke,
+                generation: session.generation,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -262,7 +359,7 @@ class _PaintSurfaceState extends State<_PaintSurface> {
           color: style?.color ?? const Color(0x00000000),
           category: style?.category ?? PaintCategory.solid,
           isEraser: isEraser,
-          size: isEraser ? 28 : _strokeSizeFor(style!.category),
+          size: isEraser ? 28 : session.penStrokeSize(),
         );
       });
     }
@@ -333,14 +430,44 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     setState(() => _localStroke = null);
     widget.session.commitStroke(stroke);
   }
+}
 
-  double _strokeSizeFor(PaintCategory category) {
-    return switch (category) {
-      PaintCategory.solid => 14,
-      PaintCategory.pastel => 18,
-      PaintCategory.watercolor => 22,
-      PaintCategory.glow => 16,
-      PaintCategory.glitter => 15,
-    };
+class _ZoomResetChip extends StatelessWidget {
+  const _ZoomResetChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.black.withValues(alpha: 0.45),
+            border: Border.all(color: Colors.white54),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'Ganzes Bild',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

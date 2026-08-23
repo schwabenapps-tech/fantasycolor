@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'screens/start_screen.dart';
 
@@ -16,9 +17,15 @@ Future<void> main() async {
   final favorites = FavoritesStore();
   await favorites.load();
 
+  final progress = ColoringProgressStore();
+  await progress.load();
+
   runApp(
-    ChangeNotifierProvider.value(
-      value: favorites,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: favorites),
+        ChangeNotifierProvider.value(value: progress),
+      ],
       child: const FantasyColorApp(),
     ),
   );

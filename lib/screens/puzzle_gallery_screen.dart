@@ -60,8 +60,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final tileHeight = size.height * 0.56;
-    final tileWidth = tileHeight * 0.78;
+    final tileHeight = size.height * 0.58;
 
     return Scaffold(
       body: Stack(
@@ -108,10 +107,10 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
 
                       return Column(
                         children: [
-                          SizedBox(height: size.height * 0.14),
+                          SizedBox(height: size.height * 0.12),
                           Expanded(
                             child: Align(
-                              alignment: const Alignment(0, 0.55),
+                              alignment: const Alignment(0, 0.4),
                               child: SizedBox(
                                 height: tileHeight,
                                 child: ListView.separated(
@@ -124,9 +123,16 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                                       SizedBox(width: size.width * 0.03),
                                   itemBuilder: (context, index) {
                                     final puzzle = puzzles[index];
+                                    final ratio = puzzle.aspectRatio <= 0
+                                        ? 0.72
+                                        : puzzle.aspectRatio;
+                                    final tileWidth = tileHeight * ratio;
                                     return _PuzzleTile(
                                       puzzle: puzzle,
-                                      width: tileWidth,
+                                      width: tileWidth.clamp(
+                                        tileHeight * 0.55,
+                                        tileHeight * 1.15,
+                                      ),
                                       height: tileHeight,
                                       onTap: () => _openPuzzle(puzzle),
                                     );
@@ -207,7 +213,7 @@ class _PuzzleTile extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             child: ColoringPageImage(
               page: puzzle,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               borderRadius: BorderRadius.circular(14),
             ),
           ),

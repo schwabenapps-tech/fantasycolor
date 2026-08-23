@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/coloring_page.dart';
+import '../providers/coloring_progress_store.dart';
 
-/// Ausmalbild auf weißem Papier im exakten Seitenverhältnis.
+/// Ausmalbild auf weißem Papier – zeigt gespeicherten Fortschritt, falls vorhanden.
 class ColoringPageImage extends StatelessWidget {
   const ColoringPageImage({
     super.key,
@@ -21,17 +23,22 @@ class ColoringPageImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progress = context.watch<ColoringProgressStore>();
+    final file = progress.fileFor(page.id);
+    final version = progress.versionOf(page.id);
+
     Widget image = ColoredBox(
       color: Colors.white,
-      child: Image.asset(
-        page.assetPath,
-        fit: fit,
-        alignment: Alignment.center,
-        filterQuality: FilterQuality.medium,
-        errorBuilder: (_, _, _) => Center(
-          child: Icon(Icons.broken_image_outlined, color: placeholderColor),
-        ),
-      ),
+      child: file != null
+          ? Image.file(
+              file,
+              key: ValueKey('progress_${page.id}_$version'),
+              fit: fit,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, _, _) => _assetImage(),
+            )
+          : _assetImage(),
     );
 
     if (borderRadius != null) {
@@ -39,6 +46,18 @@ class ColoringPageImage extends StatelessWidget {
     }
 
     return image;
+  }
+
+  Widget _assetImage() {
+    return Image.asset(
+      page.assetPath,
+      fit: fit,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, _, _) => Center(
+        child: Icon(Icons.broken_image_outlined, color: placeholderColor),
+      ),
+    );
   }
 }
 
