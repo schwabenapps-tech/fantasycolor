@@ -11,19 +11,17 @@ class PuzzleScreen extends StatefulWidget {
 
   final ColoringPage puzzle;
 
-  static const int columns = 5;
-  static const int rows = 6;
-
   @override
   State<PuzzleScreen> createState() => _PuzzleScreenState();
 }
 
 class _PuzzleScreenState extends State<PuzzleScreen> {
-  static const _cols = PuzzleScreen.columns;
-  static const _rows = PuzzleScreen.rows;
-  static const _pieceCount = _cols * _rows;
   static const _trayWidth = 92.0;
+  static const _targetPieceCount = 30;
 
+  late int _cols;
+  late int _rows;
+  late int _pieceCount;
   late JigsawLayout _layout;
   late List<int?> _board;
   late List<int> _tray;
@@ -45,7 +43,39 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
     _reset();
   }
 
+  /// Raster so wählen, dass Zellen ≈ quadratisch sind.
+  ///
+  /// Früher fest 5×6 auf Querformat-Boards → Zellen ~2× so breit wie hoch,
+  /// deshalb wirkten die Teile „langgezogen“ (ohne Bildverzerrung).
+  static ({int cols, int rows}) gridForDisplayAspect(double aspect) {
+    final a = aspect.clamp(0.45, 2.6);
+    var bestCols = 5;
+    var bestRows = 6;
+    var bestScore = double.infinity;
+
+    for (var cols = 3; cols <= 8; cols++) {
+      for (var rows = 3; rows <= 8; rows++) {
+        final n = cols * rows;
+        if (n < 20 || n > 36) continue;
+        // cellW/cellH = displayAspect * rows / cols — Ziel ≈ 1
+        final cellAspect = a * rows / cols;
+        final score =
+            (cellAspect - 1).abs() * 3 + (n - _targetPieceCount).abs() * 0.04;
+        if (score < bestScore) {
+          bestScore = score;
+          bestCols = cols;
+          bestRows = rows;
+        }
+      }
+    }
+    return (cols: bestCols, rows: bestRows);
+  }
+
   void _reset() {
+    final grid = gridForDisplayAspect(_displayAspect);
+    _cols = grid.cols;
+    _rows = grid.rows;
+    _pieceCount = _cols * _rows;
     final random = math.Random();
     _layout = JigsawLayout(columns: _cols, rows: _rows, random: random);
     _board = List<int?>.filled(_pieceCount, null);
@@ -84,20 +114,45 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   }
 
   Size _fitBoard(Size maxSize) {
+    // Rahmen-Padding gehört zur Gesamtgröße – sonst wird abgeschnitten.
+    const padFraction = _JigsawBoard.padFraction;
     final aspect = _displayAspect;
-    var width = maxSize.width;
-    var height = width / aspect;
-    if (height > maxSize.height) {
-      height = maxSize.height;
-      width = height * aspect;
+    if (aspect <= 0 ||
+        maxSize.width <= 0 ||
+        maxSize.height <= 0 ||
+        !maxSize.width.isFinite ||
+        !maxSize.height.isFinite) {
+      return Size.zero;
     }
-    return Size(width, height);
+
+    late double boardW;
+    late double boardH;
+
+    if (aspect >= 1) {
+      // Querformat: längere Seite = Breite → Pad hängt an boardW.
+      boardW = maxSize.width / (1 + 2 * padFraction);
+      boardH = boardW / aspect;
+      final framedH = boardH + 2 * boardW * padFraction;
+      if (framedH > maxSize.height) {
+        boardH = maxSize.height / (1 + 2 * aspect * padFraction);
+        boardW = boardH * aspect;
+      }
+    } else {
+      // Hochformat-Anzeige: längere Seite = Höhe → Pad hängt an boardH.
+      boardH = maxSize.height / (1 + 2 * padFraction);
+      boardW = boardH * aspect;
+      final framedW = boardW + 2 * boardH * padFraction;
+      if (framedW > maxSize.width) {
+        boardW = maxSize.width / (1 + 2 * padFraction / aspect);
+        boardH = boardW / aspect;
+      }
+    }
+
+    return Size(boardW, boardH);
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -114,7 +169,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                   children: [
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(48, 12, 8, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
                         child: Column(
                           children: [
                             if (_solved)
@@ -165,23 +220,30 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                     ),
                     SizedBox(
                       width: _trayWidth,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          // Board-Größe analog berechnen für Teil-Proportionen.
-                          final boardSize = _fitBoard(
-                            Size(
-                              size.width - _trayWidth - 56,
-                              size.height * 0.82,
-                            ),
-                          );
-                          return _JigsawTray(
-                            tray: _tray,
-                            layout: _layout,
-                            assetPath: widget.puzzle.assetPath,
-                            rotatePortrait: _rotatePortrait,
-                            boardSize: boardSize,
-                          );
-                        },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            // Gleiche Fit-Logik wie das Board links.
+                            final boardArea = Size(
+                              math.max(
+                                0,
+                                MediaQuery.sizeOf(context).width -
+                                    _trayWidth -
+                                    24,
+                              ),
+                              constraints.maxHeight,
+                            );
+                            final boardSize = _fitBoard(boardArea);
+                            return _JigsawTray(
+                              tray: _tray,
+                              layout: _layout,
+                              assetPath: widget.puzzle.assetPath,
+                              rotatePortrait: _rotatePortrait,
+                              boardSize: boardSize,
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
@@ -229,31 +291,19 @@ class _PuzzleImageLayer extends StatelessWidget {
       return Image.asset(
         assetPath,
         fit: BoxFit.fill,
+        alignment: Alignment.center,
         filterQuality: FilterQuality.medium,
       );
     }
 
-    // Portrait um 90° gegen den Uhrzeigersinn – korrekt wenn Handy quer gehalten wird.
-    return ClipRect(
-      child: Transform.rotate(
-        angle: -math.pi / 2,
+    // RotatedBox hält Layout + Mitte korrekt (kein OverflowBox-Versatz).
+    return RotatedBox(
+      quarterTurns: 3,
+      child: Image.asset(
+        assetPath,
+        fit: BoxFit.fill,
         alignment: Alignment.center,
-        child: OverflowBox(
-          alignment: Alignment.center,
-          minWidth: boardSize.height,
-          maxWidth: boardSize.height,
-          minHeight: boardSize.width,
-          maxHeight: boardSize.width,
-          child: SizedBox(
-            width: boardSize.height,
-            height: boardSize.width,
-            child: Image.asset(
-              assetPath,
-              fit: BoxFit.fill,
-              filterQuality: FilterQuality.medium,
-            ),
-          ),
-        ),
+        filterQuality: FilterQuality.medium,
       ),
     );
   }
@@ -270,6 +320,8 @@ class _JigsawBoard extends StatelessWidget {
     required this.onReturnPiece,
   });
 
+  static const padFraction = 0.06;
+
   final Size boardSize;
   final JigsawLayout layout;
   final String assetPath;
@@ -280,12 +332,14 @@ class _JigsawBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pad = math.max(boardSize.width, boardSize.height) * 0.06;
+    final pad =
+        math.max(boardSize.width, boardSize.height) * padFraction;
 
     return SizedBox(
       width: boardSize.width + pad * 2,
       height: boardSize.height + pad * 2,
       child: Stack(
+        alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
           Positioned(
@@ -453,12 +507,20 @@ class _JigsawTray extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Einheitliche Teil-Größe in der Leiste (Seitenverhältnis der Zelle).
-    final cellW = boardSize.width / layout.columns;
-    final cellH = boardSize.height / layout.rows;
-    final maxW = 72.0;
-    final pieceW = math.min(maxW, cellW * 0.85);
-    final pieceH = pieceW * (cellH / cellW);
+    // Einheitliche Tray-Box am Teil-Bounding (inkl. Zähne), nicht nur an der Zelle.
+    final sampleBounds = layout.pieceBounds(
+      col: 0,
+      row: 0,
+      boardSize: boardSize,
+    );
+    final maxW = 74.0;
+    final maxH = 78.0;
+    var pieceW = maxW;
+    var pieceH = pieceW * (sampleBounds.height / sampleBounds.width);
+    if (pieceH > maxH) {
+      pieceH = maxH;
+      pieceW = pieceH * (sampleBounds.width / sampleBounds.height);
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 48, 6, 10),
