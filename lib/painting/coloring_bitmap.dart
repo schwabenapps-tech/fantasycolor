@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../data/paint_catalog.dart';
+import 'flood_fill_worker.dart';
 
 /// PNG-Ausmalbild mit Flood-Fill auf hellen Flächen (Linien bleiben).
 class ColoringBitmap {
@@ -46,6 +47,9 @@ class ColoringBitmap {
 
   Uint8List snapshot() =>
       Uint8List.fromList(working.getBytes(order: img.ChannelOrder.rgba));
+
+  Uint8List originalSnapshot() =>
+      Uint8List.fromList(original.getBytes(order: img.ChannelOrder.rgba));
 
   void restoreSnapshot(Uint8List bytes) {
     working = img.Image.fromBytes(
@@ -92,7 +96,33 @@ class ColoringBitmap {
     return lum <= lineLuminanceMax;
   }
 
-  /// Füllt die zusammenhängende helle Region um (x,y).
+  /// Füllt die zusammenhängende helle Region um (x,y) im Hintergrund-Isolate.
+  Future<int> floodFillAsync(
+    int x,
+    int y, {
+    required ui.Color color,
+    required PaintCategory category,
+    bool erase = false,
+  }) async {
+    final result = await runFloodFill(
+      FloodFillRequest(
+        workingBytes: snapshot(),
+        originalBytes: originalSnapshot(),
+        width: width,
+        height: height,
+        x: x,
+        y: y,
+        colorArgb: color.toARGB32(),
+        categoryIndex: category.index,
+        erase: erase,
+      ),
+    );
+    if (result.changed <= 0) return 0;
+    restoreSnapshot(result.workingBytes);
+    return result.changed;
+  }
+
+  /// Füllt die zusammenhängende helle Region um (x,y) — synchron (Tests).
   int floodFill(
     int x,
     int y, {

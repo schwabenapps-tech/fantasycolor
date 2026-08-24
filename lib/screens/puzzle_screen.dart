@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/coloring_page.dart';
 import '../painting/jigsaw_layout.dart';
+import '../widgets/silver_back_button.dart';
 
 /// Jigsaw-Puzzle: korrektes Seitenverhältnis, schmale Teile-Leiste, mehr Teile.
 class PuzzleScreen extends StatefulWidget {
@@ -18,6 +19,9 @@ class PuzzleScreen extends StatefulWidget {
 class _PuzzleScreenState extends State<PuzzleScreen> {
   static const _trayWidth = 92.0;
   static const _targetPieceCount = 30;
+
+  late final ImageProvider _imageProvider;
+  bool _imagePrecached = false;
 
   late int _cols;
   late int _rows;
@@ -40,7 +44,17 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
   @override
   void initState() {
     super.initState();
+    _imageProvider = AssetImage(widget.puzzle.assetPath);
     _reset();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_imagePrecached) {
+      _imagePrecached = true;
+      precacheImage(_imageProvider, context);
+    }
   }
 
   /// Raster so wählen, dass Zellen ≈ quadratisch sind.
@@ -204,7 +218,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                                     child: _JigsawBoard(
                                       boardSize: boardSize,
                                       layout: _layout,
-                                      assetPath: widget.puzzle.assetPath,
+                                      imageProvider: _imageProvider,
                                       rotatePortrait: _rotatePortrait,
                                       board: _board,
                                       onAcceptPiece: _placePiece,
@@ -238,7 +252,7 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                             return _JigsawTray(
                               tray: _tray,
                               layout: _layout,
-                              assetPath: widget.puzzle.assetPath,
+                              imageProvider: _imageProvider,
                               rotatePortrait: _rotatePortrait,
                               boardSize: boardSize,
                             );
@@ -251,15 +265,14 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
                 Positioned(
                   top: 10,
                   left: 12,
-                  child: _SilverIconButton(
-                    icon: Icons.arrow_back_rounded,
+                  child: SilverBackButton(
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 Positioned(
                   top: 10,
                   right: 8,
-                  child: _SilverIconButton(
+                  child: SilverBackButton(
                     icon: Icons.refresh_rounded,
                     onPressed: () => setState(_reset),
                   ),
@@ -276,35 +289,28 @@ class _PuzzleScreenState extends State<PuzzleScreen> {
 /// Bild unverzerrt: Landscape normal, Portrait um 90° gedreht.
 class _PuzzleImageLayer extends StatelessWidget {
   const _PuzzleImageLayer({
-    required this.assetPath,
-    required this.boardSize,
+    required this.imageProvider,
     required this.rotatePortrait,
   });
 
-  final String assetPath;
-  final Size boardSize;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
 
   @override
   Widget build(BuildContext context) {
-    if (!rotatePortrait) {
-      return Image.asset(
-        assetPath,
-        fit: BoxFit.fill,
-        alignment: Alignment.center,
-        filterQuality: FilterQuality.medium,
-      );
-    }
+    final image = Image(
+      image: imageProvider,
+      fit: BoxFit.fill,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
+    );
 
-    // RotatedBox hält Layout + Mitte korrekt (kein OverflowBox-Versatz).
+    if (!rotatePortrait) return image;
+
     return RotatedBox(
       quarterTurns: 3,
-      child: Image.asset(
-        assetPath,
-        fit: BoxFit.fill,
-        alignment: Alignment.center,
-        filterQuality: FilterQuality.medium,
-      ),
+      child: image,
     );
   }
 }
@@ -313,7 +319,7 @@ class _JigsawBoard extends StatelessWidget {
   const _JigsawBoard({
     required this.boardSize,
     required this.layout,
-    required this.assetPath,
+    required this.imageProvider,
     required this.rotatePortrait,
     required this.board,
     required this.onAcceptPiece,
@@ -324,7 +330,7 @@ class _JigsawBoard extends StatelessWidget {
 
   final Size boardSize;
   final JigsawLayout layout;
-  final String assetPath;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
   final List<int?> board;
   final void Function(int pieceId, int slotIndex) onAcceptPiece;
@@ -371,8 +377,7 @@ class _JigsawBoard extends StatelessWidget {
                       child: Opacity(
                         opacity: 0.18,
                         child: _PuzzleImageLayer(
-                          assetPath: assetPath,
-                          boardSize: boardSize,
+                          imageProvider: imageProvider,
                           rotatePortrait: rotatePortrait,
                         ),
                       ),
@@ -401,7 +406,7 @@ class _JigsawBoard extends StatelessWidget {
               pieceIndex: i,
               placedPiece: board[i],
               layout: layout,
-              assetPath: assetPath,
+              imageProvider: imageProvider,
               rotatePortrait: rotatePortrait,
               boardSize: boardSize,
               pad: pad,
@@ -419,7 +424,7 @@ class _BoardPieceLayer extends StatelessWidget {
     required this.pieceIndex,
     required this.placedPiece,
     required this.layout,
-    required this.assetPath,
+    required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
     required this.pad,
@@ -430,7 +435,7 @@ class _BoardPieceLayer extends StatelessWidget {
   final int pieceIndex;
   final int? placedPiece;
   final JigsawLayout layout;
-  final String assetPath;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
   final double pad;
@@ -469,7 +474,7 @@ class _BoardPieceLayer extends StatelessWidget {
               child: _JigsawPieceVisual(
                 pieceIndex: placedPiece!,
                 layout: layout,
-                assetPath: assetPath,
+                imageProvider: imageProvider,
                 rotatePortrait: rotatePortrait,
                 boardSize: boardSize,
                 withShadow: true,
@@ -494,14 +499,14 @@ class _JigsawTray extends StatelessWidget {
   const _JigsawTray({
     required this.tray,
     required this.layout,
-    required this.assetPath,
+    required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
   });
 
   final List<int> tray;
   final JigsawLayout layout;
-  final String assetPath;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
 
@@ -549,7 +554,7 @@ class _JigsawTray extends StatelessWidget {
                     child: _TrayJigsawPiece(
                       pieceId: pieceId,
                       layout: layout,
-                      assetPath: assetPath,
+                      imageProvider: imageProvider,
                       rotatePortrait: rotatePortrait,
                       boardSize: boardSize,
                       width: pieceW,
@@ -567,7 +572,7 @@ class _TrayJigsawPiece extends StatelessWidget {
   const _TrayJigsawPiece({
     required this.pieceId,
     required this.layout,
-    required this.assetPath,
+    required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
     required this.width,
@@ -576,7 +581,7 @@ class _TrayJigsawPiece extends StatelessWidget {
 
   final int pieceId;
   final JigsawLayout layout;
-  final String assetPath;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
   final double width;
@@ -601,7 +606,7 @@ class _TrayJigsawPiece extends StatelessWidget {
         child: _JigsawPieceVisual(
           pieceIndex: pieceId,
           layout: layout,
-          assetPath: assetPath,
+          imageProvider: imageProvider,
           rotatePortrait: rotatePortrait,
           boardSize: boardSize,
           withShadow: true,
@@ -619,7 +624,7 @@ class _TrayJigsawPiece extends StatelessWidget {
         child: _JigsawPieceVisual(
           pieceIndex: pieceId,
           layout: layout,
-          assetPath: assetPath,
+          imageProvider: imageProvider,
           rotatePortrait: rotatePortrait,
           boardSize: boardSize,
           withShadow: true,
@@ -640,7 +645,7 @@ class _JigsawPieceVisual extends StatelessWidget {
   const _JigsawPieceVisual({
     required this.pieceIndex,
     required this.layout,
-    required this.assetPath,
+    required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
     this.withShadow = false,
@@ -648,7 +653,7 @@ class _JigsawPieceVisual extends StatelessWidget {
 
   final int pieceIndex;
   final JigsawLayout layout;
-  final String assetPath;
+  final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
   final bool withShadow;
@@ -685,8 +690,7 @@ class _JigsawPieceVisual extends StatelessWidget {
                 width: boardSize.width,
                 height: boardSize.height,
                 child: _PuzzleImageLayer(
-                  assetPath: assetPath,
-                  boardSize: boardSize,
+                  imageProvider: imageProvider,
                   rotatePortrait: rotatePortrait,
                 ),
               ),
@@ -777,49 +781,4 @@ class _PathStrokePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PathStrokePainter oldDelegate) =>
       oldDelegate.path != path || oldDelegate.color != color;
-}
-
-class _SilverIconButton extends StatelessWidget {
-  const _SilverIconButton({
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF7F9FC),
-                Color(0xFFC5CCD8),
-                Color(0xFF9AA3B5),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: const Color(0xFF243044), size: 22),
-        ),
-      ),
-    );
-  }
 }

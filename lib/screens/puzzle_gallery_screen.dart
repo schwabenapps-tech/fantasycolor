@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
 import '../widgets/coloring_page_image.dart';
+import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
 
 /// Galerie zur Auswahl der Puzzle-Bilder.
@@ -149,7 +150,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                   Positioned(
                     top: 10,
                     left: 12,
-                    child: _SilverBackButton(
+                    child: SilverBackButton(
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -216,51 +217,6 @@ class _PuzzleTile extends StatelessWidget {
               fit: BoxFit.contain,
               borderRadius: BorderRadius.circular(14),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SilverBackButton extends StatelessWidget {
-  const _SilverBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF7F9FC),
-                Color(0xFFC5CCD8),
-                Color(0xFF9AA3B5),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            color: Color(0xFF243044),
-            size: 22,
           ),
         ),
       ),

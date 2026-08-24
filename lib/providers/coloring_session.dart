@@ -63,6 +63,7 @@ class ColoringSession extends ChangeNotifier {
   int _generation = 0;
   Size? sheetSize;
   bool _dirty = false;
+  bool _filling = false;
 
   PaintCategory? get category => _category;
   PaintTool get tool => _tool;
@@ -75,6 +76,7 @@ class ColoringSession extends ChangeNotifier {
   bool get canReset => _dirty || _undoStack.isNotEmpty || _strokes.isNotEmpty;
   bool get hasCategory => _category != null;
   int get generation => _generation;
+  bool get isFilling => _filling;
 
   bool get eraserClearsFills =>
       _tool == PaintTool.eraser && _lastDrawTool == PaintTool.brush;
@@ -154,10 +156,10 @@ class ColoringSession extends ChangeNotifier {
     return PathFillStyle(color: selected.color, category: cat);
   }
 
-  /// Flood-Fill / Flächen-Radierer auf dem Bitmap.
-  bool applyFillAt(Offset imagePoint) {
+  /// Flood-Fill / Flächen-Radierer auf dem Bitmap (Hintergrund-Isolate).
+  Future<bool> applyFillAt(Offset imagePoint) async {
     final bitmap = _bitmap;
-    if (bitmap == null) return false;
+    if (bitmap == null || _filling) return false;
 
     final erase = _tool == PaintTool.eraser;
     if (!erase && currentFillStyle() == null) return false;
@@ -165,23 +167,30 @@ class ColoringSession extends ChangeNotifier {
 
     final style = currentFillStyle();
     final before = bitmap.snapshot();
-    final changed = bitmap.floodFill(
-      imagePoint.dx.round(),
-      imagePoint.dy.round(),
-      color: style?.color ?? const Color(0xFFFFFFFF),
-      category: style?.category ?? PaintCategory.solid,
-      erase: erase,
-    );
-    if (changed <= 0) return false;
-
-    _undoStack.add(BitmapSnapshotAction(before));
-    if (_undoStack.length > 25) {
-      _undoStack.removeAt(0);
-    }
-    _dirty = true;
-    _generation++;
+    _filling = true;
     notifyListeners();
-    return true;
+    try {
+      final changed = await bitmap.floodFillAsync(
+        imagePoint.dx.round(),
+        imagePoint.dy.round(),
+        color: style?.color ?? const Color(0xFFFFFFFF),
+        category: style?.category ?? PaintCategory.solid,
+        erase: erase,
+      );
+      if (changed <= 0) return false;
+
+      _undoStack.add(BitmapSnapshotAction(before));
+      if (_undoStack.length > 25) {
+        _undoStack.removeAt(0);
+      }
+      _dirty = true;
+      _generation++;
+      notifyListeners();
+      return true;
+    } finally {
+      _filling = false;
+      notifyListeners();
+    }
   }
 
   void commitStroke(FreehandStroke stroke) {
@@ -218,8 +227,8 @@ class ColoringSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ausgemaltes Bild inkl. Stift-Striche als PNG exportieren.
-  Future<Uint8List?> exportColoredPng() async {
+  /// Rendert das aktuelle Bild inkl. Stift-Striche als PNG (Session bleibt unverändert).
+  Future<Uint8List?> renderColoredPng() async {
     final bitmap = _bitmap;
     if (bitmap == null) return null;
 
@@ -251,8 +260,15 @@ class ColoringSession extends ChangeNotifier {
     final bytes = await composed.toByteData(format: ui.ImageByteFormat.png);
     base.dispose();
     composed.dispose();
+    return bytes?.buffer.asUint8List();
+  }
 
-    final png = bytes?.buffer.asUint8List();
+  /// Ausgemaltes Bild inkl. Stift-Striche als PNG exportieren und in Bitmap übernehmen.
+  Future<Uint8List?> exportColoredPng() async {
+    final bitmap = _bitmap;
+    if (bitmap == null) return null;
+
+    final png = await renderColoredPng();
     if (png != null) {
       bitmap.applyWorkingPng(png);
       _strokes.clear();

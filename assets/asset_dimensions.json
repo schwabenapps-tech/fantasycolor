@@ -1,0 +1,296 @@
+{
+  "coloring_pages": [
+    {
+      "path": "assets/coloring_pages/am_lagerfeuer.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/ballerina_1.png",
+      "width": 992,
+      "height": 1082
+    },
+    {
+      "path": "assets/coloring_pages/ballerina_2.png",
+      "width": 928,
+      "height": 1132
+    },
+    {
+      "path": "assets/coloring_pages/blumenkranz.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/butterfly.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/einhoerner.png",
+      "width": 1333,
+      "height": 706
+    },
+    {
+      "path": "assets/coloring_pages/fairy_princess.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/fairy_unicorn.png",
+      "width": 1332,
+      "height": 707
+    },
+    {
+      "path": "assets/coloring_pages/fee_am_fluss.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_am_see.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/feenblumen.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/feenkoenigin.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/feenprinzessin.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/fliegende_fee.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/galaxy_fee.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/hanfu_princess.png",
+      "width": 1171,
+      "height": 740
+    },
+    {
+      "path": "assets/coloring_pages/hanfu_prinzessin_2.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/hanfu_umbrella.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/magierin.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/malende_fee.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/mariposa.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/riding_fairy.png",
+      "width": 1329,
+      "height": 705
+    },
+    {
+      "path": "assets/coloring_pages/rosenfee.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/schwanenprinzessin_prinz.png",
+      "width": 976,
+      "height": 1079
+    },
+    {
+      "path": "assets/coloring_pages/schwanensee.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/tanzende_schwanenprinzessin.png",
+      "width": 976,
+      "height": 1087
+    },
+    {
+      "path": "assets/coloring_pages/village_unicorn.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/waldlaeuferin.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/coloring_pages/wasserfee.png",
+      "width": 1043,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/zauberer.png",
+      "width": 1408,
+      "height": 768
+    }
+  ],
+  "puzzle_images": [
+    {
+      "path": "assets/puzzle_images/16bbd873-27af-440b-9516-c510f8dca873.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/2c7eb293-95f3-4699-9317-5b38c669163b.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/2e4f43e3-741e-45aa-b904-9325c0131fa8.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/puzzle_images/33db7076-50a8-4c69-abd9-f417c34dee4a.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/5750fa33-e2de-4f1f-825b-bb4210e45989.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/5edc5c99-68a0-4b6c-984f-89aa7631abb0.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/7015e787-cf6c-4ce9-85b6-d11fb335b7dc.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/8034f736-7b7f-45af-86d4-1c69c323187a.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/a41fc2b5-8a30-4684-8560-d13fc9396cb3.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/ad74ed40-6a45-47e3-b14e-fb82bb6fe88b.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/b1e1615e-2e37-4b34-9d21-b86757c3ca10.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/puzzle_images/cbd864e1-46a2-48c2-9ed0-1ed405a4f425.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_12tbbm12tbbm12tb.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_6lnwxy6lnwxy6lnw.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_c8wkbmc8wkbmc8wk.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_fy1g6gfy1g6gfy1g.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_hv091ahv091ahv09.jpg",
+      "width": 976,
+      "height": 1079
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_jmog3ljmog3ljmog.jpg",
+      "width": 1291,
+      "height": 816
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_kpv9imkpv9imkpv9.jpg",
+      "width": 1043,
+      "height": 1024
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_l2plvzl2plvzl2pl.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_nsjts9nsjts9nsjt.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/gemini_generated_image_vhh9l8vhh9l8vhh9.jpg",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/hanfu_princess_umbrella.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/img_1875.jpg",
+      "width": 784,
+      "height": 1168
+    },
+    {
+      "path": "assets/puzzle_images/img_1876.jpg",
+      "width": 784,
+      "height": 1168
+    },
+    {
+      "path": "assets/puzzle_images/img_1878.jpg",
+      "width": 784,
+      "height": 1168
+    },
+    {
+      "path": "assets/puzzle_images/magierin.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/puzzle_images/zauberer1.png",
+      "width": 1408,
+      "height": 768
+    }
+  ]
+}

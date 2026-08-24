@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/paint_side_rail.dart';
+import '../widgets/silver_back_button.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Stift, Zoom, Undo und Fertig.
 class ColoringPreviewScreen extends StatefulWidget {
@@ -27,12 +29,15 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   late final ColoringSession _session;
   Future<ColoringBitmap>? _bitmapFuture;
   bool _celebrating = false;
+  bool _saveInFlight = false;
+  Timer? _autoSaveTimer;
   late final AnimationController _celebrateController;
 
   @override
   void initState() {
     super.initState();
     _session = ColoringSession();
+    _session.addListener(_scheduleAutoSave);
     _celebrateController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
@@ -58,19 +63,48 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
+    _session.removeListener(_scheduleAutoSave);
     _celebrateController.dispose();
     _session.dispose();
     super.dispose();
   }
 
+  void _scheduleAutoSave() {
+    if (!_session.canReset) return;
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 3), () {
+      unawaited(_persistProgress(flatten: false));
+    });
+  }
+
+  Future<void> _persistProgress({required bool flatten}) async {
+    if (_saveInFlight || !_session.canReset) return;
+    _saveInFlight = true;
+    try {
+      final progress = context.read<ColoringProgressStore>();
+      final png = flatten
+          ? await _session.exportColoredPng()
+          : await _session.renderColoredPng();
+      if (png != null) {
+        await progress.saveProgress(widget.page.id, png);
+      }
+    } finally {
+      _saveInFlight = false;
+    }
+  }
+
+  Future<void> _leaveScreen() async {
+    _autoSaveTimer?.cancel();
+    await _persistProgress(flatten: false);
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _finish() async {
     if (_celebrating) return;
 
-    final progress = context.read<ColoringProgressStore>();
-    final png = await _session.exportColoredPng();
-    if (png != null) {
-      await progress.saveProgress(widget.page.id, png);
-    }
+    _autoSaveTimer?.cancel();
+    await _persistProgress(flatten: true);
 
     if (!mounted) return;
     setState(() => _celebrating = true);
@@ -86,66 +120,71 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            ColoringPreviewScreen._paperBackground,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-          SafeArea(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 52, 8, 16),
-                          child: FutureBuilder<ColoringBitmap>(
-                            future: _bitmapFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.hasError) {
-                                return Center(
-                                  child: Text(
-                                    'Bild konnte nicht geladen werden',
-                                    style: TextStyle(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.9),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_leaveScreen());
+      },
+      child: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              ColoringPreviewScreen._paperBackground,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+            SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 52, 8, 16),
+                            child: FutureBuilder<ColoringBitmap>(
+                              future: _bitmapFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Center(
+                                    child: Text(
+                                      'Bild konnte nicht geladen werden',
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.9),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }
-                              if (!snapshot.hasData) {
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 34,
-                                    height: 34,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: Color(0xFF8FA0C8),
+                                  );
+                                }
+                                if (!snapshot.hasData) {
+                                  return const Center(
+                                    child: SizedBox(
+                                      width: 34,
+                                      height: 34,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.4,
+                                        color: Color(0xFF8FA0C8),
+                                      ),
                                     ),
-                                  ),
+                                  );
+                                }
+                                return ColoringCanvas(
+                                  bitmap: snapshot.data!,
+                                  session: _session,
                                 );
-                              }
-                              return ColoringCanvas(
-                                bitmap: snapshot.data!,
-                                session: _session,
-                              );
-                            },
+                              },
+                            ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        left: 12,
-                        child: _RoundIconButton(
-                          icon: Icons.arrow_back_rounded,
-                          onPressed: () => Navigator.of(context).pop(),
+                        Positioned(
+                          top: 8,
+                          left: 12,
+                          child: SilverBackButton(
+                            onPressed: () => unawaited(_leaveScreen()),
+                          ),
                         ),
-                      ),
                       Positioned(
                         top: 8,
                         right: 12,
@@ -181,6 +220,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
           if (_celebrating)
             _FinishCelebration(animation: _celebrateController),
         ],
+      ),
       ),
     );
   }

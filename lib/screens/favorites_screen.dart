@@ -5,6 +5,7 @@ import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
 import '../widgets/coloring_page_image.dart';
+import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
 
 /// Rasteransicht aller favorisierten Ausmalbilder.
@@ -62,7 +63,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 8, 16, 4),
                   child: Row(
                     children: [
-                      _SilverBackButton(
+                      SilverBackButton(
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 12),
@@ -229,51 +230,6 @@ class _FavoriteGridTile extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SilverBackButton extends StatelessWidget {
-  const _SilverBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF7F9FC),
-                Color(0xFFC5CCD8),
-                Color(0xFF9AA3B5),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            color: Color(0xFF243044),
-            size: 22,
-          ),
-        ),
       ),
     );
   }

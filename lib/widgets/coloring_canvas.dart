@@ -29,11 +29,17 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   ui.Image? _frame;
   int _frameGeneration = -1;
   bool _encoding = false;
-  AnimationController? _zoomAnim;
+  late final AnimationController _zoomController;
+  Animation<Matrix4>? _matrixAnimation;
+  VoidCallback? _matrixListener;
 
   @override
   void initState() {
     super.initState();
+    _zoomController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
     widget.session.addListener(_onSessionChanged);
     // Kein notify während build/init — sonst crasht AnimatedBuilder.
     widget.session.attachBitmap(widget.bitmap, notify: false);
@@ -60,10 +66,19 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
-    _zoomAnim?.dispose();
+    _clearMatrixAnimation();
+    _zoomController.dispose();
     _transform.dispose();
     _frame?.dispose();
     super.dispose();
+  }
+
+  void _clearMatrixAnimation() {
+    if (_matrixListener != null && _matrixAnimation != null) {
+      _matrixAnimation!.removeListener(_matrixListener!);
+    }
+    _matrixListener = null;
+    _matrixAnimation = null;
   }
 
   void _onSessionChanged() {
@@ -129,6 +144,21 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 bottom: 8,
                 child: _ZoomResetChip(onPressed: _resetZoom),
               ),
+            if (widget.session.isFilling)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -156,24 +186,21 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   void _resetZoom() => _animateTo(Matrix4.identity());
 
   void _animateTo(Matrix4 target) {
-    _zoomAnim?.dispose();
-    final controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _zoomAnim = controller;
-    final animation = Matrix4Tween(
+    _clearMatrixAnimation();
+    _zoomController.stop();
+
+    _matrixAnimation = Matrix4Tween(
       begin: _transform.value.clone(),
       end: target,
-    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
-    animation.addListener(() {
-      _transform.value = animation.value;
+    ).animate(
+      CurvedAnimation(parent: _zoomController, curve: Curves.easeOutCubic),
+    );
+    _matrixListener = () {
+      _transform.value = _matrixAnimation!.value;
       if (mounted) setState(() {});
-    });
-    controller.forward().whenComplete(() {
-      controller.dispose();
-      if (_zoomAnim == controller) _zoomAnim = null;
-    });
+    };
+    _matrixAnimation!.addListener(_matrixListener!);
+    _zoomController.forward(from: 0).whenComplete(_clearMatrixAnimation);
   }
 
   Size _sheetSizeFor(Size max) {
@@ -388,11 +415,11 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     setState(() {});
   }
 
-  void _onPointerUp(PointerUpEvent event) {
+  void _onPointerUp(PointerUpEvent event) async {
     _pointers.remove(event.pointer);
     if (event.pointer == _paintPointer) {
       if (_pendingTapLocal != null && !_tapExceededSlop && !_isMultiTouch) {
-        widget.session.applyFillAt(_toImage(_pendingTapLocal!));
+        await widget.session.applyFillAt(_toImage(_pendingTapLocal!));
       }
       _cancelPendingTap();
       _endLocalStroke();

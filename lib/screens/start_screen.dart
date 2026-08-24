@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'gallery_screen.dart';
+import 'hub_screen.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -55,7 +55,7 @@ class _StartScreenState extends State<StartScreen>
         pageBuilder: (context, animation, secondaryAnimation) {
           return FadeTransition(
             opacity: animation,
-            child: const GalleryScreen(),
+            child: const HubScreen(),
           );
         },
       ),
