@@ -60,7 +60,8 @@ class ColoringSession extends ChangeNotifier {
   ColoringBitmap? _bitmap;
   final List<FreehandStroke> _strokes = <FreehandStroke>[];
   final List<ColoringAction> _undoStack = <ColoringAction>[];
-  int _generation = 0;
+  int _bitmapGeneration = 0;
+  int _strokeGeneration = 0;
   Size? sheetSize;
   bool _dirty = false;
   bool _filling = false;
@@ -75,7 +76,12 @@ class ColoringSession extends ChangeNotifier {
   bool get canUndo => _undoStack.isNotEmpty;
   bool get canReset => _dirty || _undoStack.isNotEmpty || _strokes.isNotEmpty;
   bool get hasCategory => _category != null;
-  int get generation => _generation;
+  /// Ändert sich nur bei Bitmap-Fills/Reset — steuert Frame-Rebuild.
+  int get bitmapGeneration => _bitmapGeneration;
+  /// Ändert sich bei Strichen — steuert Overlay-Repaint ohne Frame-Rebuild.
+  int get strokeGeneration => _strokeGeneration;
+  /// Kompatibilität: steigt bei jeder sichtbaren Änderung.
+  int get generation => _bitmapGeneration + _strokeGeneration;
   bool get isFilling => _filling;
 
   bool get eraserClearsFills =>
@@ -88,7 +94,8 @@ class ColoringSession extends ChangeNotifier {
     _bitmap = bitmap;
     _strokes.clear();
     _undoStack.clear();
-    _generation++;
+    _bitmapGeneration++;
+    _strokeGeneration++;
     if (notify) {
       notifyListeners();
     }
@@ -168,7 +175,7 @@ class ColoringSession extends ChangeNotifier {
     final style = currentFillStyle();
     final before = bitmap.snapshot();
     _filling = true;
-    notifyListeners();
+    // Kein notify hier — verhindert Overlay-Flackern; Taps blockt _filling.
     try {
       final changed = await bitmap.floodFillAsync(
         imagePoint.dx.round(),
@@ -184,8 +191,7 @@ class ColoringSession extends ChangeNotifier {
         _undoStack.removeAt(0);
       }
       _dirty = true;
-      _generation++;
-      notifyListeners();
+      _bitmapGeneration++;
       return true;
     } finally {
       _filling = false;
@@ -200,7 +206,7 @@ class ColoringSession extends ChangeNotifier {
       _undoStack.removeAt(0);
     }
     _dirty = true;
-    _generation++;
+    _strokeGeneration++;
     notifyListeners();
   }
 
@@ -210,10 +216,11 @@ class ColoringSession extends ChangeNotifier {
     switch (action) {
       case BitmapSnapshotAction(:final before):
         _bitmap?.restoreSnapshot(before);
+        _bitmapGeneration++;
       case AddStrokeAction(:final stroke):
         _strokes.remove(stroke);
+        _strokeGeneration++;
     }
-    _generation++;
     notifyListeners();
   }
 
@@ -223,7 +230,8 @@ class ColoringSession extends ChangeNotifier {
     _strokes.clear();
     _undoStack.clear();
     _dirty = false;
-    _generation++;
+    _bitmapGeneration++;
+    _strokeGeneration++;
     notifyListeners();
   }
 
@@ -250,7 +258,7 @@ class ColoringSession extends ChangeNotifier {
       canvas.scale(bitmap.width / sheet.width, bitmap.height / sheet.height);
       FreehandStrokePainter(
         strokes: List<FreehandStroke>.from(_strokes),
-        generation: _generation,
+        generation: _strokeGeneration,
       ).paint(canvas, sheet);
       canvas.restore();
     }
@@ -273,7 +281,8 @@ class ColoringSession extends ChangeNotifier {
       bitmap.applyWorkingPng(png);
       _strokes.clear();
       _undoStack.clear();
-      _generation++;
+      _bitmapGeneration++;
+      _strokeGeneration++;
       notifyListeners();
     }
     return png;

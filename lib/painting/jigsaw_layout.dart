@@ -1,14 +1,17 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
+import '../models/puzzle_settings.dart';
+
 /// Orientierung einer Puzzle-Kante: Zahn nach außen, Bucht nach innen, oder flach.
 enum JigsawEdge { flat, tab, blank }
 
-/// Erzeugt ineinandergreifende Jigsaw-Kanten für ein Raster.
+/// Erzeugt Puzzle-Pfade für ein Raster (Klassisch / Viereck / Rund / Wellen).
 class JigsawLayout {
   JigsawLayout({
     required this.columns,
     required this.rows,
+    this.style = PuzzlePieceStyle.jigsaw,
     math.Random? random,
   }) : _random = random ?? math.Random() {
     _buildEdges();
@@ -16,130 +19,160 @@ class JigsawLayout {
 
   final int columns;
   final int rows;
+  final PuzzlePieceStyle style;
   final math.Random _random;
 
-  /// Horizontale Kanten zwischen Reihen: [row][col] = Kante unterhalb von row.
-  /// `true` = Zahn zeigt nach unten (unteres Teil hat Bucht).
-  late final List<List<bool>> _horizontalTabs;
+  /// Horizontale Kanten zwischen Reihen: true = Ausbuchtung nach unten.
+  late final List<List<bool>> _horizontalOut;
 
-  /// Vertikale Kanten zwischen Spalten: [row][col] = Kante rechts von col.
-  /// `true` = Zahn zeigt nach rechts (rechtes Teil hat Bucht).
-  late final List<List<bool>> _verticalTabs;
+  /// Vertikale Kanten zwischen Spalten: true = Ausbuchtung nach rechts.
+  late final List<List<bool>> _verticalOut;
 
   int get pieceCount => columns * rows;
 
+  bool get _useTabs => style == PuzzlePieceStyle.jigsaw;
+  bool get _useWaves => style == PuzzlePieceStyle.wave;
+
   void _buildEdges() {
-    _horizontalTabs = List.generate(
-      rows - 1,
+    if (!_useTabs && !_useWaves) {
+      _horizontalOut = const [];
+      _verticalOut = const [];
+      return;
+    }
+    _horizontalOut = List.generate(
+      math.max(0, rows - 1),
       (_) => List.generate(columns, (_) => _random.nextBool()),
     );
-    _verticalTabs = List.generate(
+    _verticalOut = List.generate(
       rows,
-      (_) => List.generate(columns - 1, (_) => _random.nextBool()),
+      (_) => List.generate(math.max(0, columns - 1), (_) => _random.nextBool()),
     );
   }
 
   JigsawEdge topEdge(int col, int row) {
-    if (row == 0) return JigsawEdge.flat;
-    // Kante über diesem Teil = horizontale Kante von row-1.
-    // true = Zahn nach unten → dieses Teil hat Bucht oben.
-    return _horizontalTabs[row - 1][col] ? JigsawEdge.blank : JigsawEdge.tab;
+    if (!_useTabs || row == 0) return JigsawEdge.flat;
+    // Kante über diesem Teil: true = Ausbuchtung nach unten → hier Bucht.
+    return _horizontalOut[row - 1][col] ? JigsawEdge.blank : JigsawEdge.tab;
   }
 
   JigsawEdge bottomEdge(int col, int row) {
-    if (row == rows - 1) return JigsawEdge.flat;
-    return _horizontalTabs[row][col] ? JigsawEdge.tab : JigsawEdge.blank;
+    if (!_useTabs || row == rows - 1) return JigsawEdge.flat;
+    return _horizontalOut[row][col] ? JigsawEdge.tab : JigsawEdge.blank;
   }
 
   JigsawEdge leftEdge(int col, int row) {
-    if (col == 0) return JigsawEdge.flat;
-    return _verticalTabs[row][col - 1] ? JigsawEdge.blank : JigsawEdge.tab;
+    if (!_useTabs || col == 0) return JigsawEdge.flat;
+    return _verticalOut[row][col - 1] ? JigsawEdge.blank : JigsawEdge.tab;
   }
 
   JigsawEdge rightEdge(int col, int row) {
-    if (col == columns - 1) return JigsawEdge.flat;
-    return _verticalTabs[row][col] ? JigsawEdge.tab : JigsawEdge.blank;
+    if (!_useTabs || col == columns - 1) return JigsawEdge.flat;
+    return _verticalOut[row][col] ? JigsawEdge.tab : JigsawEdge.blank;
   }
 
-  /// Bounding-Box eines Teils inkl. herausstehender Zähne, relativ zum Board.
+  /// Bounding-Box eines Teils inkl. herausstehender Zapfen/Wellen.
   Rect pieceBounds({
     required int col,
     required int row,
     required Size boardSize,
-    double tabSize = 0.22,
+    double tabSize = 0.24,
   }) {
     final cellW = boardSize.width / columns;
     final cellH = boardSize.height / rows;
-    final tabW = cellW * tabSize;
-    final tabH = cellH * tabSize;
-
     var left = col * cellW;
     var top = row * cellH;
     var right = left + cellW;
     var bottom = top + cellH;
 
-    if (leftEdge(col, row) == JigsawEdge.tab) left -= tabW;
-    if (rightEdge(col, row) == JigsawEdge.tab) right += tabW;
-    if (topEdge(col, row) == JigsawEdge.tab) top -= tabH;
-    if (bottomEdge(col, row) == JigsawEdge.tab) bottom += tabH;
+    if (_useTabs) {
+      final tabW = cellW * tabSize;
+      final tabH = cellH * tabSize;
+      if (leftEdge(col, row) == JigsawEdge.tab) left -= tabW;
+      if (rightEdge(col, row) == JigsawEdge.tab) right += tabW;
+      if (topEdge(col, row) == JigsawEdge.tab) top -= tabH;
+      if (bottomEdge(col, row) == JigsawEdge.tab) bottom += tabH;
+    } else if (_useWaves) {
+      final ampW = cellW * 0.09;
+      final ampH = cellH * 0.09;
+      left -= ampW;
+      right += ampW;
+      top -= ampH;
+      bottom += ampH;
+    }
 
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  /// Jigsaw-Pfad für ein Teil in Board-Koordinaten.
+  /// Pfad für ein Teil in Board-Koordinaten.
   Path piecePath({
     required int col,
     required int row,
     required Size boardSize,
-    double tabSize = 0.22,
+    double tabSize = 0.24,
   }) {
     final cellW = boardSize.width / columns;
     final cellH = boardSize.height / rows;
-    final left = col * cellW;
-    final top = row * cellH;
-    final right = left + cellW;
-    final bottom = top + cellH;
+    final cell = Rect.fromLTWH(col * cellW, row * cellH, cellW, cellH);
 
-    final path = Path();
-    path.moveTo(left, top);
+    switch (style) {
+      case PuzzlePieceStyle.square:
+        return Path()..addRect(cell);
+      case PuzzlePieceStyle.rounded:
+        final r = math.min(cellW, cellH) * 0.18;
+        return Path()
+          ..addRRect(RRect.fromRectAndRadius(cell, Radius.circular(r)));
+      case PuzzlePieceStyle.wave:
+        return _wavePath(cell, col: col, row: row);
+      case PuzzlePieceStyle.jigsaw:
+        return _jigsawPath(cell, col: col, row: row, tabSize: tabSize);
+    }
+  }
 
-    _drawEdge(
+  Path _jigsawPath(
+    Rect cell, {
+    required int col,
+    required int row,
+    required double tabSize,
+  }) {
+    final path = Path()..moveTo(cell.left, cell.top);
+    _drawClassicKnob(
       path,
-      from: Offset(left, top),
-      to: Offset(right, top),
+      from: Offset(cell.left, cell.top),
+      to: Offset(cell.right, cell.top),
       edge: topEdge(col, row),
       outward: const Offset(0, -1),
-      tabSize: cellH * tabSize,
+      tabSize: cell.height * tabSize,
     );
-    _drawEdge(
+    _drawClassicKnob(
       path,
-      from: Offset(right, top),
-      to: Offset(right, bottom),
+      from: Offset(cell.right, cell.top),
+      to: Offset(cell.right, cell.bottom),
       edge: rightEdge(col, row),
       outward: const Offset(1, 0),
-      tabSize: cellW * tabSize,
+      tabSize: cell.width * tabSize,
     );
-    _drawEdge(
+    _drawClassicKnob(
       path,
-      from: Offset(right, bottom),
-      to: Offset(left, bottom),
+      from: Offset(cell.right, cell.bottom),
+      to: Offset(cell.left, cell.bottom),
       edge: bottomEdge(col, row),
       outward: const Offset(0, 1),
-      tabSize: cellH * tabSize,
+      tabSize: cell.height * tabSize,
     );
-    _drawEdge(
+    _drawClassicKnob(
       path,
-      from: Offset(left, bottom),
-      to: Offset(left, top),
+      from: Offset(cell.left, cell.bottom),
+      to: Offset(cell.left, cell.top),
       edge: leftEdge(col, row),
       outward: const Offset(-1, 0),
-      tabSize: cellW * tabSize,
+      tabSize: cell.width * tabSize,
     );
     path.close();
     return path;
   }
 
-  void _drawEdge(
+  /// Traditioneller runder Puzzle-Zapfen (weich, nicht spitz).
+  void _drawClassicKnob(
     Path path, {
     required Offset from,
     required Offset to,
@@ -163,19 +196,120 @@ class JigsawLayout {
     final sign = edge == JigsawEdge.tab ? 1.0 : -1.0;
     final bump = outward * (tabSize * sign);
 
-    // Start der Bucht/des Zahns (~35–65 % der Kante).
-    final neckStart = from + dir * (length * 0.34);
-    final neckEnd = from + dir * (length * 0.66);
+    final neckStart = from + dir * (length * 0.30);
+    final neckEnd = from + dir * (length * 0.70);
     final mid = from + dir * (length * 0.5) + bump;
-
-    final ctrl1 = neckStart + bump * 0.15 + dir * (length * 0.02);
-    final ctrl2 = mid - dir * (length * 0.08);
-    final ctrl3 = mid + dir * (length * 0.08);
-    final ctrl4 = neckEnd + bump * 0.15 - dir * (length * 0.02);
+    final headLeft = mid - dir * (length * 0.13) + bump * 0.35;
+    final headRight = mid + dir * (length * 0.13) + bump * 0.35;
 
     path.lineTo(neckStart.dx, neckStart.dy);
-    path.cubicTo(ctrl1.dx, ctrl1.dy, ctrl2.dx, ctrl2.dy, mid.dx, mid.dy);
-    path.cubicTo(ctrl3.dx, ctrl3.dy, ctrl4.dx, ctrl4.dy, neckEnd.dx, neckEnd.dy);
+    path.cubicTo(
+      neckStart.dx + bump.dx * 0.2,
+      neckStart.dy + bump.dy * 0.2,
+      headLeft.dx,
+      headLeft.dy,
+      mid.dx,
+      mid.dy,
+    );
+    path.cubicTo(
+      headRight.dx,
+      headRight.dy,
+      neckEnd.dx + bump.dx * 0.2,
+      neckEnd.dy + bump.dy * 0.2,
+      neckEnd.dx,
+      neckEnd.dy,
+    );
     path.lineTo(to.dx, to.dy);
+  }
+
+  Path _wavePath(
+    Rect cell, {
+    required int col,
+    required int row,
+  }) {
+    final ampX = cell.width * 0.08;
+    final ampY = cell.height * 0.08;
+    final path = Path()..moveTo(cell.left, cell.top);
+
+    // Oben: teilt Kante mit Teil darüber
+    final topOut = row == 0
+        ? 0.0
+        : (_horizontalOut[row - 1][col] ? -1.0 : 1.0);
+    _drawWave(
+      path,
+      from: Offset(cell.left, cell.top),
+      to: Offset(cell.right, cell.top),
+      outward: const Offset(0, -1),
+      amplitude: ampY * topOut,
+      flat: row == 0,
+    );
+
+    final rightOut = col == columns - 1
+        ? 0.0
+        : (_verticalOut[row][col] ? 1.0 : -1.0);
+    _drawWave(
+      path,
+      from: Offset(cell.right, cell.top),
+      to: Offset(cell.right, cell.bottom),
+      outward: const Offset(1, 0),
+      amplitude: ampX * rightOut,
+      flat: col == columns - 1,
+    );
+
+    final bottomOut = row == rows - 1
+        ? 0.0
+        : (_horizontalOut[row][col] ? 1.0 : -1.0);
+    _drawWave(
+      path,
+      from: Offset(cell.right, cell.bottom),
+      to: Offset(cell.left, cell.bottom),
+      outward: const Offset(0, 1),
+      amplitude: ampY * bottomOut,
+      flat: row == rows - 1,
+    );
+
+    final leftOut = col == 0
+        ? 0.0
+        : (_verticalOut[row][col - 1] ? -1.0 : 1.0);
+    _drawWave(
+      path,
+      from: Offset(cell.left, cell.bottom),
+      to: Offset(cell.left, cell.top),
+      outward: const Offset(-1, 0),
+      amplitude: ampX * leftOut,
+      flat: col == 0,
+    );
+
+    path.close();
+    return path;
+  }
+
+  void _drawWave(
+    Path path, {
+    required Offset from,
+    required Offset to,
+    required Offset outward,
+    required double amplitude,
+    required bool flat,
+  }) {
+    if (flat || amplitude.abs() < 0.01) {
+      path.lineTo(to.dx, to.dy);
+      return;
+    }
+
+    final along = to - from;
+    final length = along.distance;
+    if (length <= 0) {
+      path.lineTo(to.dx, to.dy);
+      return;
+    }
+    final dir = along / length;
+    final mid = from + dir * (length * 0.5);
+    final peak = mid + outward * amplitude;
+    final c1 = from + dir * (length * 0.25) + outward * (amplitude * 0.2);
+    final c2 = from + dir * (length * 0.75) + outward * (amplitude * 0.2);
+
+    path.cubicTo(c1.dx, c1.dy, peak.dx, peak.dy, mid.dx, mid.dy);
+    path.cubicTo(peak.dx, peak.dy, c2.dx, c2.dy, to.dx, to.dy);
   }
 }

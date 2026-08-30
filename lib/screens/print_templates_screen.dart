@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
-import '../services/print_template_export.dart';
+import '../widgets/silver_back_button.dart';
+import 'print_preview_screen.dart';
 
 /// Galerie zum Speichern und Teilen von Ausmalvorlagen (zum Ausdrucken).
 class PrintTemplatesScreen extends StatefulWidget {
@@ -19,7 +20,6 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   late final Future<List<ColoringPage>> _pagesFuture;
-  String? _busyPageId;
 
   @override
   void initState() {
@@ -42,120 +42,17 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
     super.dispose();
   }
 
-  Future<void> _showExportSheet(ColoringPage page) async {
-    if (_busyPageId != null) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF1E2A44).withValues(alpha: 0.96),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  page.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFF4F7FC),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Vorlage speichern oder zum Drucken teilen',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.72),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ExportActionButton(
-                        icon: Icons.photo_library_rounded,
-                        label: 'In Fotos\nspeichern',
-                        color: const Color(0xFF7AD7A8),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _saveToPhotos(page);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _ExportActionButton(
-                        icon: Icons.print_rounded,
-                        label: 'Teilen &\nDrucken',
-                        color: const Color(0xFF9EC8FF),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _shareOrPrint(page);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _saveToPhotos(ColoringPage page) async {
-    setState(() => _busyPageId = page.id);
-    try {
-      await PrintTemplateExport.saveToPhotos(page);
-      if (!mounted) return;
-      _toast('Vorlage in Fotos gespeichert');
-    } on PrintTemplateExportException catch (e) {
-      if (!mounted) return;
-      _toast(e.message);
-    } catch (_) {
-      if (!mounted) return;
-      _toast('Speichern hat nicht geklappt');
-    } finally {
-      if (mounted) setState(() => _busyPageId = null);
-    }
-  }
-
-  Future<void> _shareOrPrint(ColoringPage page) async {
-    setState(() => _busyPageId = page.id);
-    try {
-      await PrintTemplateExport.shareOrPrint(page);
-    } catch (_) {
-      if (!mounted) return;
-      _toast('Teilen hat nicht geklappt');
-    } finally {
-      if (mounted) setState(() => _busyPageId = null);
-    }
-  }
-
-  void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+  void _openPreview(ColoringPage page) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 360),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: PrintPreviewScreen(page: page),
+          );
+        },
       ),
     );
   }
@@ -230,7 +127,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Tippe ein Bild an zum Speichern oder Drucken',
+                            'Tippe ein Bild an für die Vorschau',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.75),
                               fontSize: 13,
@@ -256,8 +153,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                                       page: page,
                                       width: tileWidth,
                                       height: tileHeight,
-                                      busy: _busyPageId == page.id,
-                                      onTap: () => _showExportSheet(page),
+                                      onTap: () => _openPreview(page),
                                     );
                                   },
                                 ),
@@ -272,40 +168,8 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                   Positioned(
                     top: 10,
                     left: 12,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => Navigator.of(context).pop(),
-                        customBorder: const CircleBorder(),
-                        child: Ink(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFFF7F9FC),
-                                Color(0xFFC5CCD8),
-                                Color(0xFF9AA3B5),
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.35),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: Color(0xFF243044),
-                            size: 22,
-                          ),
-                        ),
-                      ),
+                    child: SilverBackButton(
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
                 ],
@@ -323,14 +187,12 @@ class _PrintTemplateTile extends StatelessWidget {
     required this.page,
     required this.width,
     required this.height,
-    required this.busy,
     required this.onTap,
   });
 
   final ColoringPage page;
   final double width;
   final double height;
-  final bool busy;
   final VoidCallback onTap;
 
   @override
@@ -339,7 +201,7 @@ class _PrintTemplateTile extends StatelessWidget {
       width: width,
       height: height,
       child: GestureDetector(
-        onTap: busy ? null : onTap,
+        onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
@@ -401,13 +263,13 @@ class _PrintTemplateTile extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.print_rounded,
+                            Icons.visibility_rounded,
                             color: Color(0xFFE8EEF8),
                             size: 16,
                           ),
                           SizedBox(width: 6),
                           Text(
-                            'Drucken',
+                            'Vorschau',
                             style: TextStyle(
                               color: Color(0xFFE8EEF8),
                               fontSize: 12,
@@ -419,77 +281,8 @@ class _PrintTemplateTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (busy)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Color(0xFFE8EEF8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ExportActionButton extends StatelessWidget {
-  const _ExportActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 88,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: color.withValues(alpha: 0.18),
-            border: Border.all(color: color.withValues(alpha: 0.55)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.15,
-                ),
-              ),
-            ],
           ),
         ),
       ),

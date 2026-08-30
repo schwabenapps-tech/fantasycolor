@@ -1,30 +1,20 @@
 ---
 description: Geplantes Puzzle-Upgrade (UX, Feel, Schwierigkeit)
-globs: lib/screens/puzzle*.dart,lib/painting/jigsaw*.dart
+globs: lib/screens/puzzle*.dart,lib/painting/jigsaw*.dart,lib/models/puzzle_settings.dart
 alwaysApply: false
 ---
 
 # Puzzle-Vorhaben (Fantasy Color)
 
 ## Erledigt
-1. Feel & Feedback — Magnet-Snap (erweiterte Hit-Area), Shake bei Fehl-Drop,
-   Glow/Scale-Pop beim richtigen Drop, Progress `n / total`, Celebration „Wunderbar!“
+- Feel, Layout, Reveal, Haptics, Portrait-Fix
+- Einstellungen als Sheet im Puzzle-Screen (Zahnrad/Tune)
+- Schwierigkeit: Mini / Leicht / Mittel / Schwer / Profi
+- Formen: Klassisch (runde Zapfen), Viereck, Rund, Wellen
 
-## Noch offen (Reihenfolge)
-2. Layout
-   - Tray nach unten (horizontale Scroll-Leiste) statt schmaler Leiste rechts
-   - Größere, besser greifbare Teile
-   - Board im Fantasy-Rahmen (silberner/magischer Stil wie Mal-UI)
+## Offline
+Bereits offline (lokale Assets).
 
-3. Gameplay
-   - Schwierigkeit vor Start: Leicht (~12) / Mittel (~24) / Schwer (~36)
-   - Optional Hint-Button (richtiges Teil kurz blinken)
-   - Optional Randteile in der Tray markieren
-
-4. Später / USP
-   - Ausgemalte Bilder als Puzzle nutzbar (Malen → Puzzle)
-
-## Nicht zuerst
-- Keine Teil-Rotation für Kids
-- Keine komplexe Physik-Engine
-- Keine Online-Leaderboards
+## Später
+- Ausgemalte Bilder als Puzzle
+- Optional: Hexagon / Dreieck nur wenn gewünscht

@@ -83,7 +83,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   void _onSessionChanged() {
     if (!mounted) return;
-    if (widget.session.generation != _frameGeneration) {
+    if (widget.session.bitmapGeneration != _frameGeneration) {
       _rebuildFrame();
     } else {
       setState(() {});
@@ -93,21 +93,27 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   Future<void> _rebuildFrame() async {
     if (_encoding) return;
     _encoding = true;
-    final generation = widget.session.generation;
+    final generation = widget.session.bitmapGeneration;
     try {
       final image = await widget.bitmap.toUiImage();
       if (!mounted) {
         image.dispose();
         return;
       }
+      final previous = _frame;
       setState(() {
-        _frame?.dispose();
         _frame = image;
         _frameGeneration = generation;
       });
+      // Altes Frame erst nach dem Paint disposen — sonst Flackern/Weißblitz.
+      if (previous != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          previous.dispose();
+        });
+      }
     } finally {
       _encoding = false;
-      if (mounted && widget.session.generation != _frameGeneration) {
+      if (mounted && widget.session.bitmapGeneration != _frameGeneration) {
         _rebuildFrame();
       }
     }
@@ -143,21 +149,6 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 right: 8,
                 bottom: 8,
                 child: _ZoomResetChip(onPressed: _resetZoom),
-              ),
-            if (widget.session.isFilling)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 32,
-                        height: 32,
-                        child: CircularProgressIndicator(strokeWidth: 2.4),
-                      ),
-                    ),
-                  ),
-                ),
               ),
           ],
         );
@@ -346,7 +337,7 @@ class _PaintSurfaceState extends State<_PaintSurface> {
               painter: FreehandStrokePainter(
                 strokes: session.strokes,
                 activeStroke: _localStroke,
-                generation: session.generation,
+                generation: session.strokeGeneration,
               ),
             ),
           ],

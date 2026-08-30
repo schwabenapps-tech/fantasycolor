@@ -68,98 +68,70 @@ class _HubScreenState extends State<HubScreen>
           FadeTransition(
             opacity: _fadeAnimation,
             child: SafeArea(
-              child: Column(
-                children: [
-                  SizedBox(height: size.height * 0.08),
-                  Text(
-                    'Was möchtest du machen?',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.4,
-                      shadows: const [
-                        Shadow(
-                          color: Color(0xAA000000),
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: size.height * 0.06),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: size.width * 0.08,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _HubModeCard(
-                              label: 'Malen',
-                              subtitle: 'Ausmalbilder',
-                              icon: Icons.brush_rounded,
-                              colors: const [
-                                Color(0xFFFFF7FB),
-                                Color(0xFFE9D7FF),
-                                Color(0xFFD4B8F5),
-                              ],
-                              accent: const Color(0xFF6B4FA0),
-                              onTap: () => _open(const GalleryScreen()),
-                            ),
-                          ),
-                          SizedBox(width: size.width * 0.03),
-                          Expanded(
-                            child: _HubModeCard(
-                              label: 'Puzzle',
-                              subtitle: 'Puzzles legen',
-                              icon: Icons.extension_rounded,
-                              colors: const [
-                                Color(0xFFF7FBFF),
-                                Color(0xFFD7ECFF),
-                                Color(0xFFB8DAF5),
-                              ],
-                              accent: const Color(0xFF3F6FA0),
-                              onTap: () => _open(const PuzzleGalleryScreen()),
-                            ),
-                          ),
-                          SizedBox(width: size.width * 0.03),
-                          Expanded(
-                            child: _HubModeCard(
-                              label: 'Drucken',
-                              subtitle: 'Vorlagen',
-                              icon: Icons.print_rounded,
-                              colors: const [
-                                Color(0xFFF4FFF8),
-                                Color(0xFFD4F5E4),
-                                Color(0xFFA8E6C3),
-                              ],
-                              accent: const Color(0xFF2F8F5B),
-                              onTap: () => _open(const PrintTemplatesScreen()),
-                            ),
-                          ),
-                          SizedBox(width: size.width * 0.03),
-                          Expanded(
-                            child: _HubModeCard(
-                              label: 'Favoriten',
-                              subtitle: 'Gemerkte Bilder',
-                              icon: Icons.star_rounded,
-                              colors: const [
-                                Color(0xFFFFFAF0),
-                                Color(0xFFFFE8A8),
-                                Color(0xFFFFD56A),
-                              ],
-                              accent: const Color(0xFFB8860B),
-                              onTap: () => _open(const FavoritesScreen()),
-                            ),
-                          ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: size.width * 0.08,
+                  vertical: size.height * 0.1,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _HubModeCard(
+                        semanticLabel: 'Malen',
+                        icon: Icons.brush_rounded,
+                        colors: const [
+                          Color(0xFFFFF7FB),
+                          Color(0xFFE9D7FF),
+                          Color(0xFFD4B8F5),
                         ],
+                        accent: const Color(0xFF6B4FA0),
+                        onTap: () => _open(const GalleryScreen()),
                       ),
                     ),
-                  ),
-                  SizedBox(height: size.height * 0.06),
-                ],
+                    SizedBox(width: size.width * 0.03),
+                    Expanded(
+                      child: _HubModeCard(
+                        semanticLabel: 'Puzzle',
+                        icon: Icons.extension_rounded,
+                        colors: const [
+                          Color(0xFFF7FBFF),
+                          Color(0xFFD7ECFF),
+                          Color(0xFFB8DAF5),
+                        ],
+                        accent: const Color(0xFF3F6FA0),
+                        onTap: () => _open(const PuzzleGalleryScreen()),
+                      ),
+                    ),
+                    SizedBox(width: size.width * 0.03),
+                    Expanded(
+                      child: _HubModeCard(
+                        semanticLabel: 'Drucken',
+                        icon: Icons.print_rounded,
+                        colors: const [
+                          Color(0xFFF4FFF8),
+                          Color(0xFFD4F5E4),
+                          Color(0xFFA8E6C3),
+                        ],
+                        accent: const Color(0xFF2F8F5B),
+                        onTap: () => _open(const PrintTemplatesScreen()),
+                      ),
+                    ),
+                    SizedBox(width: size.width * 0.03),
+                    Expanded(
+                      child: _HubModeCard(
+                        semanticLabel: 'Favoriten',
+                        icon: Icons.star_rounded,
+                        colors: const [
+                          Color(0xFFFFFAF0),
+                          Color(0xFFFFE8A8),
+                          Color(0xFFFFD56A),
+                        ],
+                        accent: const Color(0xFFB8860B),
+                        onTap: () => _open(const FavoritesScreen()),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -171,16 +143,14 @@ class _HubScreenState extends State<HubScreen>
 
 class _HubModeCard extends StatefulWidget {
   const _HubModeCard({
-    required this.label,
-    required this.subtitle,
+    required this.semanticLabel,
     required this.icon,
     required this.colors,
     required this.accent,
     required this.onTap,
   });
 
-  final String label;
-  final String subtitle;
+  final String semanticLabel;
   final IconData icon;
   final List<Color> colors;
   final Color accent;
@@ -197,7 +167,7 @@ class _HubModeCardState extends State<_HubModeCard> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: widget.label,
+      label: widget.semanticLabel,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _pressed = true),
         onTapUp: (_) {
@@ -210,7 +180,7 @@ class _HubModeCardState extends State<_HubModeCard> {
           duration: const Duration(milliseconds: 120),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(26),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -233,33 +203,8 @@ class _HubModeCardState extends State<_HubModeCard> {
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(widget.icon, size: 48, color: widget.accent),
-                  const SizedBox(height: 14),
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      color: widget.accent.withValues(alpha: 0.95),
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.subtitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: widget.accent.withValues(alpha: 0.75),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+            child: Center(
+              child: Icon(widget.icon, size: 64, color: widget.accent),
             ),
           ),
         ),
