@@ -67,5 +67,15 @@
 	<string>Fantasy Color speichert Ausmalvorlagen in deinen Fotos zum Ausdrucken.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Fantasy Color speichert Ausmalvorlagen in deinen Fotos zum Ausdrucken.</string>
+	<!-- AdMob App-ID: Test-ID bis die echte AdMob-App verknüpft ist. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>

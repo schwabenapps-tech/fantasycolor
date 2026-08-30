@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../services/ads_service.dart';
 import '../widgets/silver_back_button.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
@@ -51,6 +53,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _solved = false;
   bool _revealing = false;
   bool _celebrating = false;
+  bool _exitAdShown = false;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
@@ -396,6 +399,17 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     }
   }
 
+  Future<void> _showExitAdOnce() async {
+    if (_exitAdShown) return;
+    _exitAdShown = true;
+    await AdsService.showInterstitial();
+  }
+
+  Future<void> _leavePuzzle() async {
+    await _showExitAdOnce();
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _onSolved() async {
     if (_revealing || _celebrating) return;
     HapticFeedback.heavyImpact();
@@ -408,7 +422,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     setState(() => _celebrating = true);
     await _celebrateController.forward(from: 0);
     if (!mounted) return;
-    Navigator.of(context).pop();
+    await _showExitAdOnce();
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _placePiece(int pieceId) {
@@ -570,7 +585,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                       SilverBackButton(
                         size: 40,
                         iconSize: 20,
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => unawaited(_leavePuzzle()),
                       ),
                       const SizedBox(width: 8),
                       SilverBackButton(

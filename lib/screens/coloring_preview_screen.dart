@@ -9,6 +9,7 @@ import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../services/ads_service.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/paint_side_rail.dart';
 import '../widgets/silver_back_button.dart';
@@ -35,6 +36,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   bool _saveInFlight = false;
   bool _saveAgain = false;
   bool _wantFlatten = false;
+  bool _exitAdShown = false;
   Timer? _autoSaveTimer;
   late final AnimationController _celebrateController;
   Uint8List? _finishedPng;
@@ -117,9 +119,16 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     }
   }
 
+  Future<void> _showExitAdOnce() async {
+    if (_exitAdShown) return;
+    _exitAdShown = true;
+    await AdsService.showInterstitial();
+  }
+
   Future<void> _leaveScreen() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: false);
+    await _showExitAdOnce();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -128,6 +137,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: true);
+    // Fertig-Haken: einmal Werbung, danach Feier — Malen selbst bleibt ad-frei.
+    await _showExitAdOnce();
 
     if (!mounted) return;
     final saved = await context
@@ -145,16 +156,19 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     setState(() => _showFinishActions = true);
   }
 
-  void _closeAfterFinish() {
+  Future<void> _closeAfterFinish() async {
+    await _showExitAdOnce();
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _playAsPuzzle() {
+  Future<void> _playAsPuzzle() async {
     final bytes = _finishedPng;
     if (bytes == null) {
-      _closeAfterFinish();
+      await _closeAfterFinish();
       return;
     }
+    await _showExitAdOnce();
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(

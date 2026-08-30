@@ -158,6 +158,11 @@
       "height": 1402
     },
     {
+      "path": "assets/puzzle_images/2bc41579-5cad-4e43-b584-585e93f4c5a2.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
       "path": "assets/puzzle_images/2c7eb293-95f3-4699-9317-5b38c669163b.png",
       "width": 1122,
       "height": 1402
@@ -188,7 +193,17 @@
       "height": 1402
     },
     {
+      "path": "assets/puzzle_images/71e8d353-647e-48d2-8fda-d30b0fe1c7ae.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
       "path": "assets/puzzle_images/8034f736-7b7f-45af-86d4-1c69c323187a.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/80aa544f-80ce-45d5-959d-abcc2c676999.png",
       "width": 1122,
       "height": 1402
     },
@@ -213,29 +228,9 @@
       "height": 1536
     },
     {
-      "path": "assets/puzzle_images/gemini_generated_image_12tbbm12tbbm12tb.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/puzzle_images/gemini_generated_image_6lnwxy6lnwxy6lnw.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
       "path": "assets/puzzle_images/gemini_generated_image_c8wkbmc8wkbmc8wk.jpg",
       "width": 1408,
       "height": 768
-    },
-    {
-      "path": "assets/puzzle_images/gemini_generated_image_fy1g6gfy1g6gfy1g.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/puzzle_images/gemini_generated_image_hv091ahv091ahv09.jpg",
-      "width": 976,
-      "height": 1079
     },
     {
       "path": "assets/puzzle_images/gemini_generated_image_jmog3ljmog3ljmog.jpg",
@@ -283,14 +278,24 @@
       "height": 1168
     },
     {
-      "path": "assets/puzzle_images/magierin.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/puzzle_images/img_1879.jpg",
+      "width": 784,
+      "height": 1168
     },
     {
-      "path": "assets/puzzle_images/zauberer1.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/puzzle_images/img_1880.jpg",
+      "width": 832,
+      "height": 1248
+    },
+    {
+      "path": "assets/puzzle_images/img_1881.jpg",
+      "width": 832,
+      "height": 1248
+    },
+    {
+      "path": "assets/puzzle_images/img_1951.jpg",
+      "width": 1152,
+      "height": 1712
     }
   ]
 }

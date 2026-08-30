@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'screens/start_screen.dart';
+import 'services/ads_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,6 +16,9 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  // Ads asynchron — App startet nicht erst nach AdMob.
+  unawaited(AdsService.initialize());
 
   final favorites = FavoritesStore();
   await favorites.load();
