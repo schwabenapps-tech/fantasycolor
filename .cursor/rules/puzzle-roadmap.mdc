@@ -16,5 +16,8 @@ alwaysApply: false
 Bereits offline (lokale Assets).
 
 ## Später
-- Ausgemalte Bilder als Puzzle
 - Optional: Hexagon / Dreieck nur wenn gewünscht
+
+## Neu / erledigt
+- Ausgemalte Bilder als Puzzle (nach Fertigstellen)
+- Portrait-Puzzle: quarterTurns 3 (270°)

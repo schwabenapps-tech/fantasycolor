@@ -10,9 +10,16 @@ import '../widgets/silver_back_button.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
-  const PuzzleScreen({super.key, required this.puzzle});
+  const PuzzleScreen({
+    super.key,
+    required this.puzzle,
+    this.customImage,
+  });
 
   final ColoringPage puzzle;
+
+  /// Optional: ausgemaltes Bild (sonst Asset aus [puzzle]).
+  final ImageProvider? customImage;
 
   @override
   State<PuzzleScreen> createState() => _PuzzleScreenState();
@@ -49,7 +56,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   late final AnimationController _popController;
   late final AnimationController _shakeController;
 
-  /// Hochkant → in Landscape legen (90°), plus 180° Korrektur → quarterTurns 1.
+  /// Hochkant → in Landscape legen (270°).
   bool get _rotatePortrait => widget.puzzle.aspectRatio < 0.98;
 
   /// Anzeige-Seitenverhältnis nach Drehung (unverzerret).
@@ -64,7 +71,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   @override
   void initState() {
     super.initState();
-    _imageProvider = AssetImage(widget.puzzle.assetPath);
+    _imageProvider = widget.customImage ?? AssetImage(widget.puzzle.assetPath);
     _celebrateController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
@@ -869,7 +876,7 @@ class _PuzzleCelebration extends StatelessWidget {
   }
 }
 
-/// Landscape unverändert; Portrait: 90° + 180° Korrektur (= quarterTurns 1).
+/// Landscape unverändert; Portrait: 270° drehen (= quarterTurns 3).
 class _PuzzleImageLayer extends StatelessWidget {
   const _PuzzleImageLayer({
     required this.imageProvider,
@@ -892,7 +899,7 @@ class _PuzzleImageLayer extends StatelessWidget {
     if (!rotatePortrait) return image;
 
     return RotatedBox(
-      quarterTurns: 1,
+      quarterTurns: 3,
       child: image,
     );
   }

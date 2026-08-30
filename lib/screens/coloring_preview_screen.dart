@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/coloring_page.dart';
@@ -11,6 +12,7 @@ import '../providers/coloring_session.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/paint_side_rail.dart';
 import '../widgets/silver_back_button.dart';
+import 'puzzle_screen.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Stift, Zoom, Undo und Fertig.
 class ColoringPreviewScreen extends StatefulWidget {
@@ -29,9 +31,11 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   late final ColoringSession _session;
   Future<ColoringBitmap>? _bitmapFuture;
   bool _celebrating = false;
+  bool _showFinishActions = false;
   bool _saveInFlight = false;
   Timer? _autoSaveTimer;
   late final AnimationController _celebrateController;
+  Uint8List? _finishedPng;
 
   @override
   void initState() {
@@ -107,10 +111,47 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     await _persistProgress(flatten: true);
 
     if (!mounted) return;
-    setState(() => _celebrating = true);
+    final saved = await context
+        .read<ColoringProgressStore>()
+        .loadProgressBytes(widget.page.id);
+    _finishedPng = saved ?? await _session.renderColoredPng();
+
+    if (!mounted) return;
+    setState(() {
+      _celebrating = true;
+      _showFinishActions = false;
+    });
     await _celebrateController.forward(from: 0);
     if (!mounted) return;
-    Navigator.of(context).pop();
+    setState(() => _showFinishActions = true);
+  }
+
+  void _closeAfterFinish() {
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _playAsPuzzle() {
+    final bytes = _finishedPng;
+    if (bytes == null) {
+      _closeAfterFinish();
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: PuzzleScreen(
+              puzzle: widget.page,
+              customImage: MemoryImage(bytes),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _resetAllColors() async {
@@ -218,7 +259,12 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
             ),
           ),
           if (_celebrating)
-            _FinishCelebration(animation: _celebrateController),
+            _FinishCelebration(
+              animation: _celebrateController,
+              showActions: _showFinishActions,
+              onDone: _closeAfterFinish,
+              onPlayPuzzle: _playAsPuzzle,
+            ),
         ],
       ),
       ),
@@ -227,39 +273,46 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 }
 
 class _FinishCelebration extends StatelessWidget {
-  const _FinishCelebration({required this.animation});
+  const _FinishCelebration({
+    required this.animation,
+    required this.showActions,
+    required this.onDone,
+    required this.onPlayPuzzle,
+  });
 
   final Animation<double> animation;
+  final bool showActions;
+  final VoidCallback onDone;
+  final VoidCallback onPlayPuzzle;
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: animation,
-        builder: (context, _) {
-          final t = animation.value;
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(
-                color: Colors.black.withValues(alpha: 0.35 * t.clamp(0, 1)),
-              ),
-              ...List.generate(28, (i) {
-                final seed = i * 37.0;
-                final x = (math.sin(seed) * 0.5 + 0.5);
-                final y = (0.15 + (t * (0.55 + (i % 5) * 0.08)))
-                    .clamp(0.0, 1.0);
-                final size = 6.0 + (i % 4) * 3.0;
-                final colors = const [
-                  Color(0xFFFFD56A),
-                  Color(0xFFFF85A1),
-                  Color(0xFFC9A6FF),
-                  Color(0xFF6EE0FF),
-                  Color(0xFFB6F5C8),
-                ];
-                return Positioned(
-                  left: MediaQuery.sizeOf(context).width * x,
-                  top: MediaQuery.sizeOf(context).height * y,
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final t = animation.value;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.35 * t.clamp(0, 1)),
+            ),
+            ...List.generate(28, (i) {
+              final seed = i * 37.0;
+              final x = math.sin(seed) * 0.5 + 0.5;
+              final y = (0.15 + (t * (0.55 + (i % 5) * 0.08))).clamp(0.0, 1.0);
+              final size = 6.0 + (i % 4) * 3.0;
+              const colors = [
+                Color(0xFFFFD56A),
+                Color(0xFFFF85A1),
+                Color(0xFFC9A6FF),
+                Color(0xFF6EE0FF),
+                Color(0xFFB6F5C8),
+              ];
+              return Positioned(
+                left: MediaQuery.sizeOf(context).width * x,
+                top: MediaQuery.sizeOf(context).height * y,
+                child: IgnorePointer(
                   child: Opacity(
                     opacity:
                         (1.0 - (t - 0.15).clamp(0.0, 1.0)).clamp(0.2, 1.0),
@@ -274,18 +327,20 @@ class _FinishCelebration extends StatelessWidget {
                       ),
                     ),
                   ),
-                );
-              }),
-              Center(
-                child: Opacity(
-                  opacity: Curves.easeOut.transform(t.clamp(0, 1)),
-                  child: Transform.scale(
-                    scale: 0.85 +
-                        0.2 * Curves.elasticOut.transform(t.clamp(0, 1)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
+                ),
+              );
+            }),
+            Center(
+              child: Opacity(
+                opacity: Curves.easeOut.transform(t.clamp(0, 1)),
+                child: Transform.scale(
+                  scale: 0.85 +
+                      0.2 * Curves.elasticOut.transform(t.clamp(0, 1)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IgnorePointer(
+                        child: Text(
                           'Wunderbar!',
                           style: TextStyle(
                             color: const Color(0xFFFFD56A),
@@ -306,8 +361,10 @@ class _FinishCelebration extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
+                      ),
+                      const SizedBox(height: 8),
+                      IgnorePointer(
+                        child: Text(
                           'Dein Bild ist gespeichert',
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.95),
@@ -321,14 +378,116 @@ class _FinishCelebration extends StatelessWidget {
                             ],
                           ),
                         ),
+                      ),
+                      if (showActions) ...[
+                        const SizedBox(height: 22),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _FinishActionButton(
+                              icon: Icons.extension_rounded,
+                              label: 'Als Puzzle',
+                              filled: true,
+                              onPressed: onPlayPuzzle,
+                            ),
+                            const SizedBox(width: 12),
+                            _FinishActionButton(
+                              icon: Icons.check_rounded,
+                              label: 'Fertig',
+                              filled: false,
+                              onPressed: onDone,
+                            ),
+                          ],
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FinishActionButton extends StatelessWidget {
+  const _FinishActionButton({
+    required this.icon,
+    required this.label,
+    required this.filled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool filled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: filled
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFFFFF0C2),
+                      Color(0xFFFFD56A),
+                      Color(0xFFE0A93A),
+                    ],
+                  )
+                : null,
+            color: filled ? null : Colors.white.withValues(alpha: 0.12),
+            border: Border.all(
+              color: filled
+                  ? const Color(0xFFFFE7A0)
+                  : Colors.white.withValues(alpha: 0.35),
+            ),
+            boxShadow: filled
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFFD56A).withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: filled
+                    ? const Color(0xFF2A2410)
+                    : Colors.white.withValues(alpha: 0.95),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: filled
+                      ? const Color(0xFF2A2410)
+                      : Colors.white.withValues(alpha: 0.95),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
