@@ -5,6 +5,7 @@ import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
+import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
@@ -66,8 +67,9 @@ class _GalleryScreenState extends State<GalleryScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final tileHeight = size.height * 0.56;
-    final tileWidth = tileHeight * 0.78;
+    final layout = AppLayout.of(context);
+    final tileHeight = layout.galleryTileHeight;
+    final tileWidth = layout.galleryTileWidth;
     final favorites = context.watch<FavoritesStore>();
     final progress = context.watch<ColoringProgressStore>();
 
@@ -116,7 +118,7 @@ class _GalleryScreenState extends State<GalleryScreen>
 
                       return Column(
                         children: [
-                          SizedBox(height: size.height * 0.14),
+                          SizedBox(height: layout.galleryTopSpacer),
                           Expanded(
                             child: Align(
                               alignment: const Alignment(0, 0.55),

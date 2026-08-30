@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/paint_catalog.dart';
 import '../providers/coloring_session.dart';
+import '../utils/app_layout.dart';
 
 /// Rechte Seitenleiste: Farben (scrollbar) | Kategorien ganz rechts.
 class PaintSideRail extends StatelessWidget {
@@ -12,13 +13,17 @@ class PaintSideRail extends StatelessWidget {
 
   final ColoringSession session;
 
+  static double widthOf(BuildContext context) =>
+      AppLayout.of(context).paintRailWidth;
+
   @override
   Widget build(BuildContext context) {
+    final railWidth = widthOf(context);
     return AnimatedBuilder(
       animation: session,
       builder: (context, _) {
         return Container(
-          width: 148,
+          width: railWidth,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.4),
             borderRadius:

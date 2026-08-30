@@ -1,74 +1,44 @@
 {
   "coloring_pages": [
     {
-      "path": "assets/coloring_pages/am_lagerfeuer.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/ballerinafee1.png",
+      "width": 1200,
+      "height": 1310
     },
     {
-      "path": "assets/coloring_pages/ballerina_1.png",
-      "width": 992,
-      "height": 1082
+      "path": "assets/coloring_pages/ballerinafee2.png",
+      "width": 1132,
+      "height": 1390
     },
     {
-      "path": "assets/coloring_pages/ballerina_2.png",
-      "width": 928,
-      "height": 1132
+      "path": "assets/coloring_pages/chatgpt_fee.png",
+      "width": 1254,
+      "height": 1254
     },
     {
-      "path": "assets/coloring_pages/blumenkranz.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/eisfee.png",
+      "width": 1023,
+      "height": 1537
     },
     {
-      "path": "assets/coloring_pages/butterfly.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/feeballerina.png",
+      "width": 1121,
+      "height": 1403
     },
     {
-      "path": "assets/coloring_pages/einhoerner.png",
-      "width": 1333,
-      "height": 706
+      "path": "assets/coloring_pages/feemitschmetterling.png",
+      "width": 1086,
+      "height": 1448
     },
     {
-      "path": "assets/coloring_pages/fairy_princess.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/coloring_pages/fairy_unicorn.png",
-      "width": 1332,
-      "height": 707
-    },
-    {
-      "path": "assets/coloring_pages/fee_am_fluss.png",
-      "width": 1024,
-      "height": 1024
-    },
-    {
-      "path": "assets/coloring_pages/fee_am_see.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/coloring_pages/feenblumen.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/coloring_pages/feenkoenigin.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/coloring_pages/feenprinzessin.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/feetropfen.png",
+      "width": 1266,
+      "height": 1243
     },
     {
       "path": "assets/coloring_pages/fliegende_fee.png",
-      "width": 1024,
-      "height": 1024
+      "width": 1254,
+      "height": 1254
     },
     {
       "path": "assets/coloring_pages/galaxy_fee.png",
@@ -76,79 +46,89 @@
       "height": 768
     },
     {
-      "path": "assets/coloring_pages/hanfu_princess.png",
-      "width": 1171,
-      "height": 740
+      "path": "assets/coloring_pages/huebsche_fee.png",
+      "width": 1122,
+      "height": 1402
     },
     {
-      "path": "assets/coloring_pages/hanfu_prinzessin_2.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/kristallfee.png",
+      "width": 1122,
+      "height": 1402
     },
     {
-      "path": "assets/coloring_pages/hanfu_umbrella.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/coloring_pages/magierin.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/lilia_fee.png",
+      "width": 1163,
+      "height": 1353
     },
     {
       "path": "assets/coloring_pages/malende_fee.png",
-      "width": 1024,
-      "height": 1024
+      "width": 1254,
+      "height": 1254
     },
     {
       "path": "assets/coloring_pages/mariposa.png",
-      "width": 1408,
-      "height": 768
+      "width": 1604,
+      "height": 981
     },
     {
-      "path": "assets/coloring_pages/riding_fairy.png",
-      "width": 1329,
-      "height": 705
+      "path": "assets/coloring_pages/mariposa2.png",
+      "width": 1692,
+      "height": 929
     },
     {
-      "path": "assets/coloring_pages/rosenfee.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/nachprinzessinfee.png",
+      "width": 1503,
+      "height": 1047
     },
     {
-      "path": "assets/coloring_pages/schwanenprinzessin_prinz.png",
-      "width": 976,
-      "height": 1079
+      "path": "assets/coloring_pages/nachtballet.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/coloring_pages/nachtfee.png",
+      "width": 1148,
+      "height": 1370
+    },
+    {
+      "path": "assets/coloring_pages/schoene_fee.png",
+      "width": 1122,
+      "height": 1402
     },
     {
       "path": "assets/coloring_pages/schwanensee.png",
-      "width": 1408,
-      "height": 768
+      "width": 1188,
+      "height": 1324
     },
     {
-      "path": "assets/coloring_pages/tanzende_schwanenprinzessin.png",
-      "width": 976,
-      "height": 1087
+      "path": "assets/coloring_pages/schwanensee_theater.png",
+      "width": 1123,
+      "height": 1401
     },
     {
-      "path": "assets/coloring_pages/village_unicorn.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/waldballerina.png",
+      "width": 1690,
+      "height": 931
     },
     {
-      "path": "assets/coloring_pages/waldlaeuferin.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/waldballerina2.png",
+      "width": 1680,
+      "height": 936
+    },
+    {
+      "path": "assets/coloring_pages/waldfee1.png",
+      "width": 1693,
+      "height": 929
     },
     {
       "path": "assets/coloring_pages/wasserfee.png",
-      "width": 1043,
-      "height": 1024
+      "width": 1654,
+      "height": 951
     },
     {
-      "path": "assets/coloring_pages/zauberer.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/wasserfee_schoen.png",
+      "width": 1122,
+      "height": 1402
     }
   ],
   "puzzle_images": [

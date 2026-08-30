@@ -8,6 +8,7 @@ import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
 import '../services/ads_service.dart';
+import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
@@ -29,8 +30,16 @@ class PuzzleScreen extends StatefulWidget {
 
 class _PuzzleScreenState extends State<PuzzleScreen>
     with TickerProviderStateMixin {
-  static const _trayHeight = 108.0;
-  static const _sideTrayWidth = 118.0;
+  static const _trayHeightPhone = 108.0;
+  static const _sideTrayWidthPhone = 118.0;
+
+  double get _trayHeight => mounted
+      ? AppLayout.of(context).puzzleTrayHeight
+      : _trayHeightPhone;
+
+  double get _sideTrayWidth => mounted
+      ? AppLayout.of(context).puzzleSideTrayWidth
+      : _sideTrayWidthPhone;
   /// Snap zum Einrasten — großzügig für Kinderfinger.
   static const _magnetFactor = 0.62;
   /// Goldenes Aufleuchten erst dicht am Ziel (verräts nicht von weitem).

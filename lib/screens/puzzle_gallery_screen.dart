@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
+import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
@@ -61,7 +62,8 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final tileHeight = size.height * 0.58;
+    final layout = AppLayout.of(context);
+    final tileHeight = layout.galleryTileHeight;
 
     return Scaffold(
       body: Stack(
@@ -108,7 +110,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
 
                       return Column(
                         children: [
-                          SizedBox(height: size.height * 0.12),
+                          SizedBox(height: layout.galleryTopSpacer),
                           Expanded(
                             child: Align(
                               alignment: const Alignment(0, 0.4),

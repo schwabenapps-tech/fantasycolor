@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
@@ -140,7 +141,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           20,
                         ),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: size.width > 900 ? 4 : 3,
+                          crossAxisCount: AppLayout.of(context)
+                              .favoritesCrossAxisCount(landscape: true),
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.78,

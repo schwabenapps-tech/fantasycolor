@@ -256,7 +256,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
                   ),
                   Positioned(
                     top: 8,
-                    right: 160,
+                    right: PaintSideRail.widthOf(context) + 12,
                     child: AnimatedBuilder(
                       animation: _session,
                       builder: (context, _) {

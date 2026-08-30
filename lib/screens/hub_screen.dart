@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_layout.dart';
 import 'favorites_screen.dart';
 import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
@@ -55,6 +56,7 @@ class _HubScreenState extends State<HubScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final layout = AppLayout.of(context);
 
     return Scaffold(
       body: Stack(
@@ -70,15 +72,21 @@ class _HubScreenState extends State<HubScreen>
             child: SafeArea(
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: size.width * 0.08,
-                  vertical: size.height * 0.1,
+                  horizontal: layout.hubHorizontalPadding,
+                  vertical: layout.hubVerticalPadding,
                 ),
-                child: Row(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: layout.isTablet ? 1100 : double.infinity,
+                    ),
+                    child: Row(
                   children: [
                     Expanded(
                       child: _HubModeCard(
                         semanticLabel: 'Malen',
                         icon: Icons.brush_rounded,
+                        iconSize: layout.hubIconSize,
                         colors: const [
                           Color(0xFFFFF7FB),
                           Color(0xFFE9D7FF),
@@ -93,6 +101,7 @@ class _HubScreenState extends State<HubScreen>
                       child: _HubModeCard(
                         semanticLabel: 'Puzzle',
                         icon: Icons.extension_rounded,
+                        iconSize: layout.hubIconSize,
                         colors: const [
                           Color(0xFFF7FBFF),
                           Color(0xFFD7ECFF),
@@ -107,6 +116,7 @@ class _HubScreenState extends State<HubScreen>
                       child: _HubModeCard(
                         semanticLabel: 'Drucken',
                         icon: Icons.print_rounded,
+                        iconSize: layout.hubIconSize,
                         colors: const [
                           Color(0xFFF4FFF8),
                           Color(0xFFD4F5E4),
@@ -121,6 +131,7 @@ class _HubScreenState extends State<HubScreen>
                       child: _HubModeCard(
                         semanticLabel: 'Favoriten',
                         icon: Icons.star_rounded,
+                        iconSize: layout.hubIconSize,
                         colors: const [
                           Color(0xFFFFFAF0),
                           Color(0xFFFFE8A8),
@@ -131,6 +142,8 @@ class _HubScreenState extends State<HubScreen>
                       ),
                     ),
                   ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -145,6 +158,7 @@ class _HubModeCard extends StatefulWidget {
   const _HubModeCard({
     required this.semanticLabel,
     required this.icon,
+    required this.iconSize,
     required this.colors,
     required this.accent,
     required this.onTap,
@@ -152,6 +166,7 @@ class _HubModeCard extends StatefulWidget {
 
   final String semanticLabel;
   final IconData icon;
+  final double iconSize;
   final List<Color> colors;
   final Color accent;
   final VoidCallback onTap;
@@ -204,7 +219,7 @@ class _HubModeCardState extends State<_HubModeCard> {
               ],
             ),
             child: Center(
-              child: Icon(widget.icon, size: 64, color: widget.accent),
+              child: Icon(widget.icon, size: widget.iconSize, color: widget.accent),
             ),
           ),
         ),

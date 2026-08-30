@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../models/coloring_page.dart';
+import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 import 'print_preview_screen.dart';
 
@@ -60,8 +61,9 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final tileHeight = size.height * 0.56;
-    final tileWidth = tileHeight * 0.78;
+    final layout = AppLayout.of(context);
+    final tileHeight = layout.galleryTileHeight;
+    final tileWidth = layout.galleryTileWidth;
 
     return Scaffold(
       body: Stack(
@@ -108,7 +110,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
 
                       return Column(
                         children: [
-                          SizedBox(height: size.height * 0.12),
+                          SizedBox(height: layout.galleryTopSpacer),
                           Text(
                             'Ausmalvorlagen',
                             style: TextStyle(

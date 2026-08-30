@@ -77,13 +77,15 @@ class _StartScreenState extends State<StartScreen>
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
-            Align(
-              alignment: const Alignment(0, 0.78),
-              child: ScaleTransition(
-                scale: _pulseAnimation,
-                child: FantasyPlayButton(
-                  size: size.shortestSide * 0.22,
-                  onPressed: _onPlay,
+            SafeArea(
+              child: Align(
+                alignment: const Alignment(0, 0.78),
+                child: ScaleTransition(
+                  scale: _pulseAnimation,
+                  child: FantasyPlayButton(
+                    size: size.shortestSide * 0.22,
+                    onPressed: _onPlay,
+                  ),
                 ),
               ),
             ),

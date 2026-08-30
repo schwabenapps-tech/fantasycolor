@@ -4,6 +4,8 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Für AdMob auf Android 13+ (auch mit Kids/G-Content). -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
     <application
         android:label="Fantasy Color"
         android:name="${applicationName}"
