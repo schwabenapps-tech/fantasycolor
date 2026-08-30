@@ -33,6 +33,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   bool _celebrating = false;
   bool _showFinishActions = false;
   bool _saveInFlight = false;
+  bool _saveAgain = false;
+  bool _wantFlatten = false;
   Timer? _autoSaveTimer;
   late final AnimationController _celebrateController;
   Uint8List? _finishedPng;
@@ -83,16 +85,33 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   }
 
   Future<void> _persistProgress({required bool flatten}) async {
-    if (_saveInFlight || !_session.canReset) return;
+    if (!_session.canReset) return;
+    if (flatten) _wantFlatten = true;
+
+    // Parallelaufrufe (Auto-Save + Zurück/Fertig) immer auf den letzten Stand bringen.
+    if (_saveInFlight) {
+      _saveAgain = true;
+      while (_saveInFlight) {
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+      }
+      if (!mounted || !_session.canReset) return;
+    }
+
     _saveInFlight = true;
     try {
-      final progress = context.read<ColoringProgressStore>();
-      final png = flatten
-          ? await _session.exportColoredPng()
-          : await _session.renderColoredPng();
-      if (png != null) {
-        await progress.saveProgress(widget.page.id, png);
-      }
+      do {
+        _saveAgain = false;
+        if (!mounted || !_session.canReset) break;
+        final doFlatten = _wantFlatten;
+        _wantFlatten = false;
+        final progress = context.read<ColoringProgressStore>();
+        final png = doFlatten
+            ? await _session.exportColoredPng()
+            : await _session.renderColoredPng();
+        if (png != null) {
+          await progress.saveProgress(widget.page.id, png);
+        }
+      } while (_saveAgain || _wantFlatten);
     } finally {
       _saveInFlight = false;
     }
@@ -176,97 +195,94 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
-            SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 52, 8, 16),
-                            child: FutureBuilder<ColoringBitmap>(
-                              future: _bitmapFuture,
-                              builder: (context, snapshot) {
-                                if (snapshot.hasError) {
-                                  return Center(
-                                    child: Text(
-                                      'Bild konnte nicht geladen werden',
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.9),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                if (!snapshot.hasData) {
-                                  return const Center(
-                                    child: SizedBox(
-                                      width: 34,
-                                      height: 34,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.4,
-                                        color: Color(0xFF8FA0C8),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return ColoringCanvas(
-                                  bitmap: snapshot.data!,
-                                  session: _session,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          left: 12,
-                          child: SilverBackButton(
-                            onPressed: () => unawaited(_leaveScreen()),
-                          ),
-                        ),
-                      Positioned(
-                        top: 8,
-                        right: 12,
-                        child: AnimatedBuilder(
-                          animation: _session,
-                          builder: (context, _) {
-                            return Row(
-                              children: [
-                                _RoundIconButton(
-                                  icon: Icons.undo_rounded,
-                                  onPressed:
-                                      _session.canUndo ? _session.undo : null,
-                                  onLongPress: _session.canReset
-                                      ? _resetAllColors
-                                      : null,
-                                  dimmed: !_session.canUndo &&
-                                      !_session.canReset,
-                                ),
-                                const SizedBox(width: 10),
-                                _DoneButton(onPressed: _finish),
-                              ],
-                            );
-                          },
+            // Canvas wirklich fullscreen — Zoom darf den ganzen Screen füllen.
+            Positioned.fill(
+              child: FutureBuilder<ColoringBitmap>(
+                future: _bitmapFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Bild konnte nicht geladen werden',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
                         ),
                       ),
-                    ],
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: SizedBox(
+                        width: 34,
+                        height: 34,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Color(0xFF8FA0C8),
+                        ),
+                      ),
+                    );
+                  }
+                  return ColoringCanvas(
+                    bitmap: snapshot.data!,
+                    session: _session,
+                  );
+                },
+              ),
+            ),
+            // Steuerung + Palette über dem Bild.
+            SafeArea(
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 8,
+                    left: 12,
+                    child: SilverBackButton(
+                      onPressed: () => unawaited(_leaveScreen()),
+                    ),
                   ),
-                ),
-                PaintSideRail(session: _session),
-              ],
+                  Positioned(
+                    top: 8,
+                    right: 160,
+                    child: AnimatedBuilder(
+                      animation: _session,
+                      builder: (context, _) {
+                        return Row(
+                          children: [
+                            _RoundIconButton(
+                              icon: Icons.undo_rounded,
+                              onPressed:
+                                  _session.canUndo ? _session.undo : null,
+                              onLongPress: _session.canReset
+                                  ? _resetAllColors
+                                  : null,
+                              dimmed:
+                                  !_session.canUndo && !_session.canReset,
+                            ),
+                            const SizedBox(width: 10),
+                            _DoneButton(onPressed: _finish),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: PaintSideRail(session: _session),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (_celebrating)
-            _FinishCelebration(
-              animation: _celebrateController,
-              showActions: _showFinishActions,
-              onDone: _closeAfterFinish,
-              onPlayPuzzle: _playAsPuzzle,
-            ),
-        ],
-      ),
+            if (_celebrating)
+              _FinishCelebration(
+                animation: _celebrateController,
+                showActions: _showFinishActions,
+                onDone: _closeAfterFinish,
+                onPlayPuzzle: _playAsPuzzle,
+              ),
+          ],
+        ),
       ),
     );
   }

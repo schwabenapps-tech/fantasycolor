@@ -28,9 +28,13 @@ class PuzzleScreen extends StatefulWidget {
 class _PuzzleScreenState extends State<PuzzleScreen>
     with TickerProviderStateMixin {
   static const _trayHeight = 108.0;
-  /// Moderate Magnet-Zone — groß genug zum Treffen, ohne riesige Flächen.
-  static const _magnetFactor = 0.38;
-  static const _ghostOpacity = 0.07;
+  static const _sideTrayWidth = 118.0;
+  /// Snap zum Einrasten — großzügig für Kinderfinger.
+  static const _magnetFactor = 0.62;
+  /// Goldenes Aufleuchten erst dicht am Ziel (verräts nicht von weitem).
+  static const _hintFactor = 0.32;
+  /// Ghost dezent — hilft beim Erkennen, ohne einzelne Slots zu verraten.
+  static const _ghostOpacity = 0.14;
 
   late final ImageProvider _imageProvider;
   bool _imagePrecached = false;
@@ -56,14 +60,17 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   late final AnimationController _popController;
   late final AnimationController _shakeController;
 
-  /// Hochkant → in Landscape legen (270°).
-  bool get _rotatePortrait => widget.puzzle.aspectRatio < 0.98;
+  /// Hochkant-Bilder bleiben aufrecht (nicht seitlich legen).
+  bool get _rotatePortrait => false;
 
-  /// Anzeige-Seitenverhältnis nach Drehung (unverzerret).
+  /// Hochkant-Motiv → Tray seitlich; Querformat → Tray unten.
+  bool get _isPortraitPuzzle => widget.puzzle.aspectRatio < 0.98;
+
+  /// Anzeige-Seitenverhältnis unverzerrt.
   double get _displayAspect {
     final a = widget.puzzle.aspectRatio;
     if (a <= 0) return 1;
-    return _rotatePortrait ? (1 / a) : a;
+    return a;
   }
 
   int get _placedCount => _board.whereType<int>().length;
@@ -422,14 +429,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     }
   }
 
-  void _rejectDrop(int nearSlot) {
+  void _rejectDrop(int pieceId) {
     if (_solved) return;
+    // Kein Slot-Shake — das würde verraten, wohin das Teil gehört.
     HapticFeedback.lightImpact();
-    setState(() {
-      _shakeSlot = nearSlot.clamp(0, _pieceCount - 1);
-      _hoverSlot = null;
-    });
-    _shakeController.forward(from: 0);
+    if (_hoverSlot != null) {
+      setState(() => _hoverSlot = null);
+    }
   }
 
   void _setHover(int? slot) {
@@ -483,8 +489,68 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     return Size(boardW, boardH);
   }
 
+  Widget _buildBoard(Size maxSize) {
+    final boardSize = _fitBoard(maxSize);
+    return Center(
+      child: _JigsawBoard(
+        boardSize: boardSize,
+        layout: _layout,
+        imageProvider: _imageProvider,
+        rotatePortrait: _rotatePortrait,
+        board: _board,
+        ghostOpacity: _ghostOpacity,
+        magnetFactor: _magnetFactor,
+        hintFactor: _hintFactor,
+        popPiece: _popPiece,
+        popAnimation: _popController,
+        shakeSlot: _shakeSlot,
+        shakeAnimation: _shakeController,
+        hoverSlot: _hoverSlot,
+        reveal: _revealController,
+        solved: _solved,
+        onAcceptPiece: _placePiece,
+        onHoverSlot: _setHover,
+        onReturnPiece: _returnPieceToTray,
+        onRejectPiece: _rejectDrop,
+      ),
+    );
+  }
+
+  Widget _buildTray({required bool vertical}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final reserved = vertical ? _sideTrayWidth + 24 : _trayHeight + 70;
+        final boardSize = _fitBoard(
+          vertical
+              ? Size(
+                  math.max(80, MediaQuery.sizeOf(context).width - reserved),
+                  math.max(80, MediaQuery.sizeOf(context).height - 70),
+                )
+              : Size(
+                  MediaQuery.sizeOf(context).width - 24,
+                  math.max(
+                    80,
+                    MediaQuery.sizeOf(context).height - _trayHeight - 70,
+                  ),
+                ),
+        );
+        return _JigsawTray(
+          tray: _tray,
+          layout: _layout,
+          imageProvider: _imageProvider,
+          rotatePortrait: _rotatePortrait,
+          boardSize: boardSize,
+          vertical: vertical,
+          onDragRejected: _rejectDrop,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sideTray = _isPortraitPuzzle;
+
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -529,69 +595,66 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                   ),
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final boardSize = _fitBoard(
-                          Size(constraints.maxWidth, constraints.maxHeight),
-                        );
-                        return Center(
-                          child: _JigsawBoard(
-                            boardSize: boardSize,
-                            layout: _layout,
-                            imageProvider: _imageProvider,
-                            rotatePortrait: _rotatePortrait,
-                            board: _board,
-                            ghostOpacity: _ghostOpacity,
-                            magnetFactor: _magnetFactor,
-                            popPiece: _popPiece,
-                            popAnimation: _popController,
-                            shakeSlot: _shakeSlot,
-                            shakeAnimation: _shakeController,
-                            hoverSlot: _hoverSlot,
-                            reveal: _revealController,
-                            solved: _solved,
-                            onAcceptPiece: _placePiece,
-                            onHoverSlot: _setHover,
-                            onReturnPiece: _returnPieceToTray,
+                  child: sideTray
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return _buildBoard(
+                                      Size(
+                                        constraints.maxWidth,
+                                        constraints.maxHeight,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              if (!_solved) ...[
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: _sideTrayWidth,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: _buildTray(vertical: true),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                if (!_solved)
-                  SizedBox(
-                    height: _trayHeight,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          // Tray-Teile proportional zum Board skalieren.
-                          final boardSize = _fitBoard(
-                            Size(
-                              MediaQuery.sizeOf(context).width - 24,
-                              math.max(
-                                80,
-                                MediaQuery.sizeOf(context).height -
-                                    _trayHeight -
-                                    70,
+                        )
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return _buildBoard(
+                                      Size(
+                                        constraints.maxWidth,
+                                        constraints.maxHeight,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          );
-                          return _JigsawTray(
-                            tray: _tray,
-                            layout: _layout,
-                            imageProvider: _imageProvider,
-                            rotatePortrait: _rotatePortrait,
-                            boardSize: boardSize,
-                            onDragRejected: _rejectDrop,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+                            if (!_solved)
+                              SizedBox(
+                                height: _trayHeight,
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                                  child: _buildTray(vertical: false),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
               ],
             ),
           ),
@@ -876,7 +939,7 @@ class _PuzzleCelebration extends StatelessWidget {
   }
 }
 
-/// Landscape unverändert; Portrait: 270° drehen (= quarterTurns 3).
+/// Landscape und Portrait ohne Extra-Drehung (Hochkant bleibt aufrecht).
 class _PuzzleImageLayer extends StatelessWidget {
   const _PuzzleImageLayer({
     required this.imageProvider,
@@ -898,6 +961,7 @@ class _PuzzleImageLayer extends StatelessWidget {
 
     if (!rotatePortrait) return image;
 
+    // Falls später wieder seitlich gelegt wird: 90° gegen Uhrzeigersinn.
     return RotatedBox(
       quarterTurns: 3,
       child: image,
@@ -914,6 +978,7 @@ class _JigsawBoard extends StatelessWidget {
     required this.board,
     required this.ghostOpacity,
     required this.magnetFactor,
+    required this.hintFactor,
     required this.popPiece,
     required this.popAnimation,
     required this.shakeSlot,
@@ -924,6 +989,7 @@ class _JigsawBoard extends StatelessWidget {
     required this.onAcceptPiece,
     required this.onHoverSlot,
     required this.onReturnPiece,
+    required this.onRejectPiece,
   });
 
   static const padFraction = 0.045;
@@ -935,6 +1001,7 @@ class _JigsawBoard extends StatelessWidget {
   final List<int?> board;
   final double ghostOpacity;
   final double magnetFactor;
+  final double hintFactor;
   final int? popPiece;
   final Animation<double> popAnimation;
   final int? shakeSlot;
@@ -945,13 +1012,42 @@ class _JigsawBoard extends StatelessWidget {
   final void Function(int pieceId) onAcceptPiece;
   final void Function(int? slot) onHoverSlot;
   final void Function(int slotIndex) onReturnPiece;
+  final void Function(int pieceId) onRejectPiece;
+
+  double _radiusFor(double cellW, double cellH, double factor) {
+    return math.max(math.min(cellW, cellH) * factor, 40.0);
+  }
+
+  /// Finger nahe genug zum Einrasten?
+  bool _isNearHome({
+    required Offset localPos,
+    required int pieceId,
+    required double pad,
+    required double cellW,
+    required double cellH,
+    required double factor,
+  }) {
+    if (board[pieceId] != null) return false;
+    final col = pieceId % layout.columns;
+    final row = pieceId ~/ layout.columns;
+    final center = Offset(
+      pad + (col + 0.5) * cellW,
+      pad + (row + 0.5) * cellH,
+    );
+    return (localPos - center).distance <= _radiusFor(cellW, cellH, factor);
+  }
+
+  Offset _localFromGlobal(BuildContext context, Offset global) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return Offset.zero;
+    return box.globalToLocal(global);
+  }
 
   @override
   Widget build(BuildContext context) {
     final pad = math.max(boardSize.width, boardSize.height) * padFraction;
     final cellW = boardSize.width / layout.columns;
     final cellH = boardSize.height / layout.rows;
-    final magnetPad = math.min(cellW, cellH) * magnetFactor * 0.5;
 
     return SizedBox(
       width: boardSize.width + pad * 2,
@@ -1008,8 +1104,8 @@ class _JigsawBoard extends StatelessWidget {
                                 row: i ~/ layout.columns,
                                 boardSize: boardSize,
                               ),
-                              color: Colors.white.withValues(alpha: 0.28),
-                              strokeWidth: 1.0,
+                              color: Colors.white.withValues(alpha: 0.38),
+                              strokeWidth: 1.15,
                             ),
                           ),
                     // Hover: nur feiner goldener Pfad (kein Flächen-Fill)
@@ -1022,8 +1118,8 @@ class _JigsawBoard extends StatelessWidget {
                             row: hoverSlot! ~/ layout.columns,
                             boardSize: boardSize,
                           ),
-                          color: const Color(0xFFFFD56A).withValues(alpha: 0.85),
-                          strokeWidth: 2.2,
+                          color: const Color(0xFFFFD56A).withValues(alpha: 0.9),
+                          strokeWidth: 2.4,
                         ),
                       ),
                     // Fertig: volles Bild einblenden
@@ -1048,33 +1144,7 @@ class _JigsawBoard extends StatelessWidget {
               ),
             ),
           ),
-          // Unsichtbare Magnet-Zonen (keine farbigen Rechtecke)
-          if (!solved)
-            for (var i = 0; i < layout.pieceCount; i++)
-              if (board[i] == null)
-                Positioned(
-                  left: pad + (i % layout.columns) * cellW - magnetPad,
-                  top: pad + (i ~/ layout.columns) * cellH - magnetPad,
-                  width: cellW + magnetPad * 2,
-                  height: cellH + magnetPad * 2,
-                  child: DragTarget<int>(
-                    onWillAcceptWithDetails: (details) => details.data == i,
-                    onAcceptWithDetails: (details) {
-                      onHoverSlot(null);
-                      onAcceptPiece(details.data);
-                    },
-                    onMove: (details) {
-                      if (details.data == i) onHoverSlot(i);
-                    },
-                    onLeave: (_) {
-                      if (hoverSlot == i) onHoverSlot(null);
-                    },
-                    builder: (context, candidate, rejected) {
-                      return const SizedBox.expand();
-                    },
-                  ),
-                ),
-          // Platzierte Teile (während Reveal ausblenden)
+          // Platzierte Teile unter dem DragTarget, damit Snap nicht blockiert wird.
           if (!solved)
             for (var i = 0; i < layout.pieceCount; i++)
               if (board[i] != null || shakeSlot == i)
@@ -1092,6 +1162,57 @@ class _JigsawBoard extends StatelessWidget {
                   shakeAnimation: shakeAnimation,
                   onReturnPiece: onReturnPiece,
                 ),
+          // Ein DragTarget fürs ganze Board.
+          // Wichtig: onWillAccept muss true bleiben, sobald man über dem Board ist —
+          // sonst merkt Flutter den Reject und akzeptiert später nicht mehr,
+          // selbst wenn man zum richtigen Slot nachzieht.
+          if (!solved)
+            Positioned.fill(
+              child: DragTarget<int>(
+                onWillAcceptWithDetails: (details) {
+                  return board[details.data] == null;
+                },
+                onAcceptWithDetails: (details) {
+                  onHoverSlot(null);
+                  final local = _localFromGlobal(context, details.offset);
+                  final near = _isNearHome(
+                    localPos: local,
+                    pieceId: details.data,
+                    pad: pad,
+                    cellW: cellW,
+                    cellH: cellH,
+                    factor: magnetFactor,
+                  );
+                  if (near) {
+                    onAcceptPiece(details.data);
+                  } else {
+                    onRejectPiece(details.data);
+                  }
+                },
+                onMove: (details) {
+                  final local = _localFromGlobal(context, details.offset);
+                  // Aufleuchten erst dicht am Ziel — nicht von weitem verraten.
+                  final near = _isNearHome(
+                    localPos: local,
+                    pieceId: details.data,
+                    pad: pad,
+                    cellW: cellW,
+                    cellH: cellH,
+                    factor: hintFactor,
+                  );
+                  onHoverSlot(near ? details.data : null);
+                },
+                onLeave: (_) => onHoverSlot(null),
+                builder: (context, candidate, rejected) {
+                  final dragging =
+                      candidate.isNotEmpty || rejected.isNotEmpty;
+                  return IgnorePointer(
+                    ignoring: !dragging,
+                    child: const SizedBox.expand(),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -1202,6 +1323,7 @@ class _JigsawTray extends StatelessWidget {
     required this.rotatePortrait,
     required this.boardSize,
     required this.onDragRejected,
+    this.vertical = false,
   });
 
   final List<int> tray;
@@ -1210,6 +1332,7 @@ class _JigsawTray extends StatelessWidget {
   final bool rotatePortrait;
   final Size boardSize;
   final void Function(int nearSlot) onDragRejected;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -1218,8 +1341,9 @@ class _JigsawTray extends StatelessWidget {
       row: 0,
       boardSize: boardSize,
     );
-    const maxH = 88.0;
-    const maxW = 96.0;
+    // Etwas kleiner → mehr Teile sichtbar, Tray besser durchscrollbar.
+    final maxH = vertical ? 86.0 : 78.0;
+    final maxW = vertical ? 84.0 : 86.0;
     var pieceH = maxH;
     var pieceW = pieceH * (sampleBounds.width / sampleBounds.height);
     if (pieceW > maxW) {
@@ -1241,26 +1365,38 @@ class _JigsawTray extends StatelessWidget {
                 size: 28,
               ),
             )
-          : ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: tray.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final pieceId = tray[index];
-                return Center(
-                  child: _TrayJigsawPiece(
-                    pieceId: pieceId,
-                    layout: layout,
-                    imageProvider: imageProvider,
-                    rotatePortrait: rotatePortrait,
-                    boardSize: boardSize,
-                    width: pieceW,
-                    height: pieceH,
-                    onDragRejected: onDragRejected,
-                  ),
-                );
-              },
+          : Scrollbar(
+              thumbVisibility: true,
+              child: ListView.separated(
+                scrollDirection: vertical ? Axis.vertical : Axis.horizontal,
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: vertical ? 10 : 14,
+                  vertical: vertical ? 14 : 8,
+                ),
+                itemCount: tray.length,
+                separatorBuilder: (_, _) => SizedBox(
+                  width: vertical ? 0 : 10,
+                  height: vertical ? 10 : 0,
+                ),
+                itemBuilder: (context, index) {
+                  final pieceId = tray[index];
+                  return Center(
+                    child: _TrayJigsawPiece(
+                      pieceId: pieceId,
+                      layout: layout,
+                      imageProvider: imageProvider,
+                      rotatePortrait: rotatePortrait,
+                      boardSize: boardSize,
+                      width: pieceW,
+                      height: pieceH,
+                      onDragRejected: onDragRejected,
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
@@ -1331,9 +1467,15 @@ class _TrayJigsawPiece extends StatelessWidget {
       ),
     );
 
-    return Draggable<int>(
+    return LongPressDraggable<int>(
       data: pieceId,
-      feedback: dragVisual,
+      // Kurz halten = ziehen; Wischen = Tray scrollen (Stück aussuchen).
+      delay: const Duration(milliseconds: 160),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Transform.translate(
+        offset: Offset(-boardBounds.width / 2, -boardBounds.height / 2),
+        child: dragVisual,
+      ),
       childWhenDragging: Opacity(opacity: 0.22, child: trayVisual),
       child: trayVisual,
       onDragStarted: () => HapticFeedback.selectionClick(),

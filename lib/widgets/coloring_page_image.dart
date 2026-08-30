@@ -4,6 +4,25 @@ import 'package:provider/provider.dart';
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 
+/// FileImage mit Versions-Key — sonst bleibt nach Speichern das alte Thumbnail.
+class _VersionedFileImage extends FileImage {
+  const _VersionedFileImage(super.file, {required this.version});
+
+  final int version;
+
+  @override
+  bool operator ==(Object other) {
+    if (other.runtimeType != runtimeType) return false;
+    return other is _VersionedFileImage &&
+        other.file.path == file.path &&
+        other.scale == scale &&
+        other.version == version;
+  }
+
+  @override
+  int get hashCode => Object.hash(file.path, scale, version);
+}
+
 /// Ausmalbild auf weißem Papier – zeigt gespeicherten Fortschritt, falls vorhanden.
 class ColoringPageImage extends StatelessWidget {
   const ColoringPageImage({
@@ -31,12 +50,13 @@ class ColoringPageImage extends StatelessWidget {
     Widget image = ColoredBox(
       color: Colors.white,
       child: file != null
-          ? Image.file(
-              file,
+          ? Image(
+              image: _VersionedFileImage(file, version: version),
               key: ValueKey('progress_${page.id}_$version'),
               fit: fit,
               alignment: Alignment.center,
               filterQuality: FilterQuality.medium,
+              gaplessPlayback: true,
               errorBuilder: (_, _, _) => _assetImage(),
             )
           : _assetImage(),

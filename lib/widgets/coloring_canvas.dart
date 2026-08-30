@@ -9,6 +9,10 @@ import '../providers/coloring_session.dart';
 import 'freehand_stroke_painter.dart';
 
 /// Zoombares PNG-Ausmalblatt mit Flood-Fill und Stift.
+///
+/// Vollflächiger Zoom wie in typischen Ausmal-Apps:
+/// Pinch = Zoomen, bei Zoom verschieben (Fill: 1 Finger, Stift: 2 Finger),
+/// Doppeltipp = rein/raus.
 class ColoringCanvas extends StatefulWidget {
   const ColoringCanvas({
     super.key,
@@ -123,15 +127,17 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final sheetSize = _sheetSizeFor(constraints.biggest);
+        final viewport = constraints.biggest;
+        final sheetSize = _sheetSizeFor(viewport);
         widget.session.sheetSize = sheetSize;
 
         return Stack(
           children: [
-            Center(
-              child: _FramedZoomSheet(
+            Positioned.fill(
+              child: _FullscreenZoomViewport(
                 sheetSize: sheetSize,
                 transform: _transform,
+                panEnabled: _panEnabled,
                 onDoubleTapAt: _onSoftZoom,
                 onInteraction: () {
                   if (mounted) setState(() {});
@@ -146,8 +152,8 @@ class _ColoringCanvasState extends State<ColoringCanvas>
             ),
             if (_isZoomed)
               Positioned(
-                right: 8,
-                bottom: 8,
+                left: 10,
+                bottom: 10,
                 child: _ZoomResetChip(onPressed: _resetZoom),
               ),
           ],
@@ -158,19 +164,30 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
 
-  void _onSoftZoom(Offset localPos) {
+  /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Stift-Zug nötig ist.
+  /// So bleibt Tippen = Füllen kinderleicht; Stift zeichnet weiter mit 1 Finger.
+  bool get _panEnabled {
+    if (!_isZoomed) return false;
+    final tool = widget.session.tool;
+    if (tool == PaintTool.pen) return false;
+    if (tool == PaintTool.eraser && !widget.session.eraserClearsFills) {
+      return false;
+    }
+    return true;
+  }
+
+  void _onSoftZoom(Offset viewportPos) {
     final current = _transform.value.getMaxScaleOnAxis();
     if (current > 1.2) {
       _resetZoom();
       return;
     }
 
-    const targetScale = 2.4;
-    // Zoom zur Tipp-Stelle, bleibt durch den Rahmen geclippt.
+    const targetScale = 3.0;
     final matrix = Matrix4.identity()
-      ..translateByDouble(localPos.dx, localPos.dy, 0, 1)
+      ..translateByDouble(viewportPos.dx, viewportPos.dy, 0, 1)
       ..scaleByDouble(targetScale, targetScale, 1, 1)
-      ..translateByDouble(-localPos.dx, -localPos.dy, 0, 1);
+      ..translateByDouble(-viewportPos.dx, -viewportPos.dy, 0, 1);
     _animateTo(matrix);
   }
 
@@ -206,11 +223,12 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   }
 }
 
-/// Fester Bilderrahmen: nur Zoomen, kein Verschieben nach draußen.
-class _FramedZoomSheet extends StatelessWidget {
-  const _FramedZoomSheet({
+/// Bild füllt den Screen; Zoom/Pan über die ganze Fläche, ohne Rahmen.
+class _FullscreenZoomViewport extends StatelessWidget {
+  const _FullscreenZoomViewport({
     required this.sheetSize,
     required this.transform,
+    required this.panEnabled,
     required this.onDoubleTapAt,
     required this.onInteraction,
     required this.child,
@@ -218,53 +236,34 @@ class _FramedZoomSheet extends StatelessWidget {
 
   final Size sheetSize;
   final TransformationController transform;
+  final bool panEnabled;
   final ValueChanged<Offset> onDoubleTapAt;
   final VoidCallback onInteraction;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.55),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: sheetSize.width,
-          height: sheetSize.height,
-          child: GestureDetector(
-            behavior: HitTestBehavior.deferToChild,
-            onDoubleTapDown: (details) => onDoubleTapAt(details.localPosition),
-            onDoubleTap: () {},
-            child: InteractiveViewer(
-              transformationController: transform,
-              minScale: 1,
-              maxScale: 5,
-              panEnabled: false,
-              scaleEnabled: true,
-              constrained: true,
-              clipBehavior: Clip.hardEdge,
-              boundaryMargin: EdgeInsets.zero,
-              onInteractionUpdate: (_) => onInteraction(),
-              onInteractionEnd: (_) => onInteraction(),
-              child: SizedBox(
-                width: sheetSize.width,
-                height: sheetSize.height,
-                child: child,
-              ),
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onDoubleTapDown: (details) => onDoubleTapAt(details.localPosition),
+      onDoubleTap: () {},
+      child: InteractiveViewer(
+        transformationController: transform,
+        minScale: 1,
+        maxScale: 8,
+        panEnabled: panEnabled,
+        scaleEnabled: true,
+        constrained: true,
+        clipBehavior: Clip.hardEdge,
+        // Weit zoomen/schieben — Bild kann den ganzen Screen füllen.
+        boundaryMargin: const EdgeInsets.all(600),
+        onInteractionUpdate: (_) => onInteraction(),
+        onInteractionEnd: (_) => onInteraction(),
+        child: Center(
+          child: SizedBox(
+            width: sheetSize.width,
+            height: sheetSize.height,
+            child: child,
           ),
         ),
       ),

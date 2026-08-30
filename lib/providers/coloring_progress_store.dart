@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -71,6 +72,8 @@ class ColoringProgressStore extends ChangeNotifier {
     final file = _fileFor(id);
     if (file == null) return;
     await file.writeAsBytes(pngBytes, flush: true);
+    // Gleicher Pfad → Flutter-ImageCache sonst mit altem Thumbnail.
+    await FileImage(file).evict();
     _ids.add(id);
     _versions[id] = (_versions[id] ?? 0) + 1;
     notifyListeners();
