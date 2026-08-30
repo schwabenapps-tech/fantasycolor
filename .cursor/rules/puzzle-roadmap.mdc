@@ -6,31 +6,25 @@ alwaysApply: false
 
 # Puzzle-Vorhaben (Fantasy Color)
 
-Nächstes größeres Puzzle-Upgrade — in dieser Reihenfolge umsetzen:
+## Erledigt
+1. Feel & Feedback — Magnet-Snap (erweiterte Hit-Area), Shake bei Fehl-Drop,
+   Glow/Scale-Pop beim richtigen Drop, Progress `n / total`, Celebration „Wunderbar!“
 
-## 1. Feel & Feedback (Priorität hoch)
-- Magnet-Snap: Teil gleitet beim Loslassen in der Nähe in den Slot
-- Falsch-Drop: kurzer Shake + Zurückfedern
-- Richtig-Drop: kurzer Glow / Scale-Pop
-- Progress-Anzeige (z. B. `12 / 30`)
-- Geschafft-Celebration wie beim Malen (Sterne / „Wunderbar!“)
+## Noch offen (Reihenfolge)
+2. Layout
+   - Tray nach unten (horizontale Scroll-Leiste) statt schmaler Leiste rechts
+   - Größere, besser greifbare Teile
+   - Board im Fantasy-Rahmen (silberner/magischer Stil wie Mal-UI)
 
-## 2. Layout
-- Tray nach unten (horizontale Scroll-Leiste) statt schmaler Leiste rechts
-- Größere, besser greifbare Teile
-- Board im Fantasy-Rahmen (silberner/magischer Stil wie Mal-UI)
+3. Gameplay
+   - Schwierigkeit vor Start: Leicht (~12) / Mittel (~24) / Schwer (~36)
+   - Optional Hint-Button (richtiges Teil kurz blinken)
+   - Optional Randteile in der Tray markieren
 
-## 3. Gameplay
-- Schwierigkeit vor Start: Leicht (~12) / Mittel (~24) / Schwer (~36)
-- Optional Hint-Button (richtiges Teil kurz blinken)
-- Optional Randteile in der Tray markieren
-
-## 4. Später / USP
-- Ausgemalte Bilder als Puzzle nutzbar (Malen → Puzzle)
+4. Später / USP
+   - Ausgemalte Bilder als Puzzle nutzbar (Malen → Puzzle)
 
 ## Nicht zuerst
 - Keine Teil-Rotation für Kids
 - Keine komplexe Physik-Engine
 - Keine Online-Leaderboards
-
-Kontext: Aktuelles Puzzle wirkt noch prototyphaft (exakter Drop only, schmale Tray, schwaches Feedback, Preview zu stark).
