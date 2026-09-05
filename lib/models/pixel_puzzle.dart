@@ -16,23 +16,23 @@ enum PixelDifficulty {
   int get targetCols => maxSide;
 
   /// Längere Seite des Rasters — gesamtes Bild proportional hinein.
-  /// Feiner = Motiv bleibt erkennbar (No.Pix-ähnlich).
+  /// Feiner = Motiv bleibt erkennbar.
   int get maxSide => switch (this) {
-        PixelDifficulty.easy => 40,
-        PixelDifficulty.medium => 56,
-        PixelDifficulty.hard => 72,
+        PixelDifficulty.easy => 56,
+        PixelDifficulty.medium => 72,
+        PixelDifficulty.hard => 96,
       };
 
   int get colorCount => switch (this) {
-        PixelDifficulty.easy => 12,
-        PixelDifficulty.medium => 16,
-        PixelDifficulty.hard => 22,
+        PixelDifficulty.easy => 14,
+        PixelDifficulty.medium => 18,
+        PixelDifficulty.hard => 24,
       };
 
   String get hint => switch (this) {
-        PixelDifficulty.easy => 'Erkennbares Motiv · ~40 Pixel',
-        PixelDifficulty.medium => 'Feinere Pixel · mehr Farben',
-        PixelDifficulty.hard => 'Sehr fein · detailreich',
+        PixelDifficulty.easy => 'Fein · Motiv gut erkennbar',
+        PixelDifficulty.medium => 'Sehr fein · mehr Details',
+        PixelDifficulty.hard => 'Ultrafein · viele Farben',
       };
 }
 

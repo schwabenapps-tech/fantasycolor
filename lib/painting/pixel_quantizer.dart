@@ -81,7 +81,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   final src = decoded.convert(numChannels: 4);
 
   // Gesamtes Bild in maxSide×maxSide-Box, Aspekt beibehalten — kein Crop.
-  final maxSide = args.maxSide.clamp(16, 96);
+  final maxSide = args.maxSide.clamp(24, 120);
   late final int cols;
   late final int rows;
   if (src.width >= src.height) {
@@ -99,7 +99,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
     interpolation: img.Interpolation.average,
   );
 
-  final colorCount = args.colorCount.clamp(4, 28);
+  final colorCount = args.colorCount.clamp(4, 32);
   final quantized = img.quantize(
     resized,
     numberOfColors: colorCount,

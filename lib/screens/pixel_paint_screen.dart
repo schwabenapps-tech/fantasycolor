@@ -53,6 +53,11 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   late final AnimationController _celebrateController;
   final TransformationController _transform = TransformationController();
 
+  /// 1 Finger = malen/ziehen; 2+ Finger = Zoom (kein Malen).
+  final Set<int> _pointers = <int>{};
+  int? _paintPointer;
+  bool _strokeDidPaint = false;
+
   @override
   void initState() {
     super.initState();
@@ -164,7 +169,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _onCellTap(int x, int y) {
+  void _onCellTap(int x, int y, {bool fromDrag = false}) {
     final puzzle = _puzzle;
     if (puzzle == null || _celebrating) return;
 
@@ -173,11 +178,16 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
     final cellNumber = puzzle.cells[i] + 1;
     if (cellNumber != _selectedNumber) {
-      HapticFeedback.lightImpact();
+      if (!fromDrag) HapticFeedback.lightImpact();
       return;
     }
 
-    HapticFeedback.selectionClick();
+    // Beim Ziehen nur einmal pro Strich vibrieren — sonst ruckelt's.
+    if (!fromDrag || !_strokeDidPaint) {
+      HapticFeedback.selectionClick();
+    }
+    _strokeDidPaint = true;
+
     setState(() {
       _filled[i] = true;
       _filledCount++;
@@ -196,6 +206,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
         }
       }
     }
+  }
+
+  void _resetZoom() {
+    _transform.value = Matrix4.identity();
   }
 
   Future<void> _onComplete() async {
@@ -340,54 +354,114 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                               child: Padding(
                                 padding:
                                     const EdgeInsets.fromLTRB(56, 12, 8, 12),
-                                child: InteractiveViewer(
-                                  transformationController: _transform,
-                                  minScale: 0.8,
-                                  maxScale: 5,
-                                  child: Center(
-                                    child: AspectRatio(
-                                      aspectRatio: puzzle.cols / puzzle.rows,
-                                      child: LayoutBuilder(
-                                        builder: (context, constraints) {
-                                          void paintAt(Offset local) {
-                                            final cellW =
-                                                constraints.maxWidth /
-                                                    puzzle.cols;
-                                            final cellH =
-                                                constraints.maxHeight /
-                                                    puzzle.rows;
-                                            final x = (local.dx / cellW)
-                                                .floor()
-                                                .clamp(0, puzzle.cols - 1);
-                                            final y = (local.dy / cellH)
-                                                .floor()
-                                                .clamp(0, puzzle.rows - 1);
-                                            _onCellTap(x, y);
-                                          }
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onDoubleTap: _resetZoom,
+                                  child: InteractiveViewer(
+                                    transformationController: _transform,
+                                    // Ein Finger malt — Pan wäre sonst im Weg.
+                                    // Zoom/Verschieben: zwei Finger (Pinch).
+                                    panEnabled: false,
+                                    scaleEnabled: true,
+                                    minScale: 0.85,
+                                    maxScale: 8,
+                                    boundaryMargin:
+                                        const EdgeInsets.all(400),
+                                    child: Center(
+                                      child: AspectRatio(
+                                        aspectRatio:
+                                            puzzle.cols / puzzle.rows,
+                                        child: LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            void paintAt(
+                                              Offset local, {
+                                              required bool fromDrag,
+                                            }) {
+                                              final cellW =
+                                                  constraints.maxWidth /
+                                                      puzzle.cols;
+                                              final cellH =
+                                                  constraints.maxHeight /
+                                                      puzzle.rows;
+                                              final x = (local.dx / cellW)
+                                                  .floor()
+                                                  .clamp(
+                                                    0,
+                                                    puzzle.cols - 1,
+                                                  );
+                                              final y = (local.dy / cellH)
+                                                  .floor()
+                                                  .clamp(
+                                                    0,
+                                                    puzzle.rows - 1,
+                                                  );
+                                              _onCellTap(
+                                                x,
+                                                y,
+                                                fromDrag: fromDrag,
+                                              );
+                                            }
 
-                                          return Listener(
-                                            behavior: HitTestBehavior.opaque,
-                                            onPointerDown: (e) =>
-                                                paintAt(e.localPosition),
-                                            onPointerMove: (e) {
-                                              if (e.buttons == 0) return;
-                                              paintAt(e.localPosition);
-                                            },
-                                            child: CustomPaint(
-                                              painter: _PixelGridPainter(
-                                                puzzle: puzzle,
-                                                filled: _filled,
-                                                selectedNumber:
-                                                    _selectedNumber,
-                                                paintTick: _paintTick,
+                                            return Listener(
+                                              behavior:
+                                                  HitTestBehavior.opaque,
+                                              onPointerDown: (e) {
+                                                _pointers.add(e.pointer);
+                                                if (_pointers.length > 1) {
+                                                  _paintPointer = null;
+                                                  return;
+                                                }
+                                                _paintPointer = e.pointer;
+                                                _strokeDidPaint = false;
+                                                paintAt(
+                                                  e.localPosition,
+                                                  fromDrag: false,
+                                                );
+                                              },
+                                              onPointerMove: (e) {
+                                                if (_pointers.length != 1) {
+                                                  return;
+                                                }
+                                                if (_paintPointer !=
+                                                    e.pointer) {
+                                                  return;
+                                                }
+                                                if (e.buttons == 0) return;
+                                                paintAt(
+                                                  e.localPosition,
+                                                  fromDrag: true,
+                                                );
+                                              },
+                                              onPointerUp: (e) {
+                                                _pointers.remove(e.pointer);
+                                                if (_paintPointer ==
+                                                    e.pointer) {
+                                                  _paintPointer = null;
+                                                }
+                                              },
+                                              onPointerCancel: (e) {
+                                                _pointers.remove(e.pointer);
+                                                if (_paintPointer ==
+                                                    e.pointer) {
+                                                  _paintPointer = null;
+                                                }
+                                              },
+                                              child: CustomPaint(
+                                                painter: _PixelGridPainter(
+                                                  puzzle: puzzle,
+                                                  filled: _filled,
+                                                  selectedNumber:
+                                                      _selectedNumber,
+                                                  paintTick: _paintTick,
+                                                ),
+                                                size: Size(
+                                                  constraints.maxWidth,
+                                                  constraints.maxHeight,
+                                                ),
                                               ),
-                                              size: Size(
-                                                constraints.maxWidth,
-                                                constraints.maxHeight,
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                            );
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -651,9 +725,12 @@ class _PixelGridPainter extends CustomPainter {
   final int paintTick;
 
   static const _targetGray = Color(0xFF8B95A8);
-  static const _emptyFill = Color(0xFFF7F8FA);
-  static const _numberOnEmpty = Color(0xFF2A3348);
+  static const _numberOnEmpty = Color(0xFF243044);
   static const _numberOnTarget = Color(0xFFFFFFFF);
+
+  /// Fast durchsichtiges fertiges Pixelbild unter den leeren Feldern.
+  static const _ghostAlpha = 0.32;
+  static const _veilAlpha = 0.42;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -661,12 +738,26 @@ class _PixelGridPainter extends CustomPainter {
     final cellH = size.height / puzzle.rows;
     final cellMin = math.min(cellW, cellH);
     final gridPaint = Paint()
-      ..color = const Color(0xFF2A3348).withValues(alpha: 0.4)
+      ..color = const Color(0xFF2A3348).withValues(alpha: 0.35)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = cellMin < 12 ? 0.4 : 0.7;
+      ..strokeWidth = cellMin < 10 ? 0.35 : 0.6;
 
-    final fontSize = (cellMin * 0.55).clamp(5.0, 22.0);
+    final fontSize = (cellMin * 0.52).clamp(4.5, 20.0);
 
+    // 1) Ghost: fertiges verpixeltes Motiv fast durchsichtig darunter.
+    for (var y = 0; y < puzzle.rows; y++) {
+      for (var x = 0; x < puzzle.cols; x++) {
+        final i = y * puzzle.cols + x;
+        final color = puzzle.palette[puzzle.cells[i]].color;
+        final rect = Rect.fromLTWH(x * cellW, y * cellH, cellW, cellH);
+        canvas.drawRect(
+          rect,
+          Paint()..color = color.withValues(alpha: _ghostAlpha),
+        );
+      }
+    }
+
+    // 2) Zellen: ausgefüllt = voll, leer = Schleier + Nummer.
     for (var y = 0; y < puzzle.rows; y++) {
       for (var x = 0; x < puzzle.cols; x++) {
         final i = y * puzzle.cols + x;
@@ -678,46 +769,53 @@ class _PixelGridPainter extends CustomPainter {
           canvas.drawRect(rect, Paint()..color = color);
         } else {
           final isTarget = number == selectedNumber;
-          canvas.drawRect(rect, Paint()..color = _emptyFill);
+          // Heller Schleier, Motiv-Ghost schimmert weiter durch.
           canvas.drawRect(
             rect,
-            Paint()..color = color.withValues(alpha: isTarget ? 0.2 : 0.12),
+            Paint()
+              ..color = Colors.white.withValues(
+                alpha: isTarget ? _veilAlpha * 0.55 : _veilAlpha,
+              ),
           );
           if (isTarget) {
             canvas.drawRect(
               rect,
-              Paint()..color = _targetGray.withValues(alpha: 0.72),
+              Paint()..color = _targetGray.withValues(alpha: 0.55),
             );
           }
 
-          final tp = TextPainter(
-            text: TextSpan(
-              text: '$number',
-              style: TextStyle(
-                color: isTarget ? _numberOnTarget : _numberOnEmpty,
-                fontSize: fontSize,
-                fontWeight: FontWeight.w800,
-                height: 1,
-                shadows: isTarget
-                    ? const [
-                        Shadow(
-                          color: Color(0x66000000),
-                          blurRadius: 2,
-                        ),
-                      ]
-                    : null,
+          if (fontSize >= 4.5) {
+            final tp = TextPainter(
+              text: TextSpan(
+                text: '$number',
+                style: TextStyle(
+                  color: isTarget
+                      ? _numberOnTarget
+                      : _numberOnEmpty.withValues(alpha: 0.88),
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  shadows: isTarget
+                      ? const [
+                          Shadow(
+                            color: Color(0x66000000),
+                            blurRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
               ),
-            ),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
-          )..layout(maxWidth: cellW);
-          tp.paint(
-            canvas,
-            Offset(
-              rect.left + (cellW - tp.width) / 2,
-              rect.top + (cellH - tp.height) / 2,
-            ),
-          );
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+            )..layout(maxWidth: cellW);
+            tp.paint(
+              canvas,
+              Offset(
+                rect.left + (cellW - tp.width) / 2,
+                rect.top + (cellH - tp.height) / 2,
+              ),
+            );
+          }
         }
         canvas.drawRect(rect, gridPaint);
       }
