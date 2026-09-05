@@ -1,132 +1,274 @@
 {
   "coloring_pages": [
     {
-      "path": "assets/coloring_pages/ballerinafee1.png",
+      "path": "assets/coloring_pages/fee_einfach_01.png",
       "width": 1200,
       "height": 1310
     },
     {
-      "path": "assets/coloring_pages/ballerinafee2.png",
+      "path": "assets/coloring_pages/fee_einfach_02.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_03.png",
       "width": 1132,
       "height": 1390
     },
     {
-      "path": "assets/coloring_pages/chatgpt_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_04.png",
       "width": 1254,
       "height": 1254
     },
     {
-      "path": "assets/coloring_pages/eisfee.png",
-      "width": 1023,
-      "height": 1537
+      "path": "assets/coloring_pages/fee_einfach_05.png",
+      "width": 1024,
+      "height": 1536
     },
     {
-      "path": "assets/coloring_pages/feeballerina.png",
+      "path": "assets/coloring_pages/fee_einfach_06.png",
       "width": 1121,
       "height": 1403
     },
     {
-      "path": "assets/coloring_pages/feemitschmetterling.png",
+      "path": "assets/coloring_pages/fee_einfach_07.png",
       "width": 1086,
       "height": 1448
     },
     {
-      "path": "assets/coloring_pages/feetropfen.png",
-      "width": 1266,
-      "height": 1243
-    },
-    {
-      "path": "assets/coloring_pages/fliegende_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_08.png",
       "width": 1254,
       "height": 1254
     },
     {
-      "path": "assets/coloring_pages/galaxy_fee.png",
-      "width": 1408,
-      "height": 768
+      "path": "assets/coloring_pages/fee_einfach_09.png",
+      "width": 1254,
+      "height": 1254
     },
     {
-      "path": "assets/coloring_pages/huebsche_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_10.png",
+      "width": 1086,
+      "height": 1448
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_11.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_12.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/coloring_pages/kristallfee.png",
+      "path": "assets/coloring_pages/fee_einfach_13.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/coloring_pages/lilia_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_14.png",
       "width": 1163,
       "height": 1353
     },
     {
-      "path": "assets/coloring_pages/malende_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_15.png",
       "width": 1254,
       "height": 1254
     },
     {
-      "path": "assets/coloring_pages/mariposa.png",
+      "path": "assets/coloring_pages/fee_einfach_16.png",
       "width": 1604,
       "height": 981
     },
     {
-      "path": "assets/coloring_pages/mariposa2.png",
+      "path": "assets/coloring_pages/fee_einfach_17.png",
       "width": 1692,
-      "height": 929
+      "height": 930
     },
     {
-      "path": "assets/coloring_pages/nachprinzessinfee.png",
+      "path": "assets/coloring_pages/fee_einfach_18.png",
       "width": 1503,
-      "height": 1047
+      "height": 1046
     },
     {
-      "path": "assets/coloring_pages/nachtballet.png",
+      "path": "assets/coloring_pages/fee_einfach_19.png",
       "width": 1132,
       "height": 1390
     },
     {
-      "path": "assets/coloring_pages/nachtfee.png",
+      "path": "assets/coloring_pages/fee_einfach_20.png",
       "width": 1148,
-      "height": 1370
+      "height": 1371
     },
     {
-      "path": "assets/coloring_pages/schoene_fee.png",
+      "path": "assets/coloring_pages/fee_einfach_21.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/coloring_pages/schwanensee.png",
+      "path": "assets/coloring_pages/fee_einfach_22.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_23.png",
+      "width": 1189,
+      "height": 1323
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_24.png",
+      "width": 1442,
+      "height": 1091
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_25.png",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_26.png",
+      "width": 1442,
+      "height": 1091
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_27.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_einfach_28.png",
+      "width": 1536,
+      "height": 1024
+    }
+  ],
+  "print_templates": [
+    {
+      "path": "assets/print_templates/ballerinafee1.png",
+      "width": 1200,
+      "height": 1310
+    },
+    {
+      "path": "assets/print_templates/ballerinafee2.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/print_templates/chatgpt_fee.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/eisfee.png",
+      "width": 1023,
+      "height": 1537
+    },
+    {
+      "path": "assets/print_templates/feeballerina.png",
+      "width": 1121,
+      "height": 1403
+    },
+    {
+      "path": "assets/print_templates/feemitschmetterling.png",
+      "width": 1086,
+      "height": 1448
+    },
+    {
+      "path": "assets/print_templates/feetropfen.png",
+      "width": 1266,
+      "height": 1243
+    },
+    {
+      "path": "assets/print_templates/fliegende_fee.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/galaxy_fee.png",
+      "width": 1408,
+      "height": 768
+    },
+    {
+      "path": "assets/print_templates/huebsche_fee.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/kristallfee.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/lilia_fee.png",
+      "width": 1163,
+      "height": 1353
+    },
+    {
+      "path": "assets/print_templates/malende_fee.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/mariposa.png",
+      "width": 1604,
+      "height": 981
+    },
+    {
+      "path": "assets/print_templates/mariposa2.png",
+      "width": 1692,
+      "height": 929
+    },
+    {
+      "path": "assets/print_templates/nachprinzessinfee.png",
+      "width": 1503,
+      "height": 1047
+    },
+    {
+      "path": "assets/print_templates/nachtballet.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/print_templates/nachtfee.png",
+      "width": 1148,
+      "height": 1370
+    },
+    {
+      "path": "assets/print_templates/schoene_fee.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/schwanensee.png",
       "width": 1188,
       "height": 1324
     },
     {
-      "path": "assets/coloring_pages/schwanensee_theater.png",
+      "path": "assets/print_templates/schwanensee_theater.png",
       "width": 1123,
       "height": 1401
     },
     {
-      "path": "assets/coloring_pages/waldballerina.png",
+      "path": "assets/print_templates/waldballerina.png",
       "width": 1690,
       "height": 931
     },
     {
-      "path": "assets/coloring_pages/waldballerina2.png",
+      "path": "assets/print_templates/waldballerina2.png",
       "width": 1680,
       "height": 936
     },
     {
-      "path": "assets/coloring_pages/waldfee1.png",
+      "path": "assets/print_templates/waldfee1.png",
       "width": 1693,
       "height": 929
     },
     {
-      "path": "assets/coloring_pages/wasserfee.png",
+      "path": "assets/print_templates/wasserfee.png",
       "width": 1654,
       "height": 951
     },
     {
-      "path": "assets/coloring_pages/wasserfee_schoen.png",
+      "path": "assets/print_templates/wasserfee_schoen.png",
       "width": 1122,
       "height": 1402
     }

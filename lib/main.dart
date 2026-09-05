@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
+import 'providers/pixel_mode_unlock_store.dart';
+import 'providers/pixel_progress_store.dart';
 import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
 
@@ -26,10 +28,18 @@ Future<void> main() async {
   final progress = ColoringProgressStore();
   await progress.load();
 
+  final pixelUnlock = PixelModeUnlockStore();
+  await pixelUnlock.load();
+
+  final pixelProgress = PixelProgressStore();
+  await pixelProgress.load();
+
   runApp(
     FantasyColorApp(
       favorites: favorites,
       progress: progress,
+      pixelUnlock: pixelUnlock,
+      pixelProgress: pixelProgress,
     ),
   );
 }
@@ -39,11 +49,15 @@ class FantasyColorApp extends StatelessWidget {
     super.key,
     this.favorites,
     this.progress,
+    this.pixelUnlock,
+    this.pixelProgress,
   });
 
   /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
   final FavoritesStore? favorites;
   final ColoringProgressStore? progress;
+  final PixelModeUnlockStore? pixelUnlock;
+  final PixelProgressStore? pixelProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +69,12 @@ class FantasyColorApp extends StatelessWidget {
         ),
         ChangeNotifierProvider.value(
           value: progress ?? ColoringProgressStore(),
+        ),
+        ChangeNotifierProvider.value(
+          value: pixelUnlock ?? PixelModeUnlockStore(),
+        ),
+        ChangeNotifierProvider.value(
+          value: pixelProgress ?? PixelProgressStore(),
         ),
       ],
       child: MaterialApp(

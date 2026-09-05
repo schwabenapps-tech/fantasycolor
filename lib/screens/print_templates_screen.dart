@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../data/coloring_pages_loader.dart';
+import '../data/print_templates_loader.dart';
 import '../models/coloring_page.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
@@ -25,7 +25,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
   @override
   void initState() {
     super.initState();
-    _pagesFuture = loadColoringPages(shuffle: false);
+    _pagesFuture = loadPrintTemplates(shuffle: false);
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),

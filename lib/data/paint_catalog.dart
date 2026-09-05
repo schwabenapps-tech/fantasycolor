@@ -66,14 +66,41 @@ class PaintSwatch {
     required this.id,
     required this.color,
     required this.category,
+    this.number,
   });
 
   final String id;
   final Color color;
   final PaintCategory category;
+
+  /// Nur bei Pixel-/Malen-nach-Zahlen: Nummer auf dem Feld (1…n).
+  final int? number;
+
+  bool get isNumbered => number != null;
 }
 
-/// Feste Fantasy-Paletten je Kategorie.
+/// Filter im Malbereich: klassisch vs. Pixel nach Zahlen.
+enum MalenFilter {
+  einfach,
+  fortgeschritten;
+
+  String get label => switch (this) {
+        MalenFilter.einfach => 'Einfach',
+        MalenFilter.fortgeschritten => 'Fortgeschritten',
+      };
+
+  String get hint => switch (this) {
+        MalenFilter.einfach => 'Ausmalen mit Pinsel & Stift',
+        MalenFilter.fortgeschritten => 'Pixel · Malen nach Zahlen',
+      };
+
+  IconData get icon => switch (this) {
+        MalenFilter.einfach => Icons.brush_rounded,
+        MalenFilter.fortgeschritten => Icons.grid_on_rounded,
+      };
+}
+
+/// Feste Fantasy-Paletten je Kategorie + dynamische Bild-Paletten.
 class PaintCatalog {
   PaintCatalog._();
 
@@ -87,6 +114,22 @@ class PaintCatalog {
           id: '${category.name}_$i',
           color: colors[i],
           category: category,
+        ),
+    ];
+  }
+
+  /// Nummerierte Swatches aus den echten Farben eines Pixelbilds.
+  ///
+  /// Erscheinen in der Leiste wie normale Malfarben — aber nur die
+  /// Farben, die für genau dieses Bild vorgesehen sind.
+  static List<PaintSwatch> numberedFromImageColors(List<Color> colors) {
+    return [
+      for (var i = 0; i < colors.length; i++)
+        PaintSwatch(
+          id: 'pixel_img_${i + 1}',
+          color: colors[i],
+          category: PaintCategory.solid,
+          number: i + 1,
         ),
     ];
   }

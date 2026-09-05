@@ -6,6 +6,9 @@ import '../models/coloring_page.dart';
 import 'asset_dimensions.dart';
 
 /// Lädt alle PNG-Ausmalbilder aus `assets/coloring_pages/`.
+///
+/// Das sind die einfacheren Motive zum digitalen Ausmalen.
+/// Die ausführlicheren Motive liegen unter `assets/print_templates/`.
 Future<List<ColoringPage>> loadColoringPages({
   bool shuffle = true,
   Random? random,

@@ -9,6 +9,7 @@ import 'ads_config.dart';
 ///
 /// Während des Malens/Puzzles: keine Werbung.
 /// Beim Verlassen (Zurück) oder Abschluss: optional ein Interstitial.
+/// Freischalten des Pixel-Modus: einmalig Interstitial, dann persistiert.
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
 class AdsService {
   AdsService._();

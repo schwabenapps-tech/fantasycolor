@@ -82,6 +82,7 @@ flutter:
   assets:
     - assets/images/
     - assets/coloring_pages/
+    - assets/print_templates/
     - assets/puzzle_images/
     - assets/sounds/
     - assets/asset_dimensions.json

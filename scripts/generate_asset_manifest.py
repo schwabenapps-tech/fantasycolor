@@ -69,11 +69,17 @@ def collect(folder: str) -> list[dict[str, object]]:
 def main() -> None:
     manifest = {
         "coloring_pages": collect("assets/coloring_pages"),
+        "print_templates": collect("assets/print_templates"),
         "puzzle_images": collect("assets/puzzle_images"),
     }
     out = ROOT / "assets" / "asset_dimensions.json"
     out.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote {out} ({len(manifest['coloring_pages'])} coloring, {len(manifest['puzzle_images'])} puzzle)")
+    print(
+        f"Wrote {out} "
+        f"({len(manifest['coloring_pages'])} coloring, "
+        f"{len(manifest['print_templates'])} print, "
+        f"{len(manifest['puzzle_images'])} puzzle)"
+    )
 
 
 if __name__ == "__main__":

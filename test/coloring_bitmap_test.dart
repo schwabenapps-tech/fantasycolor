@@ -7,7 +7,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('loads png and flood-fills a light region', () async {
-    final bitmap = await ColoringBitmap.load('assets/coloring_pages/wasserfee.png');
+    final bitmap = await ColoringBitmap.load('assets/print_templates/wasserfee.png');
     expect(bitmap.width, greaterThan(100));
     expect(bitmap.height, greaterThan(100));
 
