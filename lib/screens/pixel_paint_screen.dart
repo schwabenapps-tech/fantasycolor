@@ -36,7 +36,7 @@ class PixelPaintScreen extends StatefulWidget {
 }
 
 class _PixelPaintScreenState extends State<PixelPaintScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   Future<PixelPuzzle>? _puzzleFuture;
   PixelPuzzle? _puzzle;
   List<PaintSwatch> _swatches = const [];
@@ -48,6 +48,9 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   bool _showFinishActions = false;
   bool _exitAdShown = false;
   bool _saveInFlight = false;
+  bool _saveDirty = false;
+  bool _saveCompletedFlag = false;
+  Future<void>? _activeSave;
   Timer? _autoSaveTimer;
   Uint8List? _finishedPng;
   late final AnimationController _celebrateController;
@@ -61,11 +64,21 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _celebrateController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     );
     _puzzleFuture = _load();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      unawaited(_persistProgress(completed: false));
+    }
   }
 
   Future<PixelPuzzle> _load() async {
@@ -111,6 +124,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoSaveTimer?.cancel();
     _celebrateController.dispose();
     _transform.dispose();
@@ -120,39 +134,67 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   void _scheduleAutoSave() {
     if (_filledCount == 0 || _celebrating) return;
     _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(milliseconds: 800), () {
+    // Mittel/Schwer: Vorschau-Render dauert länger — etwas mehr Debounce,
+    // aber nie Saves verwerfen (siehe _persistProgress-Warteschlange).
+    _autoSaveTimer = Timer(const Duration(milliseconds: 600), () {
       unawaited(_persistProgress(completed: false));
     });
   }
 
+  /// Speichert zuverlässig auch bei vielen Pixeln: parallele Aufrufe werden
+  /// nicht verworfen, sondern nach dem laufenden Save nochmal mit aktuellem Stand geschrieben.
   Future<void> _persistProgress({required bool completed}) async {
     final puzzle = _puzzle;
     if (puzzle == null || _filledCount == 0) return;
-    if (_saveInFlight) return;
+
+    if (completed) _saveCompletedFlag = true;
+    _saveDirty = true;
+
+    if (_saveInFlight) {
+      return _activeSave ?? Future<void>.value();
+    }
+
     _saveInFlight = true;
+    final done = Completer<void>();
+    _activeSave = done.future;
     try {
-      final snapshot = PixelProgressSnapshot.fromPuzzle(
-        pageId: widget.page.id,
-        puzzle: puzzle,
-        filled: _filled,
-        selectedNumber: _selectedNumber,
-        completed: completed || _filledCount >= puzzle.totalCells,
-      );
-      final preview = await PixelExporter.renderPreviewWithCanvas(
-        puzzle: puzzle,
-        filled: completed
-            ? List<bool>.filled(puzzle.totalCells, true)
-            : _filled,
-      );
-      if (!mounted) return;
-      await context.read<PixelProgressStore>().saveSnapshot(
-            snapshot,
-            previewPng: preview,
-          );
+      while (_saveDirty) {
+        if (!mounted) break;
+        _saveDirty = false;
+        final markCompleted = _saveCompletedFlag ||
+            _filledCount >= puzzle.totalCells;
+        // Snapshot jetzt — nicht den Stand vom Save-Start einer älteren Runde.
+        final filledCopy = List<bool>.from(_filled);
+        final selected = _selectedNumber;
+        final snapshot = PixelProgressSnapshot.fromPuzzle(
+          pageId: widget.page.id,
+          puzzle: puzzle,
+          filled: filledCopy,
+          selectedNumber: selected,
+          completed: markCompleted,
+        );
+        final preview = await PixelExporter.renderPreviewWithCanvas(
+          puzzle: puzzle,
+          filled: markCompleted
+              ? List<bool>.filled(puzzle.totalCells, true)
+              : filledCopy,
+        );
+        if (!mounted) break;
+        await context.read<PixelProgressStore>().saveSnapshot(
+              snapshot,
+              previewPng: preview,
+            );
+      }
     } catch (e, st) {
       debugPrint('Pixel progress save failed: $e\n$st');
     } finally {
       _saveInFlight = false;
+      _activeSave = null;
+      if (!done.isCompleted) done.complete();
+      // Falls während finally noch Dirty gesetzt wurde: nochmal speichern.
+      if (_saveDirty && mounted && _filledCount > 0) {
+        unawaited(_persistProgress(completed: _saveCompletedFlag));
+      }
     }
   }
 
@@ -165,6 +207,12 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Future<void> _leave() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(completed: false);
+    // Warte auf evtl. Nachzieh-Save (Mittel hat große Raster → langsam).
+    var guard = 0;
+    while (_saveInFlight && guard < 5) {
+      guard++;
+      await (_activeSave ?? Future<void>.value());
+    }
     await _showExitAdOnce();
     if (mounted) Navigator.of(context).pop();
   }

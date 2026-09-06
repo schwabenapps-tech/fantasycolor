@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,9 +8,11 @@ import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
 import '../providers/pixel_mode_unlock_store.dart';
+import '../providers/pixel_progress_store.dart';
 import '../services/ads_service.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
+import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'pixel_paint_screen.dart';
 
@@ -53,8 +57,38 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
 
   Future<void> _openPage(ColoringPage page) async {
     HapticFeedback.selectionClick();
+    final store = context.read<PixelProgressStore>();
+    final existing = await store.loadSnapshot(page.id);
+
+    if (!mounted) return;
+
+    if (existing != null && !existing.completed && existing.filledCount > 0) {
+      await Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          transitionDuration: const Duration(milliseconds: 420),
+          reverseTransitionDuration: const Duration(milliseconds: 280),
+          pageBuilder: (context, animation, secondaryAnimation) {
+            return FadeTransition(
+              opacity: animation,
+              child: PixelPaintScreen(
+                page: page,
+                difficulty: existing.difficulty,
+                resumeSnapshot: existing,
+              ),
+            );
+          },
+        ),
+      );
+      return;
+    }
+
     final difficulty = await pickPixelDifficulty(context);
     if (difficulty == null || !mounted) return;
+
+    if (existing != null) {
+      await store.clearProgress(page.id);
+    }
+    if (!mounted) return;
 
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -165,10 +199,20 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                                       SizedBox(width: size.width * 0.03),
                                   itemBuilder: (context, index) {
                                     final page = pages[index];
+                                    final pixelProgress =
+                                        context.watch<PixelProgressStore>();
                                     return _PixelPageTile(
                                       page: page,
                                       width: tileWidth,
                                       height: tileHeight,
+                                      hasProgress:
+                                          pixelProgress.hasProgress(page.id),
+                                      isCompleted:
+                                          pixelProgress.isCompleted(page.id),
+                                      progressVersion:
+                                          pixelProgress.versionOf(page.id),
+                                      previewFile: pixelProgress
+                                          .previewFileFor(page.id),
                                       onTap: () => _openPage(page),
                                     );
                                   },
@@ -491,12 +535,20 @@ class _PixelPageTile extends StatelessWidget {
     required this.page,
     required this.width,
     required this.height,
+    required this.hasProgress,
+    required this.isCompleted,
+    required this.progressVersion,
+    required this.previewFile,
     required this.onTap,
   });
 
   final ColoringPage page;
   final double width;
   final double height;
+  final bool hasProgress;
+  final bool isCompleted;
+  final int progressVersion;
+  final File? previewFile;
   final VoidCallback onTap;
 
   @override
@@ -537,15 +589,43 @@ class _PixelPageTile extends StatelessWidget {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: ColoringPageImage(
-                    page: page,
-                    fit: BoxFit.cover,
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
+                    child: ColoredBox(
+                      color: Colors.white,
+                      child: previewFile != null
+                          ? Image.file(
+                              previewFile!,
+                              key: ValueKey(
+                                'pixel_preview_${page.id}_$progressVersion',
+                              ),
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                              errorBuilder: (_, _, _) => ColoringPageImage(
+                                page: page,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : ColoringPageImage(
+                              page: page,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                    ),
                   ),
                 ),
+                if (hasProgress)
+                  Positioned(
+                    left: 10,
+                    bottom: 10,
+                    child: ProgressBadge(
+                      label: isCompleted ? 'Fertig' : 'Weiter',
+                      done: isCompleted,
+                    ),
+                  ),
                 Positioned(
                   right: 8,
-                  bottom: 8,
+                  top: 8,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
