@@ -450,63 +450,92 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                               );
                                             }
 
-                                            return Listener(
-                                              behavior:
-                                                  HitTestBehavior.opaque,
-                                              onPointerDown: (e) {
-                                                _pointers.add(e.pointer);
-                                                if (_pointers.length > 1) {
-                                                  _paintPointer = null;
-                                                  return;
-                                                }
-                                                _paintPointer = e.pointer;
-                                                _strokeDidPaint = false;
-                                                paintAt(
-                                                  e.localPosition,
-                                                  fromDrag: false,
-                                                );
-                                              },
-                                              onPointerMove: (e) {
-                                                if (_pointers.length != 1) {
-                                                  return;
-                                                }
-                                                if (_paintPointer !=
-                                                    e.pointer) {
-                                                  return;
-                                                }
-                                                if (e.buttons == 0) return;
-                                                paintAt(
-                                                  e.localPosition,
-                                                  fromDrag: true,
-                                                );
-                                              },
-                                              onPointerUp: (e) {
-                                                _pointers.remove(e.pointer);
-                                                if (_paintPointer ==
-                                                    e.pointer) {
-                                                  _paintPointer = null;
-                                                }
-                                              },
-                                              onPointerCancel: (e) {
-                                                _pointers.remove(e.pointer);
-                                                if (_paintPointer ==
-                                                    e.pointer) {
-                                                  _paintPointer = null;
-                                                }
-                                              },
-                                              child: CustomPaint(
-                                                painter: _PixelGridPainter(
-                                                  puzzle: puzzle,
-                                                  filled: _filled,
-                                                  selectedNumber:
-                                                      _selectedNumber,
-                                                  paintTick: _paintTick,
+                                            return Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                // Originalfoto fast durchsichtig unter dem Raster —
+                                                // Motiv bleibt immer erkennbar (auch Hochkant).
+                                                Opacity(
+                                                  opacity: 0.38,
+                                                  child: Image.asset(
+                                                    widget.page.assetPath,
+                                                    fit: BoxFit.fill,
+                                                    filterQuality:
+                                                        FilterQuality.medium,
+                                                    gaplessPlayback: true,
+                                                  ),
                                                 ),
-                                                size: Size(
-                                                  constraints.maxWidth,
-                                                  constraints.maxHeight,
+                                                // Leichter heller Schleier, Zahlen bleiben lesbar.
+                                                ColoredBox(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.2),
                                                 ),
-                                              ),
+                                                Listener(
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
+                                                  onPointerDown: (e) {
+                                                    _pointers.add(e.pointer);
+                                                    if (_pointers.length >
+                                                        1) {
+                                                      _paintPointer = null;
+                                                      return;
+                                                    }
+                                                    _paintPointer = e.pointer;
+                                                    _strokeDidPaint = false;
+                                                    paintAt(
+                                                      e.localPosition,
+                                                      fromDrag: false,
+                                                    );
+                                                  },
+                                                  onPointerMove: (e) {
+                                                    if (_pointers.length !=
+                                                        1) {
+                                                      return;
+                                                    }
+                                                    if (_paintPointer !=
+                                                        e.pointer) {
+                                                      return;
+                                                    }
+                                                    if (e.buttons == 0) {
+                                                      return;
+                                                    }
+                                                    paintAt(
+                                                      e.localPosition,
+                                                      fromDrag: true,
+                                                    );
+                                                  },
+                                                  onPointerUp: (e) {
+                                                    _pointers
+                                                        .remove(e.pointer);
+                                                    if (_paintPointer ==
+                                                        e.pointer) {
+                                                      _paintPointer = null;
+                                                    }
+                                                  },
+                                                  onPointerCancel: (e) {
+                                                    _pointers
+                                                        .remove(e.pointer);
+                                                    if (_paintPointer ==
+                                                        e.pointer) {
+                                                      _paintPointer = null;
+                                                    }
+                                                  },
+                                                  child: CustomPaint(
+                                                    painter:
+                                                        _PixelGridPainter(
+                                                      puzzle: puzzle,
+                                                      filled: _filled,
+                                                      selectedNumber:
+                                                          _selectedNumber,
+                                                      paintTick: _paintTick,
+                                                    ),
+                                                    size: Size(
+                                                      constraints.maxWidth,
+                                                      constraints.maxHeight,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             );
                                           },
                                         ),
@@ -776,9 +805,8 @@ class _PixelGridPainter extends CustomPainter {
   static const _numberOnEmpty = Color(0xFF243044);
   static const _numberOnTarget = Color(0xFFFFFFFF);
 
-  /// Fast durchsichtiges fertiges Pixelbild unter den leeren Feldern.
-  static const _ghostAlpha = 0.32;
-  static const _veilAlpha = 0.42;
+  /// Leerer Schleier — Originalfoto darunter bleibt sichtbar.
+  static const _veilAlpha = 0.28;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -792,20 +820,8 @@ class _PixelGridPainter extends CustomPainter {
 
     final fontSize = (cellMin * 0.52).clamp(4.5, 20.0);
 
-    // 1) Ghost: fertiges verpixeltes Motiv fast durchsichtig darunter.
-    for (var y = 0; y < puzzle.rows; y++) {
-      for (var x = 0; x < puzzle.cols; x++) {
-        final i = y * puzzle.cols + x;
-        final color = puzzle.palette[puzzle.cells[i]].color;
-        final rect = Rect.fromLTWH(x * cellW, y * cellH, cellW, cellH);
-        canvas.drawRect(
-          rect,
-          Paint()..color = color.withValues(alpha: _ghostAlpha),
-        );
-      }
-    }
-
-    // 2) Zellen: ausgefüllt = voll, leer = Schleier + Nummer.
+    // Zellen: ausgefüllt = voll, leer = leichter Schleier + Nummer
+    // (Originalfoto liegt als Widget darunter).
     for (var y = 0; y < puzzle.rows; y++) {
       for (var x = 0; x < puzzle.cols; x++) {
         final i = y * puzzle.cols + x;
@@ -817,18 +833,17 @@ class _PixelGridPainter extends CustomPainter {
           canvas.drawRect(rect, Paint()..color = color);
         } else {
           final isTarget = number == selectedNumber;
-          // Heller Schleier, Motiv-Ghost schimmert weiter durch.
           canvas.drawRect(
             rect,
             Paint()
               ..color = Colors.white.withValues(
-                alpha: isTarget ? _veilAlpha * 0.55 : _veilAlpha,
+                alpha: isTarget ? _veilAlpha * 0.4 : _veilAlpha,
               ),
           );
           if (isTarget) {
             canvas.drawRect(
               rect,
-              Paint()..color = _targetGray.withValues(alpha: 0.55),
+              Paint()..color = _targetGray.withValues(alpha: 0.4),
             );
           }
 
@@ -850,7 +865,12 @@ class _PixelGridPainter extends CustomPainter {
                             blurRadius: 2,
                           ),
                         ]
-                      : null,
+                      : const [
+                          Shadow(
+                            color: Color(0x55FFFFFF),
+                            blurRadius: 2,
+                          ),
+                        ],
                 ),
               ),
               textAlign: TextAlign.center,

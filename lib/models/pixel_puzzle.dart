@@ -1,39 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// Schwierigkeit für Malen-nach-Zahlen (Pixel).
+/// Pixel-/Malen-nach-Zahlen — ein Modus, der das Motiv möglichst erkennbar hält.
+///
+/// Ältere Saves können noch `easy`/`medium`/`hard` speichern; beim Laden
+/// werden sie auf [standard] gemappt. Raster/Zellen kommen aus dem Snapshot.
 enum PixelDifficulty {
-  easy,
-  medium,
-  hard;
+  standard;
 
-  String get label => switch (this) {
-        PixelDifficulty.easy => 'Leicht',
-        PixelDifficulty.medium => 'Mittel',
-        PixelDifficulty.hard => 'Schwer',
-      };
+  /// Feines Raster: längere Seite — Motiv bleibt gut erkennbar.
+  int get maxSide => 96;
 
-  /// Zielbreite des Rasters in Zellen (Querformat).
-  int get targetCols => maxSide;
+  int get colorCount => 20;
 
-  /// Längere Seite des Rasters — gesamtes Bild proportional hinein.
-  /// Feiner = Motiv bleibt erkennbar.
-  int get maxSide => switch (this) {
-        PixelDifficulty.easy => 56,
-        PixelDifficulty.medium => 72,
-        PixelDifficulty.hard => 96,
-      };
-
-  int get colorCount => switch (this) {
-        PixelDifficulty.easy => 14,
-        PixelDifficulty.medium => 18,
-        PixelDifficulty.hard => 24,
-      };
-
-  String get hint => switch (this) {
-        PixelDifficulty.easy => 'Fein · Motiv gut erkennbar',
-        PixelDifficulty.medium => 'Sehr fein · mehr Details',
-        PixelDifficulty.hard => 'Ultrafein · viele Farben',
-      };
+  /// Für Fortschritts-JSON und alte Speichernamen (`easy`/`medium`/`hard`).
+  static PixelDifficulty fromStorageName(String? _) =>
+      PixelDifficulty.standard;
 }
 
 /// Eine Farbe in der Malen-nach-Zahlen-Palette (Nummer 1…n).

@@ -8,6 +8,7 @@ import '../data/coloring_pages_loader.dart';
 import '../data/paint_catalog.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
+import '../models/pixel_puzzle.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
 import '../providers/pixel_mode_unlock_store.dart';
@@ -114,7 +115,7 @@ class _GalleryScreenState extends State<GalleryScreen>
               opacity: animation,
               child: PixelPaintScreen(
                 page: page,
-                difficulty: existing.difficulty,
+                difficulty: PixelDifficulty.standard,
                 resumeSnapshot: existing,
               ),
             );
@@ -123,9 +124,6 @@ class _GalleryScreenState extends State<GalleryScreen>
       );
       return;
     }
-
-    final difficulty = await pickPixelDifficulty(context);
-    if (difficulty == null || !mounted) return;
 
     // Neustart: alten Stand verwerfen.
     if (existing != null) {
@@ -142,7 +140,7 @@ class _GalleryScreenState extends State<GalleryScreen>
             opacity: animation,
             child: PixelPaintScreen(
               page: page,
-              difficulty: difficulty,
+              difficulty: PixelDifficulty.standard,
             ),
           );
         },

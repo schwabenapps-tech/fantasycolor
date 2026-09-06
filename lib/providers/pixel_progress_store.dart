@@ -196,11 +196,8 @@ class PixelProgressSnapshot {
     final filledRaw = (json['filled'] as List<dynamic>? ?? const [])
         .map((e) => e == 1 || e == true)
         .toList(growable: false);
-    final difficultyName = json['difficulty'] as String? ?? 'medium';
-    final difficulty = PixelDifficulty.values.firstWhere(
-      (d) => d.name == difficultyName,
-      orElse: () => PixelDifficulty.medium,
-    );
+    final difficultyName = json['difficulty'] as String? ?? 'standard';
+    final difficulty = PixelDifficulty.fromStorageName(difficultyName);
     return PixelProgressSnapshot(
       pageId: json['pageId'] as String? ?? '',
       difficulty: difficulty,

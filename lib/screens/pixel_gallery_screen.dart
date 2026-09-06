@@ -72,7 +72,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
               opacity: animation,
               child: PixelPaintScreen(
                 page: page,
-                difficulty: existing.difficulty,
+                difficulty: PixelDifficulty.standard,
                 resumeSnapshot: existing,
               ),
             );
@@ -81,9 +81,6 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
       );
       return;
     }
-
-    final difficulty = await pickPixelDifficulty(context);
-    if (difficulty == null || !mounted) return;
 
     if (existing != null) {
       await store.clearProgress(page.id);
@@ -99,7 +96,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
             opacity: animation,
             child: PixelPaintScreen(
               page: page,
-              difficulty: difficulty,
+              difficulty: PixelDifficulty.standard,
             ),
           );
         },
@@ -271,148 +268,6 @@ Future<void> openPixelModeFromGallery(BuildContext context) async {
         );
       },
     ),
-  );
-}
-
-Future<PixelDifficulty?> pickPixelDifficulty(BuildContext context) {
-  var draft = PixelDifficulty.medium;
-  return showGeneralDialog<PixelDifficulty>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Schwierigkeit',
-    barrierColor: Colors.black.withValues(alpha: 0.55),
-    transitionDuration: const Duration(milliseconds: 280),
-    pageBuilder: (context, anim, secondary) => const SizedBox.shrink(),
-    transitionBuilder: (context, anim, secondary, child) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
-      return FadeTransition(
-        opacity: anim,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
-          child: StatefulBuilder(
-            builder: (context, setSheetState) {
-              return Center(
-                child: Material(
-                  color: Colors.transparent,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.72,
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(28),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF2B3B66),
-                            Color(0xFF1A2744),
-                            Color(0xFF121C33),
-                          ],
-                        ),
-                        border: Border.all(
-                          color:
-                              const Color(0xFFFFD56A).withValues(alpha: 0.55),
-                          width: 1.6,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD56A)
-                                .withValues(alpha: 0.2),
-                            blurRadius: 28,
-                            spreadRadius: 1,
-                          ),
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 30,
-                            offset: const Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Pixel-Zauber',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Color(0xFFFFE7A0),
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Wie detailreich soll dein Pixelbild sein?',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: [
-                                for (final d in PixelDifficulty.values)
-                                  _PixelChip(
-                                    label: d.label,
-                                    selected: draft == d,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setSheetState(() => draft = d);
-                                    },
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              draft.hint,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.55),
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _PixelDialogButton(
-                                    label: 'Zurück',
-                                    filled: false,
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _PixelDialogButton(
-                                    label: 'Los geht\'s!',
-                                    filled: true,
-                                    onPressed: () =>
-                                        Navigator.pop(context, draft),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      );
-    },
   );
 }
 
@@ -656,61 +511,6 @@ class _PixelPageTile extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PixelChip extends StatelessWidget {
-  const _PixelChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: selected
-                ? LinearGradient(
-                    colors: [
-                      const Color(0xFFFFD56A).withValues(alpha: 0.35),
-                      const Color(0xFFFFB347).withValues(alpha: 0.22),
-                    ],
-                  )
-                : null,
-            color: selected ? null : Colors.white.withValues(alpha: 0.07),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFFFFD56A)
-                  : Colors.white.withValues(alpha: 0.2),
-              width: selected ? 1.6 : 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? const Color(0xFFFFE7A0)
-                  : Colors.white.withValues(alpha: 0.85),
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ),
