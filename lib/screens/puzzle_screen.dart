@@ -411,7 +411,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   Future<void> _showExitAdOnce() async {
     if (_exitAdShown) return;
     _exitAdShown = true;
-    await AdsService.showInterstitial();
+    await AdsService.showExitInterstitial();
   }
 
   Future<void> _leavePuzzle() async {

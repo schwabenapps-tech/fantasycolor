@@ -8,8 +8,8 @@ import 'ads_config.dart';
 /// Interstitials für Fantasy Color (Kids-Mode / kindgerechte Ads).
 ///
 /// Während des Malens/Puzzles: keine Werbung.
-/// Beim Verlassen (Zurück) oder Abschluss: optional ein Interstitial.
-/// Freischalten des Pixel-Modus: einmalig Interstitial, dann persistiert.
+/// Beim Verlassen oder Abschluss: nur jedes **zweite** Mal ein Interstitial.
+/// Freischalten des Pixel-Modus: einmalig Interstitial (`showInterstitial`), dann persistiert.
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
 class AdsService {
   AdsService._();
@@ -18,6 +18,9 @@ class AdsService {
   static InterstitialAd? _interstitial;
   static bool _loading = false;
   static bool _showing = false;
+
+  /// Zählt Verlassen/Erledigt — Ad erst beim 2., 4., 6. … Mal.
+  static int _exitOrFinishCount = 0;
 
   static bool get isReady => _initialized;
 
@@ -66,7 +69,18 @@ class AdsService {
     }
   }
 
+  /// Verlassen oder Fertig: nur jedes zweite Mal Werbung zeigen.
+  static Future<void> showExitInterstitial() async {
+    _exitOrFinishCount++;
+    if (_exitOrFinishCount % 2 != 0) {
+      unawaited(preloadInterstitial());
+      return;
+    }
+    await showInterstitial();
+  }
+
   /// Zeigt ein Interstitial, falls geladen — sonst sofort return.
+  /// Für Freischaltungen o.Ä., die immer Werbung brauchen.
   static Future<void> showInterstitial() async {
     if (!_initialized || _showing) return;
 

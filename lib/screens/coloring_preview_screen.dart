@@ -122,7 +122,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   Future<void> _showExitAdOnce() async {
     if (_exitAdShown) return;
     _exitAdShown = true;
-    await AdsService.showInterstitial();
+    await AdsService.showExitInterstitial();
   }
 
   Future<void> _leaveScreen() async {

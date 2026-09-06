@@ -86,7 +86,7 @@ enum MalenFilter {
 
   String get label => switch (this) {
         MalenFilter.einfach => 'Einfach',
-        MalenFilter.fortgeschritten => 'Fortgeschritten',
+        MalenFilter.fortgeschritten => 'Pixel Art',
       };
 
   String get hint => switch (this) {

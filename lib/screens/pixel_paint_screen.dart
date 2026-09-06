@@ -201,7 +201,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Future<void> _showExitAdOnce() async {
     if (_exitAdShown) return;
     _exitAdShown = true;
-    await AdsService.showInterstitial();
+    await AdsService.showExitInterstitial();
   }
 
   Future<void> _leave() async {
