@@ -1,15 +1,24 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
+import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
+import '../models/pixel_puzzle.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_progress_store.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
+import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
+import 'pixel_paint_screen.dart';
 
-/// Rasteransicht aller favorisierten Ausmalbilder.
+/// Rasteransicht: favorisierte Ausmalbilder + fertige Pixelbilder.
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -20,15 +29,21 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
-  late final Future<List<ColoringPage>> _pagesFuture;
+  late final Future<_FavoriteCatalog> _catalogFuture;
 
   @override
   void initState() {
     super.initState();
-    _pagesFuture = loadColoringPages(shuffle: false);
+    _catalogFuture = _loadCatalog();
   }
 
-  void _openPage(ColoringPage page) {
+  Future<_FavoriteCatalog> _loadCatalog() async {
+    final coloring = await loadColoringPages(shuffle: false);
+    final pixels = await loadPuzzleImages(shuffle: false);
+    return _FavoriteCatalog(coloring: coloring, pixels: pixels);
+  }
+
+  void _openColoringPage(ColoringPage page) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
@@ -43,10 +58,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
+  Future<void> _openCompletedPixel(ColoringPage page) async {
+    HapticFeedback.selectionClick();
+    final store = context.read<PixelProgressStore>();
+    final existing = await store.loadSnapshot(page.id);
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: PixelPaintScreen(
+              page: page,
+              difficulty: PixelDifficulty.standard,
+              resumeSnapshot: existing,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final favorites = context.watch<FavoritesStore>();
+    final pixelProgress = context.watch<PixelProgressStore>();
 
     return Scaffold(
       body: Stack(
@@ -94,8 +134,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   ),
                 ),
                 Expanded(
-                  child: FutureBuilder<List<ColoringPage>>(
-                    future: _pagesFuture,
+                  child: FutureBuilder<_FavoriteCatalog>(
+                    future: _catalogFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
                         return const Center(
@@ -110,12 +150,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         );
                       }
 
-                      final allPages = snapshot.data ?? const <ColoringPage>[];
-                      final pages = allPages
-                          .where((page) => favorites.isFavorite(page.id))
-                          .toList(growable: false);
+                      final catalog = snapshot.data ??
+                          const _FavoriteCatalog(
+                            coloring: [],
+                            pixels: [],
+                          );
+                      final entries = <_FavoriteEntry>[
+                        for (final page in catalog.coloring)
+                          if (favorites.isFavorite(page.id))
+                            _FavoriteEntry.coloring(page),
+                        for (final page in catalog.pixels)
+                          if (pixelProgress.isCompleted(page.id))
+                            _FavoriteEntry.pixel(
+                              page,
+                              previewFile:
+                                  pixelProgress.previewFileFor(page.id),
+                              progressVersion:
+                                  pixelProgress.versionOf(page.id),
+                            ),
+                      ];
 
-                      if (pages.isEmpty) {
+                      if (entries.isEmpty) {
                         return Center(
                           child: Text(
                             'Noch keine Favoriten gespeichert',
@@ -147,14 +202,25 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           crossAxisSpacing: 16,
                           childAspectRatio: 0.78,
                         ),
-                        itemCount: pages.length,
+                        itemCount: entries.length,
                         itemBuilder: (context, index) {
-                          final page = pages[index];
+                          final entry = entries[index];
+                          if (entry.isPixel) {
+                            return _FavoritePixelTile(
+                              page: entry.page,
+                              previewFile: entry.previewFile,
+                              progressVersion: entry.progressVersion,
+                              onOpen: () => unawaited(
+                                _openCompletedPixel(entry.page),
+                              ),
+                            );
+                          }
                           return _FavoriteGridTile(
-                            page: page,
-                            isFavorite: favorites.isFavorite(page.id),
-                            onOpen: () => _openPage(page),
-                            onToggleFavorite: () => favorites.toggle(page.id),
+                            page: entry.page,
+                            isFavorite: favorites.isFavorite(entry.page.id),
+                            onOpen: () => _openColoringPage(entry.page),
+                            onToggleFavorite: () =>
+                                favorites.toggle(entry.page.id),
                           );
                         },
                       );
@@ -162,6 +228,161 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FavoriteCatalog {
+  const _FavoriteCatalog({
+    required this.coloring,
+    required this.pixels,
+  });
+
+  final List<ColoringPage> coloring;
+  final List<ColoringPage> pixels;
+}
+
+class _FavoriteEntry {
+  const _FavoriteEntry._({
+    required this.page,
+    required this.isPixel,
+    this.previewFile,
+    this.progressVersion = 0,
+  });
+
+  factory _FavoriteEntry.coloring(ColoringPage page) =>
+      _FavoriteEntry._(page: page, isPixel: false);
+
+  factory _FavoriteEntry.pixel(
+    ColoringPage page, {
+    File? previewFile,
+    int progressVersion = 0,
+  }) =>
+      _FavoriteEntry._(
+        page: page,
+        isPixel: true,
+        previewFile: previewFile,
+        progressVersion: progressVersion,
+      );
+
+  final ColoringPage page;
+  final bool isPixel;
+  final File? previewFile;
+  final int progressVersion;
+}
+
+class _FavoritePixelTile extends StatelessWidget {
+  const _FavoritePixelTile({
+    required this.page,
+    required this.previewFile,
+    required this.progressVersion,
+    required this.onOpen,
+  });
+
+  final ColoringPage page;
+  final File? previewFile;
+  final int progressVersion;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onOpen,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFFF8E8),
+                    Color(0xFFFFE0A0),
+                    Color(0xFFE8B86A),
+                    Color(0xFFFFF0C8),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: ColoredBox(
+                    color: Colors.white,
+                    child: previewFile != null
+                        ? Image.file(
+                            previewFile!,
+                            key: ValueKey(
+                              'fav_pixel_${page.id}_$progressVersion',
+                            ),
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                            errorBuilder: (_, _, _) => ColoringPageImage(
+                              page: page,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.circular(11),
+                              placeholderSize: 22,
+                            ),
+                          )
+                        : ColoringPageImage(
+                            page: page,
+                            fit: BoxFit.cover,
+                            borderRadius: BorderRadius.circular(11),
+                            placeholderSize: 22,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 8,
+            bottom: 8,
+            child: ProgressBadge(label: 'Fertig', done: true),
+          ),
+          Positioned(
+            right: 8,
+            top: 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.grid_on_rounded,
+                      size: 14,
+                      color: Color(0xFFFFE7A0),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Nach Zahlen',
+                      style: TextStyle(
+                        color: Color(0xFFFFE7A0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

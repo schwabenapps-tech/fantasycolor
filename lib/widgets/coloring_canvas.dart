@@ -139,9 +139,10 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 transform: _transform,
                 panEnabled: _panEnabled,
                 onDoubleTapAt: _onSoftZoom,
-                onInteraction: () {
+                onInteractionUpdate: () {
                   if (mounted) setState(() {});
                 },
+                onInteractionEnd: _onZoomInteractionEnd,
                 child: _PaintSurface(
                   bitmap: widget.bitmap,
                   session: widget.session,
@@ -193,6 +194,21 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   void _resetZoom() => _animateTo(Matrix4.identity());
 
+  void _onZoomInteractionEnd() {
+    final matrix = _transform.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    // Nach Pinch-Rauszoomen wieder zentrieren — kein freies Hin-und-Her bei 1×.
+    if (scale <= 1.05) {
+      final tx = matrix.entry(0, 3);
+      final ty = matrix.entry(1, 3);
+      if ((scale - 1.0).abs() > 0.001 || tx.abs() > 0.5 || ty.abs() > 0.5) {
+        _resetZoom();
+        return;
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
   void _animateTo(Matrix4 target) {
     _clearMatrixAnimation();
     _zoomController.stop();
@@ -230,7 +246,8 @@ class _FullscreenZoomViewport extends StatelessWidget {
     required this.transform,
     required this.panEnabled,
     required this.onDoubleTapAt,
-    required this.onInteraction,
+    required this.onInteractionUpdate,
+    required this.onInteractionEnd,
     required this.child,
   });
 
@@ -238,7 +255,8 @@ class _FullscreenZoomViewport extends StatelessWidget {
   final TransformationController transform;
   final bool panEnabled;
   final ValueChanged<Offset> onDoubleTapAt;
-  final VoidCallback onInteraction;
+  final VoidCallback onInteractionUpdate;
+  final VoidCallback onInteractionEnd;
   final Widget child;
 
   @override
@@ -257,8 +275,8 @@ class _FullscreenZoomViewport extends StatelessWidget {
         clipBehavior: Clip.hardEdge,
         // Weit zoomen/schieben — Bild kann den ganzen Screen füllen.
         boundaryMargin: const EdgeInsets.all(600),
-        onInteractionUpdate: (_) => onInteraction(),
-        onInteractionEnd: (_) => onInteraction(),
+        onInteractionUpdate: (_) => onInteractionUpdate(),
+        onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(
           child: SizedBox(
             width: sheetSize.width,

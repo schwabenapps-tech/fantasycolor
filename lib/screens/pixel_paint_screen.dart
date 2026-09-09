@@ -54,9 +54,12 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Timer? _autoSaveTimer;
   Uint8List? _finishedPng;
   late final AnimationController _celebrateController;
+  late final AnimationController _zoomController;
   final TransformationController _transform = TransformationController();
+  Animation<Matrix4>? _matrixAnimation;
+  VoidCallback? _matrixListener;
 
-  /// 1 Finger = malen/ziehen; 2+ Finger = Zoom (kein Malen).
+  /// 1 Finger = halten & ziehen zum Malen; 2+ Finger = Pinch-Zoom (kein Malen).
   final Set<int> _pointers = <int>{};
   int? _paintPointer;
   bool _strokeDidPaint = false;
@@ -68,6 +71,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     _celebrateController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
+    );
+    _zoomController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
     );
     _puzzleFuture = _load();
   }
@@ -104,6 +111,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
           cellSize: 20,
           emptyAsLightGray: false,
         );
+        _celebrating = true;
+        _showFinishActions = true;
       }
       return puzzle;
     }
@@ -126,9 +135,81 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoSaveTimer?.cancel();
+    _clearMatrixAnimation();
+    _zoomController.dispose();
     _celebrateController.dispose();
     _transform.dispose();
     super.dispose();
+  }
+
+  void _clearMatrixAnimation() {
+    if (_matrixListener != null && _matrixAnimation != null) {
+      _matrixAnimation!.removeListener(_matrixListener!);
+    }
+    _matrixListener = null;
+    _matrixAnimation = null;
+  }
+
+  bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
+
+  Size _sheetSizeFor(Size max, double aspect) {
+    var width = max.width;
+    var height = width / aspect;
+    if (height > max.height) {
+      height = max.height;
+      width = height * aspect;
+    }
+    return Size(width, height);
+  }
+
+  void _onSoftZoom(Offset viewportPos) {
+    final current = _transform.value.getMaxScaleOnAxis();
+    if (current > 1.2) {
+      _resetZoom();
+      return;
+    }
+
+    const targetScale = 3.0;
+    final matrix = Matrix4.identity()
+      ..translateByDouble(viewportPos.dx, viewportPos.dy, 0, 1)
+      ..scaleByDouble(targetScale, targetScale, 1, 1)
+      ..translateByDouble(-viewportPos.dx, -viewportPos.dy, 0, 1);
+    _animateTo(matrix);
+  }
+
+  void _resetZoom() => _animateTo(Matrix4.identity());
+
+  void _onZoomInteractionEnd() {
+    final matrix = _transform.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    // Nach Pinch-Rauszoomen wieder zentrieren — kein freies Hin-und-Her bei 1×.
+    if (scale <= 1.05) {
+      final tx = matrix.entry(0, 3);
+      final ty = matrix.entry(1, 3);
+      if ((scale - 1.0).abs() > 0.001 || tx.abs() > 0.5 || ty.abs() > 0.5) {
+        _resetZoom();
+        return;
+      }
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _animateTo(Matrix4 target) {
+    _clearMatrixAnimation();
+    _zoomController.stop();
+
+    _matrixAnimation = Matrix4Tween(
+      begin: _transform.value.clone(),
+      end: target,
+    ).animate(
+      CurvedAnimation(parent: _zoomController, curve: Curves.easeOutCubic),
+    );
+    _matrixListener = () {
+      _transform.value = _matrixAnimation!.value;
+      if (mounted) setState(() {});
+    };
+    _matrixAnimation!.addListener(_matrixListener!);
+    _zoomController.forward(from: 0).whenComplete(_clearMatrixAnimation);
   }
 
   void _scheduleAutoSave() {
@@ -254,10 +335,6 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
         }
       }
     }
-  }
-
-  void _resetZoom() {
-    _transform.value = Matrix4.identity();
   }
 
   Future<void> _onComplete() async {
@@ -391,203 +468,176 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
                 final puzzle = snapshot.data!;
                 final progress = _filledCount / puzzle.totalCells;
+                final railWidth = _showFinishActions
+                    ? 0.0
+                    : PixelPaintRail.widthOf(context);
 
-                return SafeArea(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(56, 12, 8, 12),
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onDoubleTap: _resetZoom,
-                                  child: InteractiveViewer(
-                                    transformationController: _transform,
-                                    // Ein Finger malt — Pan wäre sonst im Weg.
-                                    // Zoom/Verschieben: zwei Finger (Pinch).
-                                    panEnabled: false,
-                                    scaleEnabled: true,
-                                    minScale: 0.85,
-                                    maxScale: 8,
-                                    boundaryMargin:
-                                        const EdgeInsets.all(400),
-                                    child: Center(
-                                      child: AspectRatio(
-                                        aspectRatio:
-                                            puzzle.cols / puzzle.rows,
-                                        child: LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            void paintAt(
-                                              Offset local, {
-                                              required bool fromDrag,
-                                            }) {
-                                              final cellW =
-                                                  constraints.maxWidth /
-                                                      puzzle.cols;
-                                              final cellH =
-                                                  constraints.maxHeight /
-                                                      puzzle.rows;
-                                              final x = (local.dx / cellW)
-                                                  .floor()
-                                                  .clamp(
-                                                    0,
-                                                    puzzle.cols - 1,
-                                                  );
-                                              final y = (local.dy / cellH)
-                                                  .floor()
-                                                  .clamp(
-                                                    0,
-                                                    puzzle.rows - 1,
-                                                  );
-                                              _onCellTap(
-                                                x,
-                                                y,
-                                                fromDrag: fromDrag,
-                                              );
-                                            }
-
-                                            return Stack(
-                                              fit: StackFit.expand,
-                                              children: [
-                                                // Originalfoto fast durchsichtig unter dem Raster —
-                                                // Motiv bleibt immer erkennbar (auch Hochkant).
-                                                Opacity(
-                                                  opacity: 0.38,
-                                                  child: Image.asset(
-                                                    widget.page.assetPath,
-                                                    fit: BoxFit.fill,
-                                                    filterQuality:
-                                                        FilterQuality.medium,
-                                                    gaplessPlayback: true,
-                                                  ),
-                                                ),
-                                                // Leichter heller Schleier, Zahlen bleiben lesbar.
-                                                ColoredBox(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.2),
-                                                ),
-                                                Listener(
-                                                  behavior:
-                                                      HitTestBehavior.opaque,
-                                                  onPointerDown: (e) {
-                                                    _pointers.add(e.pointer);
-                                                    if (_pointers.length >
-                                                        1) {
-                                                      _paintPointer = null;
-                                                      return;
-                                                    }
-                                                    _paintPointer = e.pointer;
-                                                    _strokeDidPaint = false;
-                                                    paintAt(
-                                                      e.localPosition,
-                                                      fromDrag: false,
-                                                    );
-                                                  },
-                                                  onPointerMove: (e) {
-                                                    if (_pointers.length !=
-                                                        1) {
-                                                      return;
-                                                    }
-                                                    if (_paintPointer !=
-                                                        e.pointer) {
-                                                      return;
-                                                    }
-                                                    if (e.buttons == 0) {
-                                                      return;
-                                                    }
-                                                    paintAt(
-                                                      e.localPosition,
-                                                      fromDrag: true,
-                                                    );
-                                                  },
-                                                  onPointerUp: (e) {
-                                                    _pointers
-                                                        .remove(e.pointer);
-                                                    if (_paintPointer ==
-                                                        e.pointer) {
-                                                      _paintPointer = null;
-                                                    }
-                                                  },
-                                                  onPointerCancel: (e) {
-                                                    _pointers
-                                                        .remove(e.pointer);
-                                                    if (_paintPointer ==
-                                                        e.pointer) {
-                                                      _paintPointer = null;
-                                                    }
-                                                  },
-                                                  child: CustomPaint(
-                                                    painter:
-                                                        _PixelGridPainter(
-                                                      puzzle: puzzle,
-                                                      filled: _filled,
-                                                      selectedNumber:
-                                                          _selectedNumber,
-                                                      paintTick: _paintTick,
-                                                    ),
-                                                    size: Size(
-                                                      constraints.maxWidth,
-                                                      constraints.maxHeight,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          },
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Vollflächiger Zoom wie bei Ausmalbildern.
+                    Positioned.fill(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final sheet = _sheetSizeFor(
+                            constraints.biggest,
+                            puzzle.cols / puzzle.rows,
+                          );
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onDoubleTapDown: (details) =>
+                                _onSoftZoom(details.localPosition),
+                            onDoubleTap: () {},
+                            child: InteractiveViewer(
+                              transformationController: _transform,
+                              minScale: 1,
+                              maxScale: 8,
+                              // Immer aus: 1 Finger malt (halten & ziehen).
+                              // Verschieben/Zoomen: Pinch mit 2 Fingern.
+                              panEnabled: false,
+                              scaleEnabled: true,
+                              constrained: true,
+                              clipBehavior: Clip.hardEdge,
+                              boundaryMargin: const EdgeInsets.all(600),
+                              onInteractionUpdate: (_) {
+                                if (mounted) setState(() {});
+                              },
+                              onInteractionEnd: (_) =>
+                                  _onZoomInteractionEnd(),
+                              child: Center(
+                                child: SizedBox(
+                                  width: sheet.width,
+                                  height: sheet.height,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Opacity(
+                                        opacity: 0.38,
+                                        child: Image.asset(
+                                          widget.page.assetPath,
+                                          fit: BoxFit.fill,
+                                          filterQuality:
+                                              FilterQuality.medium,
+                                          gaplessPlayback: true,
                                         ),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 10,
-                              left: 12,
-                              child: SilverBackButton(
-                                onPressed: () => unawaited(_leave()),
-                              ),
-                            ),
-                            Positioned(
-                              top: 14,
-                              right: 16,
-                              child: _ProgressPill(progress: progress),
-                            ),
-                            if (_celebrating)
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  ignoring: _showFinishActions,
-                                  child: AnimatedBuilder(
-                                    animation: _celebrateController,
-                                    builder: (context, _) {
-                                      return CustomPaint(
-                                        painter: _SparklePainter(
-                                          progress:
-                                              _celebrateController.value,
+                                      ColoredBox(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.2),
+                                      ),
+                                      Listener(
+                                        behavior: HitTestBehavior.opaque,
+                                        onPointerDown: (e) {
+                                          _pointers.add(e.pointer);
+                                          if (_pointers.length > 1) {
+                                            _paintPointer = null;
+                                            return;
+                                          }
+                                          _paintPointer = e.pointer;
+                                          _strokeDidPaint = false;
+                                          final cellW =
+                                              sheet.width / puzzle.cols;
+                                          final cellH =
+                                              sheet.height / puzzle.rows;
+                                          final x = (e.localPosition.dx /
+                                                  cellW)
+                                              .floor()
+                                              .clamp(0, puzzle.cols - 1);
+                                          final y = (e.localPosition.dy /
+                                                  cellH)
+                                              .floor()
+                                              .clamp(0, puzzle.rows - 1);
+                                          _onCellTap(
+                                            x,
+                                            y,
+                                            fromDrag: false,
+                                          );
+                                        },
+                                        onPointerMove: (e) {
+                                          if (_pointers.length != 1) {
+                                            return;
+                                          }
+                                          if (_paintPointer != e.pointer) {
+                                            return;
+                                          }
+                                          if (e.buttons == 0) return;
+                                          final cellW =
+                                              sheet.width / puzzle.cols;
+                                          final cellH =
+                                              sheet.height / puzzle.rows;
+                                          final x = (e.localPosition.dx /
+                                                  cellW)
+                                              .floor()
+                                              .clamp(0, puzzle.cols - 1);
+                                          final y = (e.localPosition.dy /
+                                                  cellH)
+                                              .floor()
+                                              .clamp(0, puzzle.rows - 1);
+                                          _onCellTap(
+                                            x,
+                                            y,
+                                            fromDrag: true,
+                                          );
+                                        },
+                                        onPointerUp: (e) {
+                                          _pointers.remove(e.pointer);
+                                          if (_paintPointer == e.pointer) {
+                                            _paintPointer = null;
+                                          }
+                                        },
+                                        onPointerCancel: (e) {
+                                          _pointers.remove(e.pointer);
+                                          if (_paintPointer == e.pointer) {
+                                            _paintPointer = null;
+                                          }
+                                        },
+                                        child: CustomPaint(
+                                          painter: _PixelGridPainter(
+                                            puzzle: puzzle,
+                                            filled: _filled,
+                                            selectedNumber: _selectedNumber,
+                                            paintTick: _paintTick,
+                                          ),
+                                          size: sheet,
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
-                            if (_showFinishActions)
-                              Positioned.fill(
-                                child: _FinishOverlay(
-                                  title: widget.page.title,
-                                  onSave: () => unawaited(_saveToPhotos()),
-                                  onClose: () =>
-                                      unawaited(_closeAfterFinish()),
-                                ),
-                              ),
-                          ],
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                      if (!_showFinishActions)
-                        PixelPaintRail(
+                    ),
+                    SafeArea(
+                      child: Stack(
+                        children: [
+                          if (_isZoomed)
+                            Positioned(
+                              left: 10,
+                              bottom: 10,
+                              child: _ZoomResetChip(onPressed: _resetZoom),
+                            ),
+                          Positioned(
+                            top: 10,
+                            left: 12,
+                            child: SilverBackButton(
+                              onPressed: () => unawaited(_leave()),
+                            ),
+                          ),
+                          Positioned(
+                            top: 14,
+                            right: 16 + railWidth,
+                            child: _ProgressPill(progress: progress),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_showFinishActions)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: PixelPaintRail(
                           swatches: _swatches,
                           selectedNumber: _selectedNumber,
                           remainingOf: _remainingFor,
@@ -596,12 +646,76 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                             setState(() => _selectedNumber = n);
                           },
                         ),
-                    ],
-                  ),
+                      ),
+                    if (_celebrating)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          ignoring: _showFinishActions,
+                          child: AnimatedBuilder(
+                            animation: _celebrateController,
+                            builder: (context, _) {
+                              return CustomPaint(
+                                painter: _SparklePainter(
+                                  progress: _celebrateController.value,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    if (_showFinishActions)
+                      Positioned.fill(
+                        child: _FinishOverlay(
+                          title: widget.page.title,
+                          onSave: () => unawaited(_saveToPhotos()),
+                          onClose: () => unawaited(_closeAfterFinish()),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ZoomResetChip extends StatelessWidget {
+  const _ZoomResetChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.black.withValues(alpha: 0.45),
+            border: Border.all(color: Colors.white54),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'Ganzes Bild',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -818,7 +932,69 @@ class _PixelGridPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = cellMin < 10 ? 0.35 : 0.6;
 
-    final fontSize = (cellMin * 0.52).clamp(4.5, 20.0);
+    // Zahlen müssen in die Zelle passen — kein Mindest-Font, der größer als
+    // die Zelle ist (bei ~96 Spalten sonst starke Überlappung, v. a. 10–20).
+    final maxFont = math.min(cellMin * 0.72, 18.0);
+    final numberCache = <int, TextPainter>{};
+
+    TextPainter numberPainter(int number, {required bool isTarget}) {
+      final cached = numberCache[number * 2 + (isTarget ? 1 : 0)];
+      if (cached != null) return cached;
+
+      var fontSize = maxFont;
+      TextPainter layoutAt(double size) {
+        return TextPainter(
+          text: TextSpan(
+            text: '$number',
+            style: TextStyle(
+              color: isTarget
+                  ? _numberOnTarget
+                  : _numberOnEmpty.withValues(alpha: 0.88),
+              fontSize: size,
+              fontWeight: FontWeight.w800,
+              height: 1,
+              shadows: size >= 6
+                  ? (isTarget
+                      ? const [
+                          Shadow(
+                            color: Color(0x66000000),
+                            blurRadius: 2,
+                          ),
+                        ]
+                      : const [
+                          Shadow(
+                            color: Color(0x55FFFFFF),
+                            blurRadius: 2,
+                          ),
+                        ])
+                  : null,
+            ),
+          ),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+        )..layout();
+      }
+
+      var tp = layoutAt(fontSize);
+      // Zweistellige Zahlen (und enge Zellen) auf Zellenbreite/-höhe schrumpfen.
+      final maxW = cellW * 0.92;
+      final maxH = cellH * 0.92;
+      if (tp.width > maxW || tp.height > maxH) {
+        final scale = math.min(maxW / tp.width, maxH / tp.height);
+        fontSize = fontSize * scale;
+        if (fontSize < 1.0) {
+          // Zu klein — kein Label (Zoom vergrößert Zelle+Text gemeinsam).
+          final empty = TextPainter(textDirection: TextDirection.ltr)
+            ..layout();
+          numberCache[number * 2 + (isTarget ? 1 : 0)] = empty;
+          return empty;
+        }
+        tp = layoutAt(fontSize);
+      }
+
+      numberCache[number * 2 + (isTarget ? 1 : 0)] = tp;
+      return tp;
+    }
 
     // Zellen: ausgefüllt = voll, leer = leichter Schleier + Nummer
     // (Originalfoto liegt als Widget darunter).
@@ -847,35 +1023,10 @@ class _PixelGridPainter extends CustomPainter {
             );
           }
 
-          if (fontSize >= 4.5) {
-            final tp = TextPainter(
-              text: TextSpan(
-                text: '$number',
-                style: TextStyle(
-                  color: isTarget
-                      ? _numberOnTarget
-                      : _numberOnEmpty.withValues(alpha: 0.88),
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
-                  shadows: isTarget
-                      ? const [
-                          Shadow(
-                            color: Color(0x66000000),
-                            blurRadius: 2,
-                          ),
-                        ]
-                      : const [
-                          Shadow(
-                            color: Color(0x55FFFFFF),
-                            blurRadius: 2,
-                          ),
-                        ],
-                ),
-              ),
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.ltr,
-            )..layout(maxWidth: cellW);
+          final tp = numberPainter(number, isTarget: isTarget);
+          if (tp.width >= 1.0 && tp.height >= 1.0) {
+            canvas.save();
+            canvas.clipRect(rect);
             tp.paint(
               canvas,
               Offset(
@@ -883,6 +1034,7 @@ class _PixelGridPainter extends CustomPainter {
                 rect.top + (cellH - tp.height) / 2,
               ),
             );
+            canvas.restore();
           }
         }
         canvas.drawRect(rect, gridPaint);
