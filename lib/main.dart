@@ -25,12 +25,14 @@ Future<void> main() async {
   final favorites = FavoritesStore();
   await favorites.load();
 
+  // load() invalidiert nur Fortschritt von ausgetauschten Ausmalbildern.
   final progress = ColoringProgressStore();
   await progress.load();
 
   final pixelUnlock = PixelModeUnlockStore();
   await pixelUnlock.load();
 
+  // load() invalidiert Pixel-Fortschritt nur für entfernte/geänderte Puzzle-Motive.
   final pixelProgress = PixelProgressStore();
   await pixelProgress.load();
 

@@ -22,37 +22,41 @@ class PaintSideRail extends StatelessWidget {
     return AnimatedBuilder(
       animation: session,
       builder: (context, _) {
-        return Container(
-          width: railWidth,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            borderRadius:
-                const BorderRadius.horizontal(left: Radius.circular(20)),
-            border: Border.all(color: Colors.white24),
-          ),
-          child: SafeArea(
-            left: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
-              child: Column(
-                children: [
-                  _ToolRow(session: session),
-                  if (session.tool == PaintTool.pen) ...[
-                    const SizedBox(height: 6),
-                    _PenSizeRow(session: session),
-                  ],
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _ColorList(session: session)),
-                        const SizedBox(width: 6),
-                        _CategoryColumn(session: session),
-                      ],
+        return ClipRRect(
+          borderRadius:
+              const BorderRadius.horizontal(left: Radius.circular(20)),
+          child: Container(
+            width: railWidth,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.4),
+              borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(20)),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: SafeArea(
+              left: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+                child: Column(
+                  children: [
+                    _ToolRow(session: session),
+                    if (session.tool == PaintTool.pen) ...[
+                      const SizedBox(height: 6),
+                      _PenSizeRow(session: session),
+                    ],
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _ColorList(session: session)),
+                          const SizedBox(width: 6),
+                          _CategoryColumn(session: session),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -101,15 +105,18 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14);
     return Material(
       color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         child: Ink(
           height: 48,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: radius,
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -188,15 +195,18 @@ class _ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
     return Material(
       color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radius,
         child: Ink(
           height: 40,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: radius,
             color: selected
                 ? Colors.white.withValues(alpha: 0.95)
                 : Colors.white.withValues(alpha: 0.16),
@@ -252,22 +262,25 @@ class _PenSizeButton extends StatelessWidget {
   final VoidCallback onTap;
 
   double get _dot => switch (size) {
-        PenSize.thin => 6,
-        PenSize.medium => 11,
-        PenSize.thick => 16,
+        PenSize.thin => 3.5,
+        PenSize.medium => 7,
+        PenSize.thick => 11,
       };
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(12);
     return Material(
       color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: radius,
         child: Ink(
           height: 34,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: radius,
             color: selected
                 ? const Color(0xFFE9D7FF).withValues(alpha: 0.95)
                 : Colors.white.withValues(alpha: 0.14),
@@ -307,7 +320,8 @@ class _ColorList extends StatelessWidget {
 
     return ListView.separated(
       itemCount: swatches.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      // Platz für den Auswahlring um die Kreise.
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final swatch = swatches[index];
         final selected = session.swatch?.id == swatch.id &&
@@ -316,7 +330,6 @@ class _ColorList extends StatelessWidget {
           child: _ColorWell(
             color: swatch.color,
             selected: selected,
-            category: category,
             onTap: () => session.selectSwatch(swatch),
           ),
         );
@@ -329,81 +342,61 @@ class _ColorWell extends StatelessWidget {
   const _ColorWell({
     required this.color,
     required this.selected,
-    required this.category,
     required this.onTap,
   });
 
   final Color color;
   final bool selected;
-  final PaintCategory category;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    // Dunkler Außenring + weißer Innenring → auf jeder Farbe gut sichtbar.
     return Material(
       color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: Ink(
-          width: 44,
-          height: 44,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 50,
+          height: 50,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color,
-            border: Border.all(
-              color: selected ? Colors.white : Colors.white38,
-              width: selected ? 3.2 : 1.4,
-            ),
-            boxShadow: [
-              if (selected)
-                BoxShadow(
-                  color: color.withValues(alpha: 0.75),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              if (category == PaintCategory.glow)
-                BoxShadow(
-                  color: color.withValues(alpha: 0.55),
-                  blurRadius: 14,
-                  spreadRadius: 1,
-                ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            gradient: category == PaintCategory.glitter
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withValues(alpha: 0.9),
-                      color,
-                      Color.lerp(color, Colors.black, 0.12)!,
-                    ],
-                  )
-                : category == PaintCategory.watercolor
-                    ? LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          color.withValues(alpha: 0.8),
-                          color,
-                        ],
-                      )
-                    : null,
+            color: selected ? Colors.white : Colors.transparent,
+            border: selected
+                ? Border.all(color: const Color(0xFF121826), width: 2.8)
+                : null,
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: category == PaintCategory.glitter
-              ? const Center(
-                  child: Icon(
-                    Icons.auto_awesome,
-                    color: Colors.white70,
-                    size: 16,
-                  ),
-                )
-              : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: selected ? 38 : 44,
+            height: selected ? 38 : 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(
+                color: selected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.45),
+                width: selected ? 2.4 : 1.2,
+              ),
+            ),
+          ),
         ),
       ),
     );

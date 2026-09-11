@@ -7,7 +7,7 @@ void main() {
 
   test('quantizes puzzle asset into numbered palette grid', () async {
     final puzzle = await PixelQuantizer.fromAsset(
-      'assets/puzzle_images/hanfu_princess_umbrella.png',
+      'assets/puzzle_images/img_1875.jpg',
       difficulty: PixelDifficulty.standard,
     );
 

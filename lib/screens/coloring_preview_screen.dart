@@ -63,8 +63,13 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     final bitmap = await ColoringBitmap.load(widget.page.assetPath);
     if (!mounted) return bitmap;
     final saved = await progress.loadProgressBytes(widget.page.id);
-    if (saved != null && bitmap.applyWorkingPng(saved)) {
-      _session.markLoadedProgress();
+    if (saved != null) {
+      if (bitmap.applyWorkingPng(saved)) {
+        _session.markLoadedProgress();
+      } else {
+        // Altes Motiv / andere Größe → Fortschritt verwerfen.
+        await progress.clearProgress(widget.page.id);
+      }
     }
     return bitmap;
   }
@@ -532,6 +537,8 @@ class _DoneButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
         customBorder: const CircleBorder(),
@@ -587,6 +594,8 @@ class _RoundIconButton extends StatelessWidget {
       opacity: dimmed ? 0.45 : 1,
       child: Material(
         color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onPressed,
           onLongPress: onLongPress,

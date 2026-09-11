@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
 
 import '../data/paint_catalog.dart';
-import '../painting/paint_effects.dart';
 import '../providers/coloring_session.dart';
 
-/// Zeichnet freie Stift-/Radierer-Striche mit Kategorie-Effekten.
+/// Zeichnet freie Stift-/Radierer-Striche.
 class FreehandStrokePainter extends CustomPainter {
   FreehandStrokePainter({
     required this.strokes,
@@ -37,7 +36,7 @@ class FreehandStrokePainter extends CustomPainter {
       options: StrokeOptions(
         size: stroke.size,
         thinning: stroke.isEraser ? 0.2 : 0.55,
-        smoothing: stroke.category == PaintCategory.watercolor ? 0.7 : 0.5,
+        smoothing: 0.5,
         streamline: 0.45,
         simulatePressure: true,
         isComplete: true,
@@ -61,50 +60,19 @@ class FreehandStrokePainter extends CustomPainter {
       return;
     }
 
-    final color = _strokeColor(stroke);
-    if (stroke.category == PaintCategory.glow) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..style = PaintingStyle.fill
-          ..color = color.withValues(alpha: 0.55)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..style = PaintingStyle.fill
-          ..color = color.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28),
-      );
-    }
-
     canvas.drawPath(
       path,
       Paint()
         ..style = PaintingStyle.fill
-        ..color = color,
+        ..color = _strokeColor(stroke),
     );
-
-    if (stroke.category == PaintCategory.glitter) {
-      paintGlitterEffect(
-        canvas,
-        path,
-        stroke.color,
-        seed: stroke.points.length,
-      );
-    }
   }
 
   Color _strokeColor(FreehandStroke stroke) {
     switch (stroke.category) {
       case PaintCategory.pastel:
         return stroke.color.withValues(alpha: 0.8);
-      case PaintCategory.watercolor:
-        return stroke.color.withValues(alpha: 0.45);
       case PaintCategory.solid:
-      case PaintCategory.glow:
-      case PaintCategory.glitter:
         return stroke.color;
     }
   }

@@ -150,9 +150,9 @@ class ColoringSession extends ChangeNotifier {
   /// Stiftstärke in Zeichenkoordinaten.
   double penStrokeSize() {
     return switch (_penSize) {
-      PenSize.thin => 9,
-      PenSize.medium => 16,
-      PenSize.thick => 28,
+      PenSize.thin => 2.5,
+      PenSize.medium => 6,
+      PenSize.thick => 12,
     };
   }
 
@@ -303,11 +303,7 @@ class PathFillStyle {
     switch (category) {
       case PaintCategory.pastel:
         return color.withValues(alpha: 0.88);
-      case PaintCategory.watercolor:
-        return color.withValues(alpha: 0.55);
       case PaintCategory.solid:
-      case PaintCategory.glow:
-      case PaintCategory.glitter:
         return color;
     }
   }

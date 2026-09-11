@@ -33,6 +33,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   ui.Image? _frame;
   int _frameGeneration = -1;
   bool _encoding = false;
+  bool _wasZoomed = false;
   late final AnimationController _zoomController;
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
@@ -139,9 +140,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 transform: _transform,
                 panEnabled: _panEnabled,
                 onDoubleTapAt: _onSoftZoom,
-                onInteractionUpdate: () {
-                  if (mounted) setState(() {});
-                },
+                onInteractionUpdate: _onZoomInteractionUpdate,
                 onInteractionEnd: _onZoomInteractionEnd,
                 child: _PaintSurface(
                   bitmap: widget.bitmap,
@@ -155,7 +154,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
               Positioned(
                 left: 10,
                 bottom: 10,
-                child: _ZoomResetChip(onPressed: _resetZoom),
+                child: _ZoomResetChip(onPressed: () => _resetZoom(animated: true)),
               ),
           ],
         );
@@ -164,6 +163,14 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   }
 
   bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
+
+  void _onZoomInteractionUpdate() {
+    final zoomed = _isZoomed;
+    if (zoomed != _wasZoomed) {
+      _wasZoomed = zoomed;
+      if (mounted) setState(() {});
+    }
+  }
 
   /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Stift-Zug nötig ist.
   /// So bleibt Tippen = Füllen kinderleicht; Stift zeichnet weiter mit 1 Finger.
@@ -180,7 +187,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   void _onSoftZoom(Offset viewportPos) {
     final current = _transform.value.getMaxScaleOnAxis();
     if (current > 1.2) {
-      _resetZoom();
+      _resetZoom(animated: true);
       return;
     }
 
@@ -192,20 +199,33 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     _animateTo(matrix);
   }
 
-  void _resetZoom() => _animateTo(Matrix4.identity());
+  void _resetZoom({bool animated = true}) {
+    if (animated) {
+      _animateTo(Matrix4.identity());
+    } else {
+      _snapToIdentity();
+    }
+  }
+
+  /// Sofort zentrieren — ohne Animation, sonst „gleitet“ das Bild weg.
+  void _snapToIdentity() {
+    _clearMatrixAnimation();
+    _zoomController.stop();
+    _transform.value = Matrix4.identity();
+    _wasZoomed = false;
+    if (mounted) setState(() {});
+  }
 
   void _onZoomInteractionEnd() {
     final matrix = _transform.value;
     final scale = matrix.getMaxScaleOnAxis();
-    // Nach Pinch-Rauszoomen wieder zentrieren — kein freies Hin-und-Her bei 1×.
-    if (scale <= 1.05) {
-      final tx = matrix.entry(0, 3);
-      final ty = matrix.entry(1, 3);
-      if ((scale - 1.0).abs() > 0.001 || tx.abs() > 0.5 || ty.abs() > 0.5) {
-        _resetZoom();
-        return;
-      }
+    // Pinch-Rauszoomen hält oft noch Translation (Fokuspunkt) → Bild hängt schief.
+    // Bei ~1× sofort identity, nicht animieren (sonst sichtbares Wegglitschen).
+    if (scale <= 1.08) {
+      _snapToIdentity();
+      return;
     }
+    _wasZoomed = true;
     if (mounted) setState(() {});
   }
 
@@ -273,8 +293,9 @@ class _FullscreenZoomViewport extends StatelessWidget {
         scaleEnabled: true,
         constrained: true,
         clipBehavior: Clip.hardEdge,
-        // Weit zoomen/schieben — Bild kann den ganzen Screen füllen.
-        boundaryMargin: const EdgeInsets.all(600),
+        // Nur leichter Spielraum beim Zoomen — 600px ließ das Blatt weit
+        // abdriften; beim Rauszoomen blieb die Translation hängen.
+        boundaryMargin: const EdgeInsets.all(120),
         onInteractionUpdate: (_) => onInteractionUpdate(),
         onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(
@@ -474,15 +495,18 @@ class _ZoomResetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(18);
     return Material(
       color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: radius),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: radius,
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: radius,
             color: Colors.black.withValues(alpha: 0.45),
             border: Border.all(color: Colors.white54),
           ),

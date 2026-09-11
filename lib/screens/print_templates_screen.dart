@@ -63,7 +63,6 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final tileHeight = layout.galleryTileHeight;
-    final tileWidth = layout.galleryTileWidth;
 
     return Scaffold(
       body: Stack(
@@ -151,9 +150,17 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                                       SizedBox(width: size.width * 0.03),
                                   itemBuilder: (context, index) {
                                     final page = pages[index];
+                                    final ratio = page.aspectRatio <= 0
+                                        ? 0.78
+                                        : page.aspectRatio;
+                                    final pageTileWidth = (tileHeight * ratio)
+                                        .clamp(
+                                          tileHeight * 0.55,
+                                          tileHeight * 1.75,
+                                        );
                                     return _PrintTemplateTile(
                                       page: page,
-                                      width: tileWidth,
+                                      width: pageTileWidth,
                                       height: tileHeight,
                                       onTap: () => _openPreview(page),
                                     );
@@ -241,7 +248,7 @@ class _PrintTemplateTile extends StatelessWidget {
                       color: Colors.white,
                       child: Image.asset(
                         page.assetPath,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         alignment: Alignment.center,
                         filterQuality: FilterQuality.medium,
                       ),

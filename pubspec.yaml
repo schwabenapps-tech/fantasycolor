@@ -86,6 +86,9 @@ flutter:
     - assets/puzzle_images/
     - assets/sounds/
     - assets/asset_dimensions.json
+    - assets/coloring_asset_hashes.json
+    - assets/coloring_invalidate_ids.json
+    - assets/puzzle_invalidate_ids.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

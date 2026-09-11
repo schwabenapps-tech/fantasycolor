@@ -165,7 +165,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   void _onSoftZoom(Offset viewportPos) {
     final current = _transform.value.getMaxScaleOnAxis();
     if (current > 1.2) {
-      _resetZoom();
+      _resetZoom(animated: true);
       return;
     }
 
@@ -177,19 +177,27 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     _animateTo(matrix);
   }
 
-  void _resetZoom() => _animateTo(Matrix4.identity());
+  void _resetZoom({bool animated = true}) {
+    if (animated) {
+      _animateTo(Matrix4.identity());
+    } else {
+      _snapToIdentity();
+    }
+  }
+
+  void _snapToIdentity() {
+    _clearMatrixAnimation();
+    _zoomController.stop();
+    _transform.value = Matrix4.identity();
+    if (mounted) setState(() {});
+  }
 
   void _onZoomInteractionEnd() {
-    final matrix = _transform.value;
-    final scale = matrix.getMaxScaleOnAxis();
-    // Nach Pinch-Rauszoomen wieder zentrieren — kein freies Hin-und-Her bei 1×.
-    if (scale <= 1.05) {
-      final tx = matrix.entry(0, 3);
-      final ty = matrix.entry(1, 3);
-      if ((scale - 1.0).abs() > 0.001 || tx.abs() > 0.5 || ty.abs() > 0.5) {
-        _resetZoom();
-        return;
-      }
+    final scale = _transform.value.getMaxScaleOnAxis();
+    // Pinch-Rauszoomen hält oft Translation → sofort zentrieren, nicht animieren.
+    if (scale <= 1.08) {
+      _snapToIdentity();
+      return;
     }
     if (mounted) setState(() {});
   }
@@ -498,7 +506,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                               scaleEnabled: true,
                               constrained: true,
                               clipBehavior: Clip.hardEdge,
-                              boundaryMargin: const EdgeInsets.all(600),
+                              boundaryMargin: const EdgeInsets.all(120),
                               onInteractionUpdate: (_) {
                                 if (mounted) setState(() {});
                               },

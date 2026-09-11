@@ -114,41 +114,57 @@ class _NumberedColorWell extends StatelessWidget {
 
     return Material(
       color: Colors.transparent,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: enabled ? onTap : null,
         customBorder: const CircleBorder(),
-        child: Ink(
-          width: 48,
-          height: 48,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: 54,
+          height: 54,
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color,
-            border: Border.all(
-              color: selected ? Colors.white : Colors.white38,
-              width: selected ? 3.2 : 1.4,
-            ),
-            boxShadow: [
-              if (selected)
-                BoxShadow(
-                  color: color.withValues(alpha: 0.75),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            color: selected ? Colors.white : Colors.transparent,
+            border: selected
+                ? Border.all(color: const Color(0xFF121826), width: 2.8)
+                : null,
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Center(
-            child: Text(
-              '$number',
-              style: TextStyle(
-                color: ink,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                height: 1,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            width: selected ? 40 : 48,
+            height: selected ? 40 : 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+              border: Border.all(
+                color: selected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.45),
+                width: selected ? 2.4 : 1.2,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                '$number',
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
               ),
             ),
           ),

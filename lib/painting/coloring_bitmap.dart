@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
@@ -68,21 +67,16 @@ class ColoringBitmap {
   }
 
   /// Gespeicherten PNG-Fortschritt als Arbeitsbild laden.
+  ///
+  /// Bei anderer Größe (ausgetauschtes Motiv) → false, kein Aufblasen alter Bilder.
   bool applyWorkingPng(Uint8List pngBytes) {
     final decoded = img.decodeImage(pngBytes);
     if (decoded == null) return false;
     final rgba = decoded.convert(numChannels: 4);
     if (rgba.width != width || rgba.height != height) {
-      final resized = img.copyResize(
-        rgba,
-        width: width,
-        height: height,
-        interpolation: img.Interpolation.average,
-      );
-      working = resized.convert(numChannels: 4);
-    } else {
-      working = rgba;
+      return false;
     }
+    working = rgba;
     return true;
   }
 
@@ -189,13 +183,6 @@ class ColoringBitmap {
         ..add(cy + 1);
     }
 
-    if (!erase && category == PaintCategory.glitter && filled.isNotEmpty) {
-      _sprinkleGlitter(filled, color);
-    }
-    if (!erase && category == PaintCategory.glow && filled.isNotEmpty) {
-      _applyGlowBloom(filled, color);
-    }
-
     return count;
   }
 
@@ -214,19 +201,6 @@ class ColoringBitmap {
         r = r + (255 - r) * 0.22;
         g = g + (255 - g) * 0.22;
         b = b + (255 - b) * 0.22;
-      case PaintCategory.watercolor:
-        r = r * 0.72 + 255 * 0.28;
-        g = g * 0.72 + 255 * 0.28;
-        b = b * 0.72 + 255 * 0.28;
-      case PaintCategory.glow:
-        r = math.min(255, r * 1.25 + 35);
-        g = math.min(255, g * 1.25 + 35);
-        b = math.min(255, b * 1.25 + 35);
-      case PaintCategory.glitter:
-        // Leichter metallischer Schimmer als Basis.
-        r = math.min(255, r * 1.08 + 18);
-        g = math.min(255, g * 1.08 + 18);
-        b = math.min(255, b * 1.05 + 12);
       case PaintCategory.solid:
         break;
     }
@@ -236,163 +210,6 @@ class ColoringBitmap {
       g.round().clamp(0, 255),
       b.round().clamp(0, 255),
     );
-  }
-
-  /// Weicher Leuchtrand um Glow-Füllungen (sichtbarer Glow auf PNG).
-  void _applyGlowBloom(List<int> filledIndices, ui.Color base) {
-    final filledSet = filledIndices.toSet();
-    final glowR = math.min(255, (base.r * 255 * 1.35 + 50).round());
-    final glowG = math.min(255, (base.g * 255 * 1.35 + 50).round());
-    final glowB = math.min(255, (base.b * 255 * 1.35 + 50).round());
-    final ring = <int>{};
-
-    for (final idx in filledIndices) {
-      final x = idx % width;
-      final y = idx ~/ width;
-      for (var dy = -4; dy <= 4; dy++) {
-        for (var dx = -4; dx <= 4; dx++) {
-          if (dx == 0 && dy == 0) continue;
-          final dist2 = dx * dx + dy * dy;
-          if (dist2 > 16) continue;
-          final nx = x + dx;
-          final ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-          final nidx = ny * width + nx;
-          if (filledSet.contains(nidx)) continue;
-          if (isLinePixel(original, nx, ny)) continue;
-          ring.add(nidx);
-        }
-      }
-    }
-
-    for (final idx in ring) {
-      final x = idx % width;
-      final y = idx ~/ width;
-      final cur = working.getPixel(x, y);
-      working.setPixelRgba(
-        x,
-        y,
-        (cur.r * 0.45 + glowR * 0.55).round().clamp(0, 255),
-        (cur.g * 0.45 + glowG * 0.55).round().clamp(0, 255),
-        (cur.b * 0.45 + glowB * 0.55).round().clamp(0, 255),
-        255,
-      );
-    }
-
-    // Kern noch etwas aufhellen für „leuchtendes“ Inneres.
-    for (final idx in filledIndices) {
-      final x = idx % width;
-      final y = idx ~/ width;
-      final cur = working.getPixel(x, y);
-      working.setPixelRgba(
-        x,
-        y,
-        math.min(255, (cur.r * 1.08 + 12).round()),
-        math.min(255, (cur.g * 1.08 + 12).round()),
-        math.min(255, (cur.b * 1.08 + 12).round()),
-        255,
-      );
-    }
-  }
-  /// Sichtbarer Glitzer über der gefüllten Fläche (Sterne, Punkte, Schimmer).
-  void _sprinkleGlitter(List<int> filledIndices, ui.Color base) {
-    final filledSet = filledIndices.toSet();
-    final random = math.Random(filledIndices.length ^ base.toARGB32());
-
-    final baseR = (base.r * 255).round().clamp(0, 255);
-    final baseG = (base.g * 255).round().clamp(0, 255);
-    final baseB = (base.b * 255).round().clamp(0, 255);
-
-    // Dichte an Flächengröße und Bildauflösung koppeln.
-    final area = filledIndices.length;
-    final density = math.max(18, (math.min(width, height) / 28).round());
-    final sparkleCount = math.min(
-      520,
-      math.max(48, area ~/ density),
-    );
-
-    // Typische Sparkle-Größe: ~0.4–0.9 % der kürzeren Bildseite.
-    final shortSide = math.min(width, height);
-    final maxRadius = math.max(2, (shortSide * 0.007).round());
-
-    void putPixel(int x, int y, int r, int g, int b) {
-      if (x < 0 || y < 0 || x >= width || y >= height) return;
-      final idx = y * width + x;
-      if (!filledSet.contains(idx)) return;
-      if (isLinePixel(original, x, y)) return;
-      working.setPixelRgba(x, y, r, g, b, 255);
-    }
-
-    for (var i = 0; i < sparkleCount; i++) {
-      final idx = filledIndices[random.nextInt(filledIndices.length)];
-      final cx = idx % width;
-      final cy = idx ~/ width;
-      if (isLinePixel(original, cx, cy)) continue;
-
-      final kind = random.nextDouble();
-      final radius = math.max(1, 1 + random.nextInt(maxRadius));
-
-      // Weiß / Pastell der Basisfarbe / warmes Gold.
-      late final int r, g, b;
-      if (kind < 0.45) {
-        r = 255;
-        g = 255;
-        b = 255;
-      } else if (kind < 0.75) {
-        r = math.min(255, baseR + 110);
-        g = math.min(255, baseG + 110);
-        b = math.min(255, baseB + 90);
-      } else {
-        r = 255;
-        g = 230 + random.nextInt(26);
-        b = 140 + random.nextInt(60);
-      }
-
-      // Kreuz-Stern.
-      for (var d = -radius; d <= radius; d++) {
-        putPixel(cx + d, cy, r, g, b);
-        putPixel(cx, cy + d, r, g, b);
-      }
-
-      // Diagonale Arme für größeren Sparkle.
-      if (radius >= 2 && random.nextDouble() > 0.4) {
-        final diag = math.max(1, radius - 1);
-        for (var d = -diag; d <= diag; d++) {
-          putPixel(cx + d, cy + d, r, g, b);
-          putPixel(cx + d, cy - d, r, g, b);
-        }
-      }
-
-      // Heller Kern.
-      putPixel(cx, cy, 255, 255, 255);
-      if (radius >= 2) {
-        putPixel(cx - 1, cy, 255, 255, 255);
-        putPixel(cx + 1, cy, 255, 255, 255);
-        putPixel(cx, cy - 1, 255, 255, 255);
-        putPixel(cx, cy + 1, 255, 255, 255);
-      }
-    }
-
-    // Zusätzliche feine Glitzerpunkte für „Schimmer“.
-    final dustCount = math.min(280, math.max(30, area ~/ (density * 2)));
-    for (var i = 0; i < dustCount; i++) {
-      final idx = filledIndices[random.nextInt(filledIndices.length)];
-      final x = idx % width;
-      final y = idx ~/ width;
-      if (isLinePixel(original, x, y)) continue;
-      final soft = random.nextDouble() > 0.5;
-      if (soft) {
-        putPixel(
-          x,
-          y,
-          math.min(255, baseR + 80),
-          math.min(255, baseG + 80),
-          math.min(255, baseB + 60),
-        );
-      } else {
-        putPixel(x, y, 255, 255, 255);
-      }
-    }
   }
 
   Future<ui.Image> toUiImage() {

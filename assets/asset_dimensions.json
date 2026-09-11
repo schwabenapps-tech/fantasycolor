@@ -1,144 +1,134 @@
 {
   "coloring_pages": [
     {
-      "path": "assets/coloring_pages/fee_einfach_01.png",
-      "width": 1200,
-      "height": 1310
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_02.png",
-      "width": 1024,
-      "height": 1536
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_03.png",
-      "width": 1132,
-      "height": 1390
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_04.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_05.png",
-      "width": 1024,
-      "height": 1536
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_06.png",
+      "path": "assets/coloring_pages/fee_clean_01.png",
       "width": 1121,
       "height": 1403
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_07.png",
-      "width": 1086,
-      "height": 1448
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_08.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_09.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_10.png",
-      "width": 1086,
-      "height": 1448
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_11.png",
-      "width": 1536,
-      "height": 1024
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_12.png",
-      "width": 1122,
-      "height": 1402
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_13.png",
-      "width": 1122,
-      "height": 1402
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_14.png",
-      "width": 1163,
-      "height": 1353
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_15.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_16.png",
-      "width": 1604,
-      "height": 981
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_17.png",
-      "width": 1692,
-      "height": 930
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_18.png",
-      "width": 1503,
-      "height": 1046
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_19.png",
+      "path": "assets/coloring_pages/fee_clean_02.png",
       "width": 1132,
       "height": 1390
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_20.png",
-      "width": 1148,
-      "height": 1371
+      "path": "assets/coloring_pages/fee_clean_03.png",
+      "width": 1132,
+      "height": 1390
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_21.png",
+      "path": "assets/coloring_pages/fee_clean_04.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_22.png",
-      "width": 1122,
-      "height": 1402
+      "path": "assets/coloring_pages/fee_clean_05.png",
+      "width": 1536,
+      "height": 1024
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_23.png",
-      "width": 1189,
-      "height": 1323
+      "path": "assets/coloring_pages/fee_clean_06.png",
+      "width": 1503,
+      "height": 1046
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_24.png",
-      "width": 1442,
-      "height": 1091
-    },
-    {
-      "path": "assets/coloring_pages/fee_einfach_25.png",
+      "path": "assets/coloring_pages/fee_clean_07.png",
       "width": 1448,
       "height": 1086
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_26.png",
-      "width": 1442,
-      "height": 1091
+      "path": "assets/coloring_pages/fee_clean_08.png",
+      "width": 1254,
+      "height": 1254
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_27.png",
+      "path": "assets/coloring_pages/fee_clean_09.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/coloring_pages/fee_einfach_28.png",
+      "path": "assets/coloring_pages/fee_clean_10.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_11.png",
+      "width": 1429,
+      "height": 1075
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_12.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_13.png",
+      "width": 1189,
+      "height": 1323
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_14.png",
+      "width": 1691,
+      "height": 930
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_15.png",
+      "width": 1200,
+      "height": 1310
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_16.png",
+      "width": 1604,
+      "height": 981
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_17.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_18.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_19.png",
+      "width": 1148,
+      "height": 1371
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_20.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_21.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_22.png",
       "width": 1536,
       "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_23.png",
+      "width": 1086,
+      "height": 1448
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_24.png",
+      "width": 1163,
+      "height": 1353
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_25.png",
+      "width": 1442,
+      "height": 1091
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_26.png",
+      "width": 1024,
+      "height": 1536
     }
   ],
   "print_templates": [
@@ -350,6 +340,66 @@
       "height": 1536
     },
     {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_09_14.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_18_29.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_25_32.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_34_28.png",
+      "width": 1371,
+      "height": 1148
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_40_15.png",
+      "width": 1371,
+      "height": 1148
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_48_10.png",
+      "width": 1370,
+      "height": 1148
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_57_42.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_12_sept_2026_00_00_35.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_12_sept_2026_00_20_57.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_1_sept_2026_14_40_15.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_5_sept_2026_23_55_24.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt_image_6_sept_2026_00_06_26.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
       "path": "assets/puzzle_images/gemini_generated_image_c8wkbmc8wkbmc8wk.jpg",
       "width": 1408,
       "height": 768
@@ -365,22 +415,7 @@
       "height": 1024
     },
     {
-      "path": "assets/puzzle_images/gemini_generated_image_l2plvzl2plvzl2pl.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/puzzle_images/gemini_generated_image_nsjts9nsjts9nsjt.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
       "path": "assets/puzzle_images/gemini_generated_image_vhh9l8vhh9l8vhh9.jpg",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/puzzle_images/hanfu_princess_umbrella.png",
       "width": 1408,
       "height": 768
     },

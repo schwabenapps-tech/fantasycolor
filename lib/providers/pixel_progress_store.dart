@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +14,7 @@ class PixelProgressStore extends ChangeNotifier {
   PixelProgressStore();
 
   static const _prefsKey = 'pixel_progress_ids';
+  static const _invalidateAppliedKey = 'puzzle_invalidate_applied';
 
   final Set<String> _ids = <String>{};
   final Map<String, int> _versions = <String, int>{};
@@ -66,8 +68,33 @@ class PixelProgressStore extends ChangeNotifier {
       await prefs.setStringList(_prefsKey, _ids.toList(growable: false));
     }
 
+    await _invalidateStaleProgress(prefs);
+
     _ready = true;
     notifyListeners();
+  }
+
+  /// Löscht Pixel-Fortschritt nur für entfernte/ausgetauschte Puzzle-Motive.
+  Future<void> _invalidateStaleProgress(SharedPreferences prefs) async {
+    try {
+      final raw = await rootBundle.loadString(
+        'assets/puzzle_invalidate_ids.json',
+      );
+      final list = (jsonDecode(raw) as List<dynamic>)
+          .map((e) => e.toString())
+          .toList(growable: false);
+      final fingerprint = list.join('|');
+      if (list.isEmpty ||
+          prefs.getString(_invalidateAppliedKey) == fingerprint) {
+        return;
+      }
+      for (final id in list) {
+        await clearProgress(id);
+      }
+      await prefs.setString(_invalidateAppliedKey, fingerprint);
+    } catch (_) {
+      // Datei optional.
+    }
   }
 
   File? previewFileFor(String pageId) {

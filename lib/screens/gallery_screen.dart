@@ -154,7 +154,6 @@ class _GalleryScreenState extends State<GalleryScreen>
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final tileHeight = layout.galleryTileHeight;
-    final tileWidth = layout.galleryTileWidth;
     final favorites = context.watch<FavoritesStore>();
     final progress = context.watch<ColoringProgressStore>();
     final pixelProgress = context.watch<PixelProgressStore>();
@@ -243,10 +242,20 @@ class _GalleryScreenState extends State<GalleryScreen>
                                       SizedBox(width: size.width * 0.03),
                                   itemBuilder: (context, index) {
                                     final page = pages[index];
+                                    // Kachelbreite am echten Bildformat — sonst
+                                    // werden Querformat-Motive mit cover abgeschnitten.
+                                    final ratio = page.aspectRatio <= 0
+                                        ? 0.78
+                                        : page.aspectRatio;
+                                    final pageTileWidth = (tileHeight * ratio)
+                                        .clamp(
+                                          tileHeight * 0.55,
+                                          tileHeight * 1.75,
+                                        );
                                     if (isAdvanced) {
                                       return _PixelPageTile(
                                         page: page,
-                                        width: tileWidth,
+                                        width: pageTileWidth,
                                         height: tileHeight,
                                         hasProgress:
                                             pixelProgress.hasProgress(page.id),
@@ -261,7 +270,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                                     }
                                     return _ColoringPageTile(
                                       page: page,
-                                      width: tileWidth,
+                                      width: pageTileWidth,
                                       height: tileHeight,
                                       isFavorite:
                                           favorites.isFavorite(page.id),
@@ -612,7 +621,7 @@ class _ColoringPageTile extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   child: ColoringPageImage(
                     page: page,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
