@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Sync Desktop › fantasycolor_puzzle → assets/puzzle_images.
+"""Sync Desktop-Puzzlebilder → assets/puzzle_images.
+
+Quellen:
+- ~/Desktop/fantasycolor_puzzle
+- ~/Desktop/fantasycolor_event_halloween  (nur Root, nicht „halloween ausmalbilder“)
 
 Schreibweise: lowercase, Leerzeichen/Sonderzeichen → `_`.
 Schreibt assets/puzzle_invalidate_ids.json (entfernte + geänderte IDs).
@@ -16,7 +20,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = Path.home() / "Desktop/fantasycolor_puzzle"
+SRC_DIRS = [
+    Path.home() / "Desktop/fantasycolor_puzzle",
+    Path.home() / "Desktop/fantasycolor_event_halloween",
+]
 DEST = ROOT / "assets/puzzle_images"
 EXTS = {".png", ".jpg", ".jpeg"}
 
@@ -43,18 +50,27 @@ def page_id(filename: str) -> str:
     return filename
 
 
-def main() -> int:
-    if not SRC.is_dir():
-        print(f"Missing source folder: {SRC}", file=sys.stderr)
-        return 1
+def collect_sources() -> list[Path]:
+    sources: list[Path] = []
+    for folder in SRC_DIRS:
+        if not folder.is_dir():
+            print(f"Missing source folder: {folder}", file=sys.stderr)
+            continue
+        for p in folder.iterdir():
+            if not p.is_file():
+                continue
+            if p.suffix.lower() not in EXTS:
+                continue
+            if p.name.startswith("."):
+                continue
+            sources.append(p)
+    return sources
 
-    sources = [
-        p
-        for p in SRC.iterdir()
-        if p.is_file() and p.suffix.lower() in EXTS and not p.name.startswith(".")
-    ]
+
+def main() -> int:
+    sources = collect_sources()
     if not sources:
-        print("No images in source folder", file=sys.stderr)
+        print("No images in source folders", file=sys.stderr)
         return 1
 
     DEST.mkdir(parents=True, exist_ok=True)
@@ -62,7 +78,10 @@ def main() -> int:
     for src in sources:
         name = asset_filename(src.name)
         if name in wanted:
-            print(f"Name collision: {src.name} and {wanted[name].name} → {name}", file=sys.stderr)
+            print(
+                f"Name collision: {src.name} and {wanted[name].name} → {name}",
+                file=sys.stderr,
+            )
             return 1
         wanted[name] = src
 
@@ -87,13 +106,14 @@ def main() -> int:
             print(f"DELETE  {p.name}")
             p.unlink()
 
-    # stabile, einzigartige Liste
     uniq = sorted(dict.fromkeys(changed_ids))
     (ROOT / "assets/puzzle_invalidate_ids.json").write_text(
         json.dumps(uniq, indent=2) + "\n", encoding="utf-8"
     )
     print(f"\nInvalidate IDs ({len(uniq)}): {uniq}")
     print(f"Total puzzle images: {len(wanted)}")
+
+    subprocess.check_call([sys.executable, str(ROOT / "scripts/generate_asset_manifest.py")])
     return 0
 
 

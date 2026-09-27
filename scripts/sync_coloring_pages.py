@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""Sync Desktop › einfachere bilder → assets/coloring_pages (stabile IDs).
+"""Sync Desktop-Ausmalbilder → assets/coloring_pages (stabile IDs).
+
+Quellen:
+- ~/Desktop/bilder_fantasycolor/einfachere bilder
+- ~/Desktop/fantasycolor_event_halloween/halloween ausmalbilder
 
 Schreibt außerdem:
 - assets/coloring_asset_hashes.json
 - assets/coloring_invalidate_ids.json  (nur geänderte IDs → Fortschritt löschen)
+- assets/coloring_source_map.json     (fee_clean_XX → Quelldateiname)
 """
 
 from __future__ import annotations
@@ -16,10 +21,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder"
+SRC_DIRS = [
+    Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder",
+    Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
+]
 DEST = ROOT / "assets/coloring_pages"
+MAP_PATH = ROOT / "assets/coloring_source_map.json"
 
 # Reihenfolge = fee_clean_01 … (nicht nach mtime neu nummerieren!)
+# Neue Desktop-Dateien werden unten angehängt; entfernte fliegen raus.
 ORDER = [
     "ChatGPT Image 5. Sept. 2026, 21_43_42.png",
     "ChatGPT Image 5. Sept. 2026, 22_42_49.png",
@@ -47,6 +57,20 @@ ORDER = [
     "ChatGPT Image 11. Sept. 2026, 22_07_20.png",
     "ChatGPT Image 11. Sept. 2026, 22_13_20.png",
     "ChatGPT Image 11. Sept. 2026, 22_15_13.png",
+    # Neu ab 19. Sept.
+    "ChatGPT Image 19. Sept. 2026, 11_00_50.png",
+    "ChatGPT Image 19. Sept. 2026, 11_04_45.png",
+    "ChatGPT Image 19. Sept. 2026, 11_10_24.png",
+    "ChatGPT Image 19. Sept. 2026, 11_15_58.png",
+    "ChatGPT Image 19. Sept. 2026, 11_21_15.png",
+    "ChatGPT Image 19. Sept. 2026, 11_29_36.png",
+    # Halloween Ausmalbilder
+    "227F10E2-C21E-43BE-8187-A571E6BF30A4.png",
+    "ChatGPT Image 24. Sept. 2026, 11_08_41.png",
+    "ChatGPT-Bild 26. Sept. 2026, 23_14_56.png",
+    "ChatGPT-Bild 26. Sept. 2026, 23_53_27.png",
+    "ChatGPT-Bild 27. Sept. 2026, 00_06_29.png",
+    "ChatGPT-Bild 27. Sept. 2026, 00_51_02.png",
 ]
 
 
@@ -54,22 +78,53 @@ def md5(path: Path) -> str:
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 
+def collect_desktop() -> dict[str, Path]:
+    found: dict[str, Path] = {}
+    for folder in SRC_DIRS:
+        if not folder.is_dir():
+            print(f"Missing source folder: {folder}", file=sys.stderr)
+            continue
+        for f in folder.glob("*.png"):
+            if f.name in found:
+                print(
+                    f"Name collision: {f} and {found[f.name]}",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            found[f.name] = f
+    return found
+
+
+def resolve_order(desk: dict[str, Path]) -> list[str]:
+    """ORDER bereinigen + neue Desktop-Dateien anhängen."""
+    kept = [n for n in ORDER if n in desk]
+    known = set(kept)
+    extras = sorted(n for n in desk if n not in known)
+    if extras:
+        print("Appending new desktop files:")
+        for n in extras:
+            print(f"  + {n}")
+    removed = [n for n in ORDER if n not in desk]
+    if removed:
+        print("Removed (not on desktop anymore):")
+        for n in removed:
+            print(f"  - {n}")
+    return kept + extras
+
+
 def main() -> int:
-    if not SRC.is_dir():
-        print(f"Missing source folder: {SRC}", file=sys.stderr)
+    desk = collect_desktop()
+    if not desk:
+        print("No coloring images found on desktop", file=sys.stderr)
         return 1
 
-    desk = {f.name: f for f in SRC.glob("*.png")}
-    missing = [n for n in ORDER if n not in desk]
-    if missing:
-        print("Missing on desktop:", *missing, sep="\n  ", file=sys.stderr)
-        return 1
-
+    order = resolve_order(desk)
     DEST.mkdir(parents=True, exist_ok=True)
     changed: list[str] = []
     hashes: dict[str, str] = {}
+    source_map: dict[str, str] = {}
 
-    for i, name in enumerate(ORDER, 1):
+    for i, name in enumerate(order, 1):
         out = DEST / f"fee_clean_{i:02d}.png"
         src_f = desk[name]
         new_h = md5(src_f)
@@ -81,10 +136,11 @@ def main() -> int:
         else:
             print(f"same    {out.name} <- {name}")
         hashes[out.stem] = new_h
+        source_map[out.stem] = name
 
     for p in list(DEST.glob("fee_clean_*.png")):
         num = int(p.stem.split("_")[-1])
-        if num > len(ORDER):
+        if num > len(order):
             print(f"DELETE  {p.name}")
             changed.append(p.stem)
             p.unlink()
@@ -95,7 +151,12 @@ def main() -> int:
     (ROOT / "assets/coloring_invalidate_ids.json").write_text(
         json.dumps(changed, indent=2) + "\n", encoding="utf-8"
     )
+    MAP_PATH.write_text(
+        json.dumps(source_map, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     print(f"\nChanged IDs ({len(changed)}): {changed}")
+    print(f"Total coloring pages: {len(order)}")
 
     subprocess.check_call([sys.executable, str(ROOT / "scripts/generate_asset_manifest.py")])
     return 0

@@ -106,6 +106,11 @@ class PaintCatalog {
     ];
   }
 
+  /// Flache Palette für die untere Leiste: Malfarben + Pastell, ohne Filter.
+  static List<PaintSwatch> get allSwatches => [
+        for (final category in categories) ...swatchesFor(category),
+      ];
+
   /// Nummerierte Swatches aus den echten Farben eines Pixelbilds.
   ///
   /// Erscheinen in der Leiste wie normale Malfarben — aber nur die

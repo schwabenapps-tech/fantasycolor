@@ -34,22 +34,26 @@ class SilverBackButton extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFF7F9FC),
-                Color(0xFFC5CCD8),
-                Color(0xFF9AA3B5),
+                Color(0xFFFFF6E8),
+                Color(0xFFE8C9A0),
+                Color(0xFFC9A06A),
               ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.75),
+              width: 1.6,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 10,
+                color: const Color(0xFFC9A06A).withValues(alpha: 0.4),
+                blurRadius: 12,
                 offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Icon(
             icon,
-            color: const Color(0xFF243044),
+            color: const Color(0xFF3A2810),
             size: iconSize,
           ),
         ),

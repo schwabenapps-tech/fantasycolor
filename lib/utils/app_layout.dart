@@ -15,6 +15,10 @@ class AppLayout {
 
   bool get isLargeTablet => size.shortestSide >= 900;
 
+  bool get isLandscape => size.width > size.height;
+
+  bool get isPortrait => !isLandscape;
+
   double get galleryTileHeight {
     final raw = size.height * (isTablet ? 0.48 : 0.56);
     final maxH = isLargeTablet
@@ -44,6 +48,9 @@ class AppLayout {
   double get hubMaxCardWidth => isTablet ? 280.0 : double.infinity;
 
   double get paintRailWidth => isTablet ? 188.0 : 148.0;
+
+  /// Untere Farbleiste beim Ausmalen (Fill-only).
+  double get paintBarHeight => isTablet ? 96.0 : 84.0;
 
   double get puzzleTrayHeight => isTablet ? 132.0 : 108.0;
 

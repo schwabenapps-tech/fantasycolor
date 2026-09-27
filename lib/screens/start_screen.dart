@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'hub_screen.dart';
 
@@ -15,6 +17,18 @@ class _StartScreenState extends State<StartScreen>
     with TickerProviderStateMixin {
   static const _backgroundAsset = 'assets/images/fairy_fantasy_color.png';
 
+  static const _startOrientations = <DeviceOrientation>[
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ];
+
+  static const _appOrientations = <DeviceOrientation>[
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ];
+
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   late final AnimationController _pulseController;
@@ -23,6 +37,7 @@ class _StartScreenState extends State<StartScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(SystemChrome.setPreferredOrientations(_startOrientations));
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -48,8 +63,10 @@ class _StartScreenState extends State<StartScreen>
     super.dispose();
   }
 
-  void _onPlay() {
-    Navigator.of(context).push(
+  Future<void> _onPlay() async {
+    await SystemChrome.setPreferredOrientations(_appOrientations);
+    if (!mounted) return;
+    await Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 700),
         pageBuilder: (context, animation, secondaryAnimation) {
@@ -60,6 +77,8 @@ class _StartScreenState extends State<StartScreen>
         },
       ),
     );
+    // Zurück zum Start: wieder nur Landscape.
+    await SystemChrome.setPreferredOrientations(_startOrientations);
   }
 
   @override

@@ -13,6 +13,7 @@ import 'services/ads_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Start-Screen bleibt Landscape; danach gibt StartScreen alle Orientierungen frei.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,

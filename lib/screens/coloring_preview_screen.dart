@@ -11,11 +11,11 @@ import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../services/ads_service.dart';
 import '../widgets/coloring_canvas.dart';
-import '../widgets/paint_side_rail.dart';
+import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
 
-/// Interaktiver Mal-Screen mit PNG-Flood-Fill, Stift, Zoom, Undo und Fertig.
+/// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Fertig.
 class ColoringPreviewScreen extends StatefulWidget {
   const ColoringPreviewScreen({super.key, required this.page});
 
@@ -214,84 +214,107 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
-            // Canvas wirklich fullscreen — Zoom darf den ganzen Screen füllen.
-            Positioned.fill(
-              child: FutureBuilder<ColoringBitmap>(
-                future: _bitmapFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        'Bild konnte nicht geladen werden',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                        ),
+            Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      FutureBuilder<ColoringBitmap>(
+                        future: _bitmapFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'Bild konnte nicht geladen werden',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            );
+                          }
+                          if (!snapshot.hasData) {
+                            return const Center(
+                              child: SizedBox(
+                                width: 34,
+                                height: 34,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Color(0xFF8FA0C8),
+                                ),
+                              ),
+                            );
+                          }
+                          return ColoringCanvas(
+                            bitmap: snapshot.data!,
+                            session: _session,
+                          );
+                        },
                       ),
-                    );
-                  }
-                  if (!snapshot.hasData) {
-                    return const Center(
-                      child: SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Color(0xFF8FA0C8),
-                        ),
-                      ),
-                    );
-                  }
-                  return ColoringCanvas(
-                    bitmap: snapshot.data!,
-                    session: _session,
-                  );
-                },
-              ),
-            ),
-            // Steuerung + Palette über dem Bild.
-            SafeArea(
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 8,
-                    left: 12,
-                    child: SilverBackButton(
-                      onPressed: () => unawaited(_leaveScreen()),
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: PaintSideRail.widthOf(context) + 12,
-                    child: AnimatedBuilder(
-                      animation: _session,
-                      builder: (context, _) {
-                        return Row(
-                          children: [
-                            _RoundIconButton(
-                              icon: Icons.undo_rounded,
-                              onPressed:
-                                  _session.canUndo ? _session.undo : null,
-                              onLongPress: _session.canReset
-                                  ? _resetAllColors
-                                  : null,
-                              dimmed:
-                                  !_session.canUndo && !_session.canReset,
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SilverBackButton(
+                                  onPressed: () => unawaited(_leaveScreen()),
+                                ),
+                                const Spacer(),
+                                AnimatedBuilder(
+                                  animation: _session,
+                                  builder: (context, _) {
+                                    return Row(
+                                      children: [
+                                        _MagicToolButton(
+                                          icon: Icons.replay_rounded,
+                                          tooltip: 'Zurücknehmen',
+                                          colors: const [
+                                            Color(0xFFFFE8F0),
+                                            Color(0xFFE8A0BF),
+                                            Color(0xFFC56B9E),
+                                          ],
+                                          iconColor: const Color(0xFF4A2038),
+                                          onPressed: _session.canUndo
+                                              ? _session.undo
+                                              : null,
+                                          onLongPress: _session.canReset
+                                              ? _resetAllColors
+                                              : null,
+                                          dimmed: !_session.canUndo &&
+                                              !_session.canReset,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        _MagicToolButton(
+                                          icon: Icons.auto_awesome_rounded,
+                                          tooltip: 'Fertig',
+                                          colors: const [
+                                            Color(0xFFFFF4C8),
+                                            Color(0xFFFFD56A),
+                                            Color(0xFFE8A83A),
+                                          ],
+                                          iconColor: const Color(0xFF3A2A08),
+                                          onPressed: _finish,
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            _DoneButton(onPressed: _finish),
-                          ],
-                        );
-                      },
-                    ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: PaintSideRail(session: _session),
-                  ),
-                ],
-              ),
+                ),
+                PaintBottomBar(session: _session),
+              ],
             ),
             if (_celebrating)
               _FinishCelebration(
@@ -528,104 +551,67 @@ class _FinishActionButton extends StatelessWidget {
   }
 }
 
-class _DoneButton extends StatelessWidget {
-  const _DoneButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFB6F5C8),
-                Color(0xFF3DDC84),
-                Color(0xFF1FA855),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF3DDC84).withValues(alpha: 0.45),
-                blurRadius: 12,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.check_rounded,
-            color: Color(0xFF0E3B22),
-            size: 28,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
+/// Weicher Fantasy-Tool-Button (Undo / Fertig) — kein System-Grau.
+class _MagicToolButton extends StatelessWidget {
+  const _MagicToolButton({
     required this.icon,
+    required this.colors,
+    required this.iconColor,
     required this.onPressed,
     this.onLongPress,
     this.dimmed = false,
+    this.tooltip,
   });
 
   final IconData icon;
+  final List<Color> colors;
+  final Color iconColor;
   final VoidCallback? onPressed;
   final VoidCallback? onLongPress;
   final bool dimmed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: dimmed ? 0.45 : 1,
+    final button = Opacity(
+      opacity: dimmed ? 0.4 : 1,
       child: Material(
         color: Colors.transparent,
-        shape: const CircleBorder(),
+        shape: const StadiumBorder(),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onPressed,
           onLongPress: onLongPress,
-          customBorder: const CircleBorder(),
+          customBorder: const StadiumBorder(),
           child: Ink(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFF7F9FC),
-                  Color(0xFFC5CCD8),
-                  Color(0xFF9AA3B5),
-                ],
+                colors: colors,
+              ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.75),
+                width: 1.6,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 10,
+                  color: colors.last.withValues(alpha: 0.45),
+                  blurRadius: 12,
                   offset: const Offset(0, 3),
                 ),
               ],
             ),
-            child: Icon(icon, color: const Color(0xFF243044), size: 24),
+            child: Icon(icon, color: iconColor, size: 24),
           ),
         ),
       ),
     );
+
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip!, child: button);
   }
 }

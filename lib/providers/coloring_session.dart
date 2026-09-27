@@ -47,9 +47,9 @@ class AddStrokeAction extends ColoringAction {
 /// Zustand einer Mal-Session für ein PNG-Ausmalbild.
 class ColoringSession extends ChangeNotifier {
   ColoringSession() {
-    _category = PaintCatalog.categories.first;
-    final swatches = PaintCatalog.swatchesFor(_category!);
+    final swatches = PaintCatalog.allSwatches;
     _swatch = swatches.isEmpty ? null : swatches.first;
+    _category = _swatch?.category ?? PaintCatalog.categories.first;
   }
 
   PaintCategory? _category;
@@ -87,8 +87,7 @@ class ColoringSession extends ChangeNotifier {
   bool get eraserClearsFills =>
       _tool == PaintTool.eraser && _lastDrawTool == PaintTool.brush;
 
-  List<PaintSwatch> get availableSwatches =>
-      _category == null ? const [] : PaintCatalog.swatchesFor(_category!);
+  List<PaintSwatch> get availableSwatches => PaintCatalog.allSwatches;
 
   void attachBitmap(ColoringBitmap bitmap, {bool notify = true}) {
     _bitmap = bitmap;
@@ -131,6 +130,7 @@ class ColoringSession extends ChangeNotifier {
 
   void selectSwatch(PaintSwatch swatch) {
     _swatch = swatch;
+    _category = swatch.category;
     if (_tool == PaintTool.eraser) {
       _tool = PaintTool.brush;
     }
@@ -158,9 +158,11 @@ class ColoringSession extends ChangeNotifier {
 
   PathFillStyle? currentFillStyle() {
     final selected = _swatch;
-    final cat = _category;
-    if (selected == null || cat == null) return null;
-    return PathFillStyle(color: selected.color, category: cat);
+    if (selected == null) return null;
+    return PathFillStyle(
+      color: selected.color,
+      category: selected.category,
+    );
   }
 
   /// Flood-Fill / Flächen-Radierer auf dem Bitmap (Hintergrund-Isolate).
