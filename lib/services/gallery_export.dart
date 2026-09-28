@@ -1,8 +1,7 @@
-import 'dart:typed_data';
-
+import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 
-/// Speichert ausgemalte PNGs in die Geräte-Fotogalerie (iOS + Android).
+/// Speichert Bilder in die Geräte-Fotogalerie (iOS + Android).
 class GalleryExport {
   GalleryExport._();
 
@@ -17,6 +16,14 @@ class GalleryExport {
       );
     }
     await Gal.putImageBytes(bytes, name: name);
+  }
+
+  static Future<void> saveAsset(
+    String assetPath, {
+    required String name,
+  }) async {
+    final data = await rootBundle.load(assetPath);
+    await savePngBytes(data.buffer.asUint8List(), name: name);
   }
 }
 

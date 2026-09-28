@@ -85,7 +85,7 @@ flutter:
     - assets/coloring_pages/
     - assets/print_templates/
     - assets/puzzle_images/
-    - assets/sounds/
+    - assets/sounds/  # ambient bgm + sfx
     - assets/asset_dimensions.json
     - assets/coloring_asset_hashes.json
     - assets/coloring_invalidate_ids.json

@@ -36,13 +36,15 @@ class _GalleryScreenState extends State<GalleryScreen>
   late final Animation<double> _fadeAnimation;
   Future<List<ColoringPage>>? _pagesFuture;
   Future<EventTags>? _tagsFuture;
+  final _gridScroll = ScrollController();
+  final _rowScroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _ensureFutures();
     // Galerie = normale Fantasy-Musik (Halloween nur im Motiv selbst).
-    unawaited(AudioService.instance.startAmbient(halloween: false));
+    unawaited(AudioService.instance.startAmbient());
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -62,6 +64,8 @@ class _GalleryScreenState extends State<GalleryScreen>
 
   @override
   void dispose() {
+    _gridScroll.dispose();
+    _rowScroll.dispose();
     _fadeController.dispose();
     super.dispose();
   }
@@ -87,8 +91,6 @@ class _GalleryScreenState extends State<GalleryScreen>
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final tileHeight = layout.galleryTileHeight;
-    final favorites = context.watch<FavoritesStore>();
-    final progress = context.watch<ColoringProgressStore>();
 
     return Scaffold(
       body: Stack(
@@ -150,6 +152,10 @@ class _GalleryScreenState extends State<GalleryScreen>
 
                             if (layout.isPortrait) {
                               return GridView.builder(
+                                key: const PageStorageKey<String>(
+                                  'gallery_grid',
+                                ),
+                                controller: _gridScroll,
                                 padding: layout.galleryGridPadding(size).copyWith(
                                   top: 56,
                                 ),
@@ -169,20 +175,13 @@ class _GalleryScreenState extends State<GalleryScreen>
                                           ?.isHalloweenColoring(page.id) ??
                                       false;
                                   final isNew = !halloween &&
-                                      (tags?.isFeaturedColoring(page.id) ??
-                                          false);
+                                      (tags?.isNewColoring(page.id) ?? false);
                                   return _ColoringPageTile(
                                     page: page,
-                                    isFavorite:
-                                        favorites.isFavorite(page.id),
-                                    hasProgress:
-                                        progress.hasProgress(page.id),
                                     isHalloween: halloween,
                                     isNew: isNew,
                                     compact: true,
                                     onTap: () => _openSimplePage(page),
-                                    onToggleFavorite: () =>
-                                        favorites.toggle(page.id),
                                   );
                                 },
                               );
@@ -193,6 +192,10 @@ class _GalleryScreenState extends State<GalleryScreen>
                               child: SizedBox(
                                 height: tileHeight,
                                 child: ListView.separated(
+                                  key: const PageStorageKey<String>(
+                                    'gallery_row',
+                                  ),
+                                  controller: _rowScroll,
                                   scrollDirection: Axis.horizontal,
                                   padding: EdgeInsets.symmetric(
                                     horizontal: size.width * 0.055,
@@ -216,22 +219,16 @@ class _GalleryScreenState extends State<GalleryScreen>
                                         tags?.isHalloweenColoring(page.id) ??
                                             false;
                                     final isNew = !halloween &&
-                                        (tags?.isFeaturedColoring(page.id) ??
+                                        (tags?.isNewColoring(page.id) ??
                                             false);
                                     return SizedBox(
                                       width: pageTileWidth,
                                       height: tileHeight,
                                       child: _ColoringPageTile(
                                         page: page,
-                                        isFavorite:
-                                            favorites.isFavorite(page.id),
-                                        hasProgress:
-                                            progress.hasProgress(page.id),
                                         isHalloween: halloween,
                                         isNew: isNew,
                                         onTap: () => _openSimplePage(page),
-                                        onToggleFavorite: () =>
-                                            favorites.toggle(page.id),
                                       ),
                                     );
                                   },
@@ -265,23 +262,17 @@ class _GalleryScreenState extends State<GalleryScreen>
 class _ColoringPageTile extends StatelessWidget {
   const _ColoringPageTile({
     required this.page,
-    required this.isFavorite,
-    required this.hasProgress,
     required this.isHalloween,
     required this.isNew,
     required this.onTap,
-    required this.onToggleFavorite,
     this.compact = false,
   });
 
   final ColoringPage page;
-  final bool isFavorite;
-  final bool hasProgress;
   final bool isHalloween;
   final bool isNew;
   final bool compact;
   final VoidCallback onTap;
-  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -331,19 +322,31 @@ class _ColoringPageTile extends StatelessWidget {
             top: inset,
             child: const NewBadge(),
           ),
-        if (hasProgress)
-          Positioned(
-            left: inset,
-            bottom: inset,
-            child: const ProgressBadge(),
-          ),
+        // Nur diese Badges rebuilden — verhindert Scroll-Sprung der Galerie.
+        Selector<ColoringProgressStore, bool>(
+          selector: (_, store) => store.hasProgress(page.id),
+          builder: (context, hasProgress, _) {
+            if (!hasProgress) return const SizedBox.shrink();
+            return Positioned(
+              left: inset,
+              bottom: inset,
+              child: const ProgressBadge(),
+            );
+          },
+        ),
         Positioned(
           top: inset,
           right: inset,
-          child: FavoriteStarButton(
-            isFavorite: isFavorite,
-            onPressed: onToggleFavorite,
-            size: starSize,
+          child: Selector<FavoritesStore, bool>(
+            selector: (_, store) => store.isFavorite(page.id),
+            builder: (context, isFavorite, _) {
+              return FavoriteStarButton(
+                isFavorite: isFavorite,
+                onPressed: () =>
+                    context.read<FavoritesStore>().toggle(page.id),
+                size: starSize,
+              );
+            },
           ),
         ),
       ],

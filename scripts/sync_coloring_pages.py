@@ -174,6 +174,9 @@ def main() -> int:
     _merge_event_tags(
         halloween_coloring=halloween_ids,
         featured_coloring=featured_ids,
+        new_ids=changed,
+        new_since_key="new_since_coloring",
+        valid_ids={f"fee_clean_{i:02d}" for i in range(1, len(order) + 1)},
     )
 
     print(f"\nChanged IDs ({len(changed)}): {changed}")
@@ -190,7 +193,12 @@ def _merge_event_tags(
     featured_coloring: list[str] | None = None,
     halloween_puzzle: list[str] | None = None,
     featured_puzzle: list[str] | None = None,
+    new_ids: list[str] | None = None,
+    new_since_key: str | None = None,
+    valid_ids: set[str] | None = None,
 ) -> None:
+    from datetime import date, datetime, timedelta
+
     path = ROOT / "assets/event_tags.json"
     data: dict[str, object] = {}
     if path.exists():
@@ -203,6 +211,30 @@ def _merge_event_tags(
         data["halloween_puzzle"] = halloween_puzzle
     if featured_puzzle is not None:
         data["featured_puzzle"] = featured_puzzle
+
+    # Neu-Badge-Daten: nur frisch syncte IDs bekommen „heute“.
+    if new_since_key is not None:
+        since_raw = data.get(new_since_key)
+        since: dict[str, str] = {}
+        if isinstance(since_raw, dict):
+            since = {str(k): str(v) for k, v in since_raw.items()}
+        today = date.today().isoformat()
+        for nid in new_ids or []:
+            since[str(nid)] = today
+        if valid_ids is not None:
+            since = {k: v for k, v in since.items() if k in valid_ids}
+        # Älter als 30 Tage aus JSON räumen (Badge ohnehin nach 7 Tagen weg).
+        cutoff = date.today() - timedelta(days=30)
+        pruned: dict[str, str] = {}
+        for k, v in since.items():
+            try:
+                d = datetime.strptime(v[:10], "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if d >= cutoff:
+                pruned[k] = v[:10]
+        data[new_since_key] = pruned
+
     path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

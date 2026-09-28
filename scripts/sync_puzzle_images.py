@@ -145,6 +145,30 @@ def main() -> int:
         tags = json.loads(tags_path.read_text(encoding="utf-8"))
     tags["halloween_puzzle"] = halloween_puzzle
     tags["featured_puzzle"] = featured_puzzle
+
+    from datetime import date, datetime, timedelta
+
+    today = date.today().isoformat()
+    since_raw = tags.get("new_since_puzzle")
+    since: dict[str, str] = {}
+    if isinstance(since_raw, dict):
+        since = {str(k): str(v) for k, v in since_raw.items()}
+    for nid in uniq:
+        since[str(nid)] = today
+    valid = {page_id(name) for name in wanted}
+    cutoff = date.today() - timedelta(days=30)
+    pruned: dict[str, str] = {}
+    for k, v in since.items():
+        if k not in valid:
+            continue
+        try:
+            d = datetime.strptime(v[:10], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if d >= cutoff:
+            pruned[k] = v[:10]
+    tags["new_since_puzzle"] = pruned
+
     tags_path.write_text(
         json.dumps(tags, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",

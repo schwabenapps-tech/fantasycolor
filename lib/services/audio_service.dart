@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Ruhige Hintergrundmusik + kurze Erfolgs-Sounds.
 ///
 /// Wichtig für iOS/audioplayers: Play/Stop/Source-Wechsel strikt serialisieren.
-/// Parallele Aufrufe erzeugen sonst „SWIFT TASK CONTINUATION MISUSE“ und Timeouts.
 class AudioService extends ChangeNotifier {
   AudioService._();
 
@@ -24,11 +23,6 @@ class AudioService extends ChangeNotifier {
     'sounds/bgm_fairy_tale_fantasy.mp3',
   ];
 
-  static const halloweenTracks = <String>[
-    'sounds/bgm_halloween_playful.mp3',
-    'sounds/bgm_halloween.mp3',
-  ];
-
   static const levelCompleteSfx = 'sounds/sfx_level_complete.mp3';
 
   AudioPlayer? _music;
@@ -38,21 +32,15 @@ class AudioService extends ChangeNotifier {
   bool _ready = false;
   bool _muted = false;
   bool _musicWanted = false;
-  bool _halloweenMode = false;
   int _trackIndex = 0;
   String? _currentAsset;
   Future<void>? _initFuture;
 
-  /// Serialisiert Musik-Operationen (eine nach der anderen).
   Future<void> _musicGate = Future<void>.value();
-
-  /// Debounce: mehrere startAmbient() kurz hintereinander → ein Call.
   Timer? _ambientDebounce;
-  bool? _pendingHalloween;
 
   bool get muted => _muted;
   bool get isReady => _ready;
-  bool get halloweenMode => _halloweenMode;
   int get calmTrackCount => calmTracks.length;
 
   Future<void> initialize() {
@@ -87,7 +75,6 @@ class AudioService extends ChangeNotifier {
       await _sfx?.dispose();
     } catch (_) {}
 
-    // Keine festen playerIds — nach Hot-Restart sonst Zombies auf iOS.
     _music = AudioPlayer();
     _sfx = AudioPlayer();
     await _music!.setAudioContext(ctx);
@@ -128,46 +115,35 @@ class AudioService extends ChangeNotifier {
 
   Future<void> toggleMuted() => setMuted(!_muted);
 
-  /// Startet Loop-Musik. [halloween] wechselt auf die Halloween-Playlist.
-  ///
-  /// Debounced — Hub/Galerie/Preview dürfen parallel aufrufen.
-  Future<void> startAmbient({bool halloween = false}) async {
+  /// Startet die Fantasy-Loop-Musik (debounced).
+  Future<void> startAmbient() async {
     await initialize();
-    _pendingHalloween = halloween;
     _ambientDebounce?.cancel();
     _ambientDebounce = Timer(const Duration(milliseconds: 200), () {
-      final mode = _pendingHalloween ?? false;
-      _pendingHalloween = null;
-      unawaited(
-        _enqueueMusic(() => _startAmbientUnlocked(halloween: mode)),
-      );
+      unawaited(_enqueueMusic(_startAmbientUnlocked));
     });
   }
 
-  Future<void> _startAmbientUnlocked({required bool halloween}) async {
-    final switching = !_musicWanted || _halloweenMode != halloween;
+  Future<void> _startAmbientUnlocked() async {
+    final firstStart = !_musicWanted;
     _musicWanted = true;
 
-    if (!switching) {
+    if (!firstStart) {
       if (_muted) return;
       await _ensurePlayingUnlocked(force: false);
       return;
     }
 
-    _halloweenMode = halloween;
-    final list = _playlist;
-    if (list.isNotEmpty) {
-      _trackIndex = Random().nextInt(list.length);
+    if (calmTracks.isNotEmpty) {
+      _trackIndex = Random().nextInt(calmTracks.length);
     }
     _currentAsset = null;
-
     if (_muted) return;
     await _ensurePlayingUnlocked(force: true);
   }
 
   Future<void> stopAmbient() async {
     _ambientDebounce?.cancel();
-    _pendingHalloween = null;
     await _enqueueMusic(() async {
       _musicWanted = false;
       _currentAsset = null;
@@ -189,9 +165,6 @@ class AudioService extends ChangeNotifier {
       debugPrint('AudioService.playLevelComplete failed: $e\n$st');
     }
   }
-
-  List<String> get _playlist =>
-      _halloweenMode ? halloweenTracks : calmTracks;
 
   Future<void> _enqueueMusic(Future<void> Function() op) {
     final run = _musicGate.then((_) => op());
@@ -223,14 +196,12 @@ class AudioService extends ChangeNotifier {
 
   Future<void> _playNextTrackUnlocked() async {
     if (_muted || !_musicWanted) return;
-    final list = _playlist;
-    if (list.isEmpty) return;
+    if (calmTracks.isEmpty) return;
 
-    // Bis zu einmal alle Tracks durchprobieren, dann Player neu bauen.
-    for (var attempt = 0; attempt < list.length; attempt++) {
-      _trackIndex = _trackIndex % list.length;
-      final asset = list[_trackIndex];
-      _trackIndex = (_trackIndex + 1) % list.length;
+    for (var attempt = 0; attempt < calmTracks.length; attempt++) {
+      _trackIndex = _trackIndex % calmTracks.length;
+      final asset = calmTracks[_trackIndex];
+      _trackIndex = (_trackIndex + 1) % calmTracks.length;
 
       final ok = await _playAssetUnlocked(asset);
       if (ok) return;
@@ -239,8 +210,8 @@ class AudioService extends ChangeNotifier {
     debugPrint('AudioService: all tracks failed — recreating player');
     await _recreateMusicPlayer();
     if (_muted || !_musicWanted) return;
-    final asset = list[_trackIndex % list.length];
-    _trackIndex = (_trackIndex + 1) % list.length;
+    final asset = calmTracks[_trackIndex % calmTracks.length];
+    _trackIndex = (_trackIndex + 1) % calmTracks.length;
     await _playAssetUnlocked(asset);
   }
 
@@ -248,7 +219,6 @@ class AudioService extends ChangeNotifier {
     final player = _music;
     if (player == null) return false;
     try {
-      // Kein stop() davor — auf iOS leaked das oft die Status-Continuation.
       await player.play(AssetSource(asset));
       _currentAsset = asset;
       return true;

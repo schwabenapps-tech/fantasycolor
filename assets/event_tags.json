@@ -92,5 +92,27 @@
     "chatgpt_image_13_sept_2026_20_35_25",
     "chatgpt-bild_27_sept_2026_12_50_43",
     "233c320c-4dd9-4fb3-8c34-af15942026cb"
-  ]
+  ],
+  "new_since_coloring": {
+    "fee_clean_32": "2026-09-28",
+    "fee_clean_31": "2026-09-28",
+    "fee_clean_30": "2026-09-28",
+    "fee_clean_29": "2026-09-28",
+    "fee_clean_28": "2026-09-28",
+    "fee_clean_27": "2026-09-28"
+  },
+  "new_since_puzzle": {
+    "chatgpt_image_18_sept_2026_10_39_04": "2026-09-28",
+    "chatgpt_image_18_sept_2026_10_26_05": "2026-09-28",
+    "chatgpt_image_18_sept_2026_10_03_22": "2026-09-28",
+    "chatgpt_image_18_sept_2026_09_58_14": "2026-09-28",
+    "chatgpt_image_18_sept_2026_09_48_23": "2026-09-28",
+    "chatgpt_image_18_sept_2026_09_38_35": "2026-09-28",
+    "chatgpt_image_18_sept_2026_09_28_41": "2026-09-28",
+    "chatgpt_image_18_sept_2026_09_18_36": "2026-09-28",
+    "chatgpt_image_15_sept_2026_14_57_20": "2026-09-28",
+    "chatgpt_image_14_sept_2026_20_51_13": "2026-09-28",
+    "chatgpt_image_13_sept_2026_21_21_30": "2026-09-28",
+    "chatgpt_image_13_sept_2026_21_13_24": "2026-09-28"
+  }
 }

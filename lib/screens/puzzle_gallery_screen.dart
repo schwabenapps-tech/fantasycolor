@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
 import '../services/audio_service.dart';
+import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
@@ -34,7 +36,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
     super.initState();
     _puzzlesFuture = loadPuzzleImages();
     _tagsFuture = EventTags.load();
-    unawaited(AudioService.instance.startAmbient(halloween: false));
+    unawaited(AudioService.instance.startAmbient());
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -140,7 +142,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                             final halloween =
                                 tags?.isHalloweenPuzzle(puzzle.id) ?? false;
                             final isNew = !halloween &&
-                                (tags?.isFeaturedPuzzle(puzzle.id) ?? false);
+                                (tags?.isNewPuzzle(puzzle.id) ?? false);
                             return _PuzzleTile(
                               puzzle: puzzle,
                               isHalloween: halloween,
@@ -178,7 +180,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                                         tags?.isHalloweenPuzzle(puzzle.id) ??
                                             false;
                                     final isNew = !halloween &&
-                                        (tags?.isFeaturedPuzzle(puzzle.id) ??
+                                        (tags?.isNewPuzzle(puzzle.id) ??
                                             false);
                                     return SizedBox(
                                       width: tileWidth.clamp(
@@ -235,6 +237,25 @@ class _PuzzleTile extends StatelessWidget {
   final bool compact;
   final VoidCallback onTap;
 
+  Future<void> _saveToPhotos(BuildContext context) async {
+    try {
+      await GalleryExport.saveAsset(
+        puzzle.assetPath,
+        name: 'fantasy_puzzle_${puzzle.id}',
+      );
+      if (!context.mounted) return;
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final framed = GalleryFrame(
@@ -266,6 +287,7 @@ class _PuzzleTile extends StatelessWidget {
     );
 
     final inset = compact ? 8.0 : 10.0;
+    final downloadSize = compact ? 34.0 : 40.0;
 
     return Stack(
       fit: StackFit.expand,
@@ -282,6 +304,36 @@ class _PuzzleTile extends StatelessWidget {
             top: inset,
             child: const NewBadge(),
           ),
+        Positioned(
+          right: inset,
+          bottom: inset,
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => unawaited(_saveToPhotos(context)),
+              customBorder: const CircleBorder(),
+              child: Ink(
+                width: downloadSize,
+                height: downloadSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withValues(alpha: 0.4),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    width: 1.2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.download_rounded,
+                  color: Colors.white.withValues(alpha: 0.95),
+                  size: downloadSize * 0.55,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

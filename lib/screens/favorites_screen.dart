@@ -492,13 +492,15 @@ class FavoriteStarButton extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.55),
               width: 1.2,
             ),
+            // Feste Glow-Fläche — kein Layout-Sprung beim Togglen.
             boxShadow: [
-              if (isFavorite)
-                BoxShadow(
-                  color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
+              BoxShadow(
+                color: isFavorite
+                    ? const Color(0xFFFFD56A).withValues(alpha: 0.45)
+                    : Colors.transparent,
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
             ],
           ),
           child: Icon(

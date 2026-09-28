@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,11 +8,11 @@ import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
-import '../data/event_tags.dart';
 import '../services/ads_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
 import '../widgets/coloring_canvas.dart';
+import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
@@ -30,19 +29,17 @@ class ColoringPreviewScreen extends StatefulWidget {
   State<ColoringPreviewScreen> createState() => _ColoringPreviewScreenState();
 }
 
-class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
-    with TickerProviderStateMixin {
+class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   late final ColoringSession _session;
   Future<ColoringBitmap>? _bitmapFuture;
   bool _celebrating = false;
-  bool _showFinishActions = false;
   bool _saveInFlight = false;
   bool _saveAgain = false;
   bool _wantFlatten = false;
   bool _leaveAdShown = false;
   bool _finishChoiceAdShown = false;
   Timer? _autoSaveTimer;
-  late final AnimationController _celebrateController;
+  final _levelKey = GlobalKey<LevelCompleteOverlayState>();
   Uint8List? _finishedPng;
 
   @override
@@ -50,17 +47,6 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     super.initState();
     _session = ColoringSession();
     _session.addListener(_scheduleAutoSave);
-    _celebrateController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    );
-    unawaited(_syncAmbientMusic());
-  }
-
-  Future<void> _syncAmbientMusic() async {
-    final tags = await EventTags.load();
-    final halloween = tags.isHalloweenColoring(widget.page.id);
-    await AudioService.instance.startAmbient(halloween: halloween);
   }
 
   @override
@@ -89,7 +75,6 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   void dispose() {
     _autoSaveTimer?.cancel();
     _session.removeListener(_scheduleAutoSave);
-    _celebrateController.dispose();
     _session.dispose();
     super.dispose();
   }
@@ -162,7 +147,6 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: true);
-    // Keine Werbung beim Haken — erst bei Fertig / Als Puzzle.
 
     if (!mounted) return;
     final saved = await context
@@ -171,14 +155,11 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     _finishedPng = saved ?? await _session.renderColoredPng();
 
     if (!mounted) return;
-    setState(() {
-      _celebrating = true;
-      _showFinishActions = false;
-    });
-    unawaited(AudioService.instance.playLevelComplete());
-    await _celebrateController.forward(from: 0);
+    // Bild kurz in Ruhe zeigen, dann Level-Complete einblenden.
+    await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-    setState(() => _showFinishActions = true);
+    setState(() => _celebrating = true);
+    unawaited(AudioService.instance.playLevelComplete());
   }
 
   Future<void> _saveToPhotos() async {
@@ -203,6 +184,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   }
 
   Future<void> _closeAfterFinish() async {
+    await _levelKey.currentState?.fadeOut();
     await _showFinishChoiceAdOnce();
     if (mounted) Navigator.of(context).pop();
   }
@@ -213,6 +195,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
       await _closeAfterFinish();
       return;
     }
+    await _levelKey.currentState?.fadeOut();
     await _showFinishChoiceAdOnce();
     if (!mounted) return;
     HapticFeedback.mediumImpact();
@@ -371,244 +354,30 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
               ],
             ),
             if (_celebrating)
-              _FinishCelebration(
-                animation: _celebrateController,
-                showActions: _showFinishActions,
-                onDone: _closeAfterFinish,
-                onPlayPuzzle: _playAsPuzzle,
-                onSave: () => unawaited(_saveToPhotos()),
+              LevelCompleteOverlay(
+                key: _levelKey,
+                title: 'Wunderbar!',
+                subtitle: 'Level geschafft',
+                actions: [
+                  LevelCompleteActionButton(
+                    icon: Icons.download_rounded,
+                    label: 'In Fotos',
+                    onPressed: () => unawaited(_saveToPhotos()),
+                  ),
+                  LevelCompleteActionButton(
+                    icon: Icons.extension_rounded,
+                    label: 'Als Puzzle',
+                    onPressed: () => unawaited(_playAsPuzzle()),
+                  ),
+                  LevelCompleteActionButton(
+                    icon: Icons.check_rounded,
+                    label: 'Fertig',
+                    filled: false,
+                    onPressed: () => unawaited(_closeAfterFinish()),
+                  ),
+                ],
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FinishCelebration extends StatelessWidget {
-  const _FinishCelebration({
-    required this.animation,
-    required this.showActions,
-    required this.onDone,
-    required this.onPlayPuzzle,
-    required this.onSave,
-  });
-
-  final Animation<double> animation;
-  final bool showActions;
-  final VoidCallback onDone;
-  final VoidCallback onPlayPuzzle;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) {
-        final t = animation.value;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            ColoredBox(
-              color: Colors.black.withValues(alpha: 0.35 * t.clamp(0, 1)),
-            ),
-            ...List.generate(28, (i) {
-              final seed = i * 37.0;
-              final x = math.sin(seed) * 0.5 + 0.5;
-              final y = (0.15 + (t * (0.55 + (i % 5) * 0.08))).clamp(0.0, 1.0);
-              final size = 6.0 + (i % 4) * 3.0;
-              const colors = [
-                Color(0xFFFFD56A),
-                Color(0xFFFF85A1),
-                Color(0xFFC9A6FF),
-                Color(0xFF6EE0FF),
-                Color(0xFFB6F5C8),
-              ];
-              return Positioned(
-                left: MediaQuery.sizeOf(context).width * x,
-                top: MediaQuery.sizeOf(context).height * y,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity:
-                        (1.0 - (t - 0.15).clamp(0.0, 1.0)).clamp(0.2, 1.0),
-                    child: Transform.rotate(
-                      angle: t * 4 + i,
-                      child: Icon(
-                        i.isEven
-                            ? Icons.auto_awesome_rounded
-                            : Icons.star_rounded,
-                        size: size,
-                        color: colors[i % colors.length],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-            Center(
-              child: Opacity(
-                opacity: Curves.easeOut.transform(t.clamp(0, 1)),
-                child: Transform.scale(
-                  scale: 0.85 +
-                      0.2 * Curves.elasticOut.transform(t.clamp(0, 1)),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IgnorePointer(
-                        child: Text(
-                          'Wunderbar!',
-                          style: TextStyle(
-                            color: const Color(0xFFFFD56A),
-                            fontSize: 36,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                            shadows: [
-                              Shadow(
-                                color: const Color(0xFFFFD56A)
-                                    .withValues(alpha: 0.6),
-                                blurRadius: 18,
-                              ),
-                              const Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 10,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      IgnorePointer(
-                        child: Text(
-                          'Dein Bild ist gespeichert',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (showActions) ...[
-                        const SizedBox(height: 22),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 12,
-                          runSpacing: 10,
-                          children: [
-                            _FinishActionButton(
-                              icon: Icons.download_rounded,
-                              label: 'In Fotos',
-                              filled: true,
-                              onPressed: onSave,
-                            ),
-                            _FinishActionButton(
-                              icon: Icons.extension_rounded,
-                              label: 'Als Puzzle',
-                              filled: true,
-                              onPressed: onPlayPuzzle,
-                            ),
-                            _FinishActionButton(
-                              icon: Icons.check_rounded,
-                              label: 'Fertig',
-                              filled: false,
-                              onPressed: onDone,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _FinishActionButton extends StatelessWidget {
-  const _FinishActionButton({
-    required this.icon,
-    required this.label,
-    required this.filled,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool filled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: filled
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFFF0C2),
-                      Color(0xFFFFD56A),
-                      Color(0xFFE0A93A),
-                    ],
-                  )
-                : null,
-            color: filled ? null : Colors.white.withValues(alpha: 0.12),
-            border: Border.all(
-              color: filled
-                  ? const Color(0xFFFFE7A0)
-                  : Colors.white.withValues(alpha: 0.35),
-            ),
-            boxShadow: filled
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFD56A).withValues(alpha: 0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 22,
-                color: filled
-                    ? const Color(0xFF2A2410)
-                    : Colors.white.withValues(alpha: 0.95),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: filled
-                      ? const Color(0xFF2A2410)
-                      : Colors.white.withValues(alpha: 0.95),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

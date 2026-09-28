@@ -7,10 +7,11 @@ import 'package:flutter/services.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
-import '../data/event_tags.dart';
 import '../services/ads_service.dart';
 import '../services/audio_service.dart';
+import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
+import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
@@ -33,15 +34,10 @@ class PuzzleScreen extends StatefulWidget {
 class _PuzzleScreenState extends State<PuzzleScreen>
     with TickerProviderStateMixin {
   static const _trayHeightPhone = 108.0;
-  static const _sideTrayWidthPhone = 118.0;
 
   double get _trayHeight => mounted
       ? AppLayout.of(context).puzzleTrayHeight
       : _trayHeightPhone;
-
-  double get _sideTrayWidth => mounted
-      ? AppLayout.of(context).puzzleSideTrayWidth
-      : _sideTrayWidthPhone;
   /// Snap zum Einrasten — großzügig für Kinderfinger.
   static const _magnetFactor = 0.62;
   /// Goldenes Aufleuchten erst dicht am Ziel (verräts nicht von weitem).
@@ -69,8 +65,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   int? _shakeSlot;
   int? _hoverSlot;
   bool _boardZoomed = false;
+  final _levelKey = GlobalKey<LevelCompleteOverlayState>();
 
-  late final AnimationController _celebrateController;
   late final AnimationController _revealController;
   late final AnimationController _popController;
   late final AnimationController _shakeController;
@@ -78,9 +74,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   /// Hochkant-Bilder bleiben aufrecht (nicht seitlich legen).
   bool get _rotatePortrait => false;
-
-  /// Hochkant-Motiv → Tray seitlich; Querformat → Tray unten.
-  bool get _isPortraitPuzzle => widget.puzzle.aspectRatio < 0.98;
 
   /// Anzeige-Seitenverhältnis unverzerrt.
   double get _displayAspect {
@@ -95,13 +88,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   void initState() {
     super.initState();
     _imageProvider = widget.customImage ?? AssetImage(widget.puzzle.assetPath);
-    _celebrateController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    );
     _revealController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 900),
     );
     _popController = AnimationController(
       vsync: this,
@@ -126,15 +115,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       }
     });
     _reset();
-    unawaited(_syncAmbientMusic());
-  }
-
-  Future<void> _syncAmbientMusic() async {
-    final tags = await EventTags.load();
-    final id = widget.puzzle.id;
-    final halloween =
-        tags.isHalloweenPuzzle(id) || tags.isHalloweenColoring(id);
-    await AudioService.instance.startAmbient(halloween: halloween);
   }
 
   void _onBoardTransformChanged() {
@@ -164,7 +144,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   void dispose() {
     _boardTransform.removeListener(_onBoardTransformChanged);
     _boardTransform.dispose();
-    _celebrateController.dispose();
     _revealController.dispose();
     _popController.dispose();
     _shakeController.dispose();
@@ -239,7 +218,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _popPiece = null;
     _shakeSlot = null;
     _hoverSlot = null;
-    _celebrateController.value = 0;
     _revealController.value = 0;
     _popController.value = 0;
     _shakeController.value = 0;
@@ -517,16 +495,50 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   Future<void> _onSolved() async {
     if (_revealing || _celebrating) return;
     HapticFeedback.heavyImpact();
+    // Zoom zurücksetzen → Bild sitzt korrekt und mittig.
+    _resetBoardZoom();
     setState(() {
       _revealing = true;
       _hoverSlot = null;
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
+    // Fertiges Motiv kurz in Ruhe zeigen.
+    await Future<void>.delayed(const Duration(milliseconds: 550));
+    if (!mounted) return;
     setState(() => _celebrating = true);
     unawaited(AudioService.instance.playLevelComplete());
-    await _celebrateController.forward(from: 0);
-    if (!mounted) return;
+  }
+
+  Future<void> _savePuzzleToPhotos() async {
+    try {
+      final Uint8List bytes;
+      final custom = widget.customImage;
+      if (custom is MemoryImage) {
+        bytes = custom.bytes;
+      } else {
+        final data = await rootBundle.load(widget.puzzle.assetPath);
+        bytes = data.buffer.asUint8List();
+      }
+      await GalleryExport.savePngBytes(
+        bytes,
+        name: 'fantasy_puzzle_${widget.puzzle.id}',
+      );
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
+  Future<void> _closeAfterSolve() async {
+    await _levelKey.currentState?.fadeOut();
     if (!_exitAdShown) {
       _exitAdShown = true;
       await AdsService.showPuzzleFinishInterstitial();
@@ -671,23 +683,17 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
   }
 
-  Widget _buildTray({required bool vertical}) {
+  Widget _buildTray() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final reserved = vertical ? _sideTrayWidth + 24 : _trayHeight + 70;
         final boardSize = _fitBoard(
-          vertical
-              ? Size(
-                  math.max(80, MediaQuery.sizeOf(context).width - reserved),
-                  math.max(80, MediaQuery.sizeOf(context).height - 70),
-                )
-              : Size(
-                  MediaQuery.sizeOf(context).width - 24,
-                  math.max(
-                    80,
-                    MediaQuery.sizeOf(context).height - _trayHeight - 70,
-                  ),
-                ),
+          Size(
+            MediaQuery.sizeOf(context).width - 24,
+            math.max(
+              80,
+              MediaQuery.sizeOf(context).height - _trayHeight - 70,
+            ),
+          ),
         );
         return _JigsawTray(
           tray: _tray,
@@ -695,7 +701,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
           imageProvider: _imageProvider,
           rotatePortrait: _rotatePortrait,
           boardSize: boardSize,
-          vertical: vertical,
           onDragRejected: _rejectDrop,
         );
       },
@@ -704,8 +709,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   @override
   Widget build(BuildContext context) {
-    final sideTray = _isPortraitPuzzle;
-
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -753,71 +756,57 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                   ),
                 ),
                 Expanded(
-                  child: sideTray
-                      ? Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return _buildBoard(
-                                      Size(
-                                        constraints.maxWidth,
-                                        constraints.maxHeight,
-                                      ),
-                                    );
-                                  },
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return _buildBoard(
+                                Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
                                 ),
-                              ),
-                              if (!_solved) ...[
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: _sideTrayWidth,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: _buildTray(vertical: true),
-                                  ),
-                                ),
-                              ],
-                            ],
+                              );
+                            },
                           ),
-                        )
-                      : Column(
-                          children: [
-                            Expanded(
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return _buildBoard(
-                                      Size(
-                                        constraints.maxWidth,
-                                        constraints.maxHeight,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            if (!_solved)
-                              SizedBox(
-                                height: _trayHeight,
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                                  child: _buildTray(vertical: false),
-                                ),
-                              ),
-                          ],
                         ),
+                      ),
+                      if (!_solved)
+                        SizedBox(
+                          height: _trayHeight,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                            child: _buildTray(),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           if (_celebrating)
-            _PuzzleCelebration(animation: _celebrateController),
+            LevelCompleteOverlay(
+              key: _levelKey,
+              title: 'Wunderbar!',
+              subtitle: 'Level geschafft',
+              actions: [
+                LevelCompleteActionButton(
+                  icon: Icons.download_rounded,
+                  label: 'In Fotos',
+                  onPressed: () => unawaited(_savePuzzleToPhotos()),
+                ),
+                LevelCompleteActionButton(
+                  icon: Icons.check_rounded,
+                  label: 'Fertig',
+                  filled: false,
+                  onPressed: () => unawaited(_closeAfterSolve()),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -1031,115 +1020,7 @@ class _ProgressChip extends StatelessWidget {
   }
 }
 
-class _PuzzleCelebration extends StatelessWidget {
-  const _PuzzleCelebration({required this.animation});
 
-  final Animation<double> animation;
-
-  @override
-  Widget build(BuildContext context) {
-    // Nur Sterne + Text — das fertige Bild bleibt einmal auf dem Board sichtbar.
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: animation,
-        builder: (context, _) {
-          final t = animation.value;
-          final size = MediaQuery.sizeOf(context);
-
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(
-                color: Colors.black.withValues(alpha: 0.28 * t.clamp(0, 1)),
-              ),
-              ...List.generate(24, (i) {
-                final seed = i * 37.0;
-                final x = math.sin(seed) * 0.5 + 0.5;
-                final y =
-                    (0.08 + (t * (0.5 + (i % 5) * 0.08))).clamp(0.0, 1.0);
-                final starSize = 6.0 + (i % 4) * 3.0;
-                const colors = [
-                  Color(0xFFFFD56A),
-                  Color(0xFFFF85A1),
-                  Color(0xFFC9A6FF),
-                  Color(0xFF6EE0FF),
-                  Color(0xFFB6F5C8),
-                ];
-                return Positioned(
-                  left: size.width * x,
-                  top: size.height * y,
-                  child: Opacity(
-                    opacity:
-                        (1.0 - (t - 0.2).clamp(0.0, 1.0)).clamp(0.15, 1.0),
-                    child: Icon(
-                      i.isEven
-                          ? Icons.auto_awesome_rounded
-                          : Icons.star_rounded,
-                      size: starSize,
-                      color: colors[i % colors.length],
-                    ),
-                  ),
-                );
-              }),
-              Center(
-                child: Opacity(
-                  opacity: Curves.easeOut.transform(t.clamp(0, 1)),
-                  child: Transform.scale(
-                    scale: 0.9 +
-                        0.12 * Curves.elasticOut.transform(t.clamp(0, 1)),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Wunderbar!',
-                          style: TextStyle(
-                            color: const Color(0xFFFFD56A),
-                            fontSize: 36,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1,
-                            shadows: [
-                              Shadow(
-                                color: const Color(0xFFFFD56A)
-                                    .withValues(alpha: 0.55),
-                                blurRadius: 16,
-                              ),
-                              const Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 10,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Puzzle geschafft',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Landscape und Portrait ohne Extra-Drehung (Hochkant bleibt aufrecht).
 class _PuzzleImageLayer extends StatelessWidget {
   const _PuzzleImageLayer({
     required this.imageProvider,
@@ -1523,7 +1404,6 @@ class _JigsawTray extends StatelessWidget {
     required this.rotatePortrait,
     required this.boardSize,
     required this.onDragRejected,
-    this.vertical = false,
   });
 
   final List<int> tray;
@@ -1532,7 +1412,6 @@ class _JigsawTray extends StatelessWidget {
   final bool rotatePortrait;
   final Size boardSize;
   final void Function(int nearSlot) onDragRejected;
-  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -1542,8 +1421,8 @@ class _JigsawTray extends StatelessWidget {
       boardSize: boardSize,
     );
     // Etwas kleiner → mehr Teile sichtbar, Tray besser durchscrollbar.
-    final maxH = vertical ? 86.0 : 78.0;
-    final maxW = vertical ? 84.0 : 86.0;
+    const maxH = 78.0;
+    const maxW = 86.0;
     var pieceH = maxH;
     var pieceW = pieceH * (sampleBounds.width / sampleBounds.height);
     if (pieceW > maxW) {
@@ -1565,38 +1444,29 @@ class _JigsawTray extends StatelessWidget {
                 size: 28,
               ),
             )
-          : Scrollbar(
-              thumbVisibility: true,
-              child: ListView.separated(
-                scrollDirection: vertical ? Axis.vertical : Axis.horizontal,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: EdgeInsets.symmetric(
-                  horizontal: vertical ? 10 : 14,
-                  vertical: vertical ? 14 : 8,
-                ),
-                itemCount: tray.length,
-                separatorBuilder: (_, _) => SizedBox(
-                  width: vertical ? 0 : 10,
-                  height: vertical ? 10 : 0,
-                ),
-                itemBuilder: (context, index) {
-                  final pieceId = tray[index];
-                  return Center(
-                    child: _TrayJigsawPiece(
-                      pieceId: pieceId,
-                      layout: layout,
-                      imageProvider: imageProvider,
-                      rotatePortrait: rotatePortrait,
-                      boardSize: boardSize,
-                      width: pieceW,
-                      height: pieceH,
-                      onDragRejected: onDragRejected,
-                    ),
-                  );
-                },
+          : ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              itemCount: tray.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final pieceId = tray[index];
+                return Center(
+                  child: _TrayJigsawPiece(
+                    pieceId: pieceId,
+                    layout: layout,
+                    imageProvider: imageProvider,
+                    rotatePortrait: rotatePortrait,
+                    boardSize: boardSize,
+                    width: pieceW,
+                    height: pieceH,
+                    onDragRejected: onDragRejected,
+                  ),
+                );
+              },
             ),
     );
   }
