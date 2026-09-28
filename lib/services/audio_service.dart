@@ -16,14 +16,13 @@ class AudioService extends ChangeNotifier {
   static const _prefsMutedKey = 'audio_muted';
 
   static const calmTracks = <String>[
-    'sounds/bgm_nymphs_tea_party.mp3',
-    'sounds/bgm_moon_fairy.mp3',
-    'sounds/bgm_mystical_voyage.mp3',
-    'sounds/bgm_cinematic_fairy.mp3',
-    'sounds/bgm_fairy_tale_fantasy.mp3',
+    'sounds/ambient_01_nymphs.mp3',
+    'sounds/ambient_02_moon.mp3',
+    'sounds/ambient_03_voyage.mp3',
+    'sounds/ambient_04_cinematic.mp3',
   ];
 
-  static const levelCompleteSfx = 'sounds/sfx_level_complete.mp3';
+  static const levelCompleteSfx = 'sounds/sfx_complete.mp3';
 
   AudioPlayer? _music;
   AudioPlayer? _sfx;
@@ -219,6 +218,7 @@ class AudioService extends ChangeNotifier {
     final player = _music;
     if (player == null) return false;
     try {
+      debugPrint('AudioService: playing $asset');
       await player.play(AssetSource(asset));
       _currentAsset = asset;
       return true;

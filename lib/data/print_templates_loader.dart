@@ -5,9 +5,8 @@ import 'package:flutter/services.dart';
 import '../models/coloring_page.dart';
 import 'asset_dimensions.dart';
 
-/// Lädt alle Druckvorlagen:
-/// - ausführlichere Motive aus `assets/print_templates/`
-/// - einfachere Ausmalbilder aus `assets/coloring_pages/`
+/// Lädt die Druckvorlagen aus `assets/print_templates/`
+/// (vereinfachte Ausmalbilder inkl. Halloween).
 Future<List<ColoringPage>> loadPrintTemplates({
   bool shuffle = false,
   Random? random,
@@ -18,20 +17,12 @@ Future<List<ColoringPage>> loadPrintTemplates({
   bool isPngUnder(String path, String folder) =>
       path.startsWith(folder) && path.toLowerCase().endsWith('.png');
 
-  final detailed = manifest
+  final paths = manifest
       .listAssets()
       .where((path) => isPngUnder(path, 'assets/print_templates/'))
       .toList()
     ..sort();
 
-  final simple = manifest
-      .listAssets()
-      .where((path) => isPngUnder(path, 'assets/coloring_pages/'))
-      .toList()
-    ..sort();
-
-  // Erst die klassischen Vorlagen, dann die einfacheren Ausmalbilder.
-  final paths = [...detailed, ...simple];
   final pages = paths.map(dimensions.pageFromPath).toList(growable: false);
 
   if (shuffle) {

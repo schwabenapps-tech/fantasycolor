@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/audio_service.dart';
+import '../services/analytics_service.dart';
 import '../utils/app_layout.dart';
+import '../utils/asset_precache.dart';
 import 'favorites_screen.dart';
 import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
@@ -49,6 +51,7 @@ class _HubScreenState extends State<HubScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
+  bool _slideshowPrecached = false;
 
   @override
   void initState() {
@@ -67,14 +70,33 @@ class _HubScreenState extends State<HubScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_slideshowPrecached) return;
+    _slideshowPrecached = true;
+    // Diashow-Motive vorab dekodieren — sonst erscheinen sie erst beim Wechsel.
+    final cacheW = thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
+    unawaited(
+      precacheAssetImages(
+        context,
+        [...HubScreen.malenSlideshow, ...HubScreen.puzzleSlideshow],
+        cacheWidth: cacheW,
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     _fadeController.dispose();
     super.dispose();
   }
 
-  void _open(Widget screen) {
+  void _open(Widget screen, {required String world}) {
+    AnalyticsService.instance.logOpenWorld(world);
+    AnalyticsService.instance.logScreen(world);
     Navigator.of(context).push(
       PageRouteBuilder<void>(
+        settings: RouteSettings(name: world),
         transitionDuration: const Duration(milliseconds: 420),
         reverseTransitionDuration: const Duration(milliseconds: 280),
         pageBuilder: (context, animation, secondaryAnimation) {
@@ -97,7 +119,7 @@ class _HubScreenState extends State<HubScreen>
         imageAssets: HubScreen.malenSlideshow,
         accent: const Color(0xFFE8A0BF),
         slideOffset: Duration.zero,
-        onTap: () => _open(const GalleryScreen()),
+        onTap: () => _open(const GalleryScreen(), world: 'malen'),
       ),
       _WorldPortal(
         semanticLabel: 'Puzzle',
@@ -105,7 +127,7 @@ class _HubScreenState extends State<HubScreen>
         imageAssets: HubScreen.puzzleSlideshow,
         accent: const Color(0xFF7EB6E8),
         slideOffset: const Duration(milliseconds: 1600),
-        onTap: () => _open(const PuzzleGalleryScreen()),
+        onTap: () => _open(const PuzzleGalleryScreen(), world: 'puzzle'),
       ),
     ];
 
@@ -119,7 +141,7 @@ class _HubScreenState extends State<HubScreen>
           Color(0xFFA8E6C3),
         ],
         accent: const Color(0xFF2F8F5B),
-        onTap: () => _open(const PrintTemplatesScreen()),
+        onTap: () => _open(const PrintTemplatesScreen(), world: 'drucken'),
       ),
       _SideAction(
         semanticLabel: 'Favoriten',
@@ -130,7 +152,7 @@ class _HubScreenState extends State<HubScreen>
           Color(0xFFFFD56A),
         ],
         accent: const Color(0xFFB8860B),
-        onTap: () => _open(const FavoritesScreen()),
+        onTap: () => _open(const FavoritesScreen(), world: 'favoriten'),
       ),
     ];
 
@@ -240,7 +262,10 @@ class _MusicMuteButton extends StatelessWidget {
       label: muted ? 'Musik einschalten' : 'Musik ausschalten',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => audio.toggleMuted(),
+        onTap: () {
+          unawaited(audio.toggleMuted());
+          AnalyticsService.instance.logMuteToggled(muted: !audio.muted);
+        },
         child: Container(
           width: 48,
           height: 48,
@@ -329,6 +354,7 @@ class _WorldPortalState extends State<_WorldPortal> {
   int _index = 0;
   Timer? _timer;
   Timer? _startDelay;
+  int? _portalCacheWidth;
 
   @override
   void initState() {
@@ -336,14 +362,34 @@ class _WorldPortalState extends State<_WorldPortal> {
     _startDelay = Timer(widget.slideOffset, _startSlideshow);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _portalCacheWidth ??=
+        thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
+    // Erstes + nächstes Motiv sofort warmhalten.
+    _warmAround(_index);
+  }
+
+  void _warmAround(int index) {
+    final assets = widget.imageAssets;
+    if (assets.isEmpty) return;
+    final cacheW = _portalCacheWidth;
+    final paths = <String>{
+      assets[index % assets.length],
+      assets[(index + 1) % assets.length],
+    };
+    unawaited(precacheAssetImages(context, paths, cacheWidth: cacheW));
+  }
+
   void _startSlideshow() {
     if (!mounted || widget.imageAssets.length < 2) return;
     _timer?.cancel();
     _timer = Timer.periodic(_slideInterval, (_) {
       if (!mounted) return;
-      setState(() {
-        _index = (_index + 1) % widget.imageAssets.length;
-      });
+      final next = (_index + 1) % widget.imageAssets.length;
+      _warmAround(next);
+      setState(() => _index = next);
     });
   }
 
@@ -422,6 +468,7 @@ class _WorldPortalState extends State<_WorldPortal> {
                           alignment: const Alignment(0, -0.15),
                           gaplessPlayback: true,
                           filterQuality: FilterQuality.medium,
+                          cacheWidth: _portalCacheWidth,
                           errorBuilder: (_, _, _) => ColoredBox(
                             color: widget.accent.withValues(alpha: 0.35),
                           ),

@@ -1,19 +1,37 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
 import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
+import 'services/analytics_service.dart';
 import 'services/audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+  unawaited(AnalyticsService.instance.initialize());
+  unawaited(FirebaseAnalytics.instance.logAppOpen());
+
   // Start-Screen bleibt Landscape; danach gibt StartScreen alle Orientierungen frei.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
@@ -86,8 +104,11 @@ class FantasyColorApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Fantasy Color',
+        title: 'Fairy Fantasy Color',
         debugShowCheckedModeBanner: false,
+        navigatorObservers: [
+          AnalyticsService.instance.observer,
+        ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF5B6FBF),

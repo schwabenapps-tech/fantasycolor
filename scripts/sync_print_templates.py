@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Sync Desktop › bilder_fantasycolor → assets/print_templates.
+"""Sync vereinfachte Ausmalbilder → assets/print_templates.
 
-Nur Inhaltsmotive (keine UI-Hintergründe / App-Icons).
+Quellen (nur einfache Motive, inkl. Halloween):
+- ~/Desktop/bilder_fantasycolor/einfachere bilder
+- ~/Desktop/fantasycolor_event_halloween/halloween ausmalbilder
+
+Schwierige Root-Motive aus bilder_fantasycolor werden nicht übernommen.
 """
 
 from __future__ import annotations
@@ -14,18 +18,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = Path.home() / "Desktop/bilder_fantasycolor"
+SRC_DIRS = [
+    Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder",
+    Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
+]
 DEST = ROOT / "assets/print_templates"
 EXTS = {".png", ".jpg", ".jpeg"}
-
-# UI / Branding — nicht in die Druckvorlagen.
-SKIP_PREFIXES = (
-    "appicon",
-    "ausmalhintergund",
-    "background_app",
-    "fairy_fantasy",
-    "in_app_background",
-)
 
 
 def md5(path: Path) -> str:
@@ -42,20 +40,17 @@ def asset_filename(src_name: str) -> str:
 
 
 def main() -> int:
-    if not SRC.is_dir():
-        print(f"Missing source folder: {SRC}", file=sys.stderr)
-        return 1
-
-    sources = []
-    for p in SRC.iterdir():
-        if not p.is_file() or p.suffix.lower() not in EXTS:
+    sources: list[Path] = []
+    for folder in SRC_DIRS:
+        if not folder.is_dir():
+            print(f"Missing source folder: {folder}", file=sys.stderr)
             continue
-        if p.name.startswith("."):
-            continue
-        lower = p.name.lower()
-        if any(lower.startswith(s) for s in SKIP_PREFIXES):
-            continue
-        sources.append(p)
+        for p in folder.iterdir():
+            if not p.is_file() or p.suffix.lower() not in EXTS:
+                continue
+            if p.name.startswith("."):
+                continue
+            sources.append(p)
 
     if not sources:
         print("No print templates on desktop", file=sys.stderr)

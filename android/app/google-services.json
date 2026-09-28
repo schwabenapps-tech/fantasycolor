@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "331574872265",
+    "project_id": "games-8eea5",
+    "storage_bucket": "games-8eea5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:331574872265:android:bd34e6f7a547e1eb786518",
+        "android_client_info": {
+          "package_name": "com.schwabenapps.mkz.fantasyColor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfLLDvxD8VdzOJhGhMrL_K_q_ffgfPt9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -67,10 +67,10 @@ ORDER = [
     # Halloween Ausmalbilder
     "227F10E2-C21E-43BE-8187-A571E6BF30A4.png",
     "ChatGPT Image 24. Sept. 2026, 11_08_41.png",
-    "ChatGPT-Bild 26. Sept. 2026, 23_14_56.png",
-    "ChatGPT-Bild 26. Sept. 2026, 23_53_27.png",
     "ChatGPT-Bild 27. Sept. 2026, 00_06_29.png",
     "ChatGPT-Bild 27. Sept. 2026, 00_51_02.png",
+    "ChatGPT-Bild 28. Sept. 2026, 22_16_32.png",
+    "ChatGPT-Bild 28. Sept. 2026, 11_35_41.png",
 ]
 
 

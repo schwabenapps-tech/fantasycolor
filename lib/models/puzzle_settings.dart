@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// Schwierigkeits-Stufe (Gruppe in den Einstellungen).
 enum PuzzleTier {
   easy(
@@ -108,4 +112,47 @@ extension PuzzlePieceStyleX on PuzzlePieceStyle {
         PuzzlePieceStyle.rounded => 'Weiche Ecken',
         PuzzlePieceStyle.wave => 'Geschwungene Kanten',
       };
+}
+
+/// Persistierte Puzzle-Einstellungen (Stückzahl + Stil).
+class PuzzlePreferences {
+  PuzzlePreferences._();
+
+  static const _difficultyKey = 'puzzle_difficulty_v1';
+  static const _styleKey = 'puzzle_piece_style_v1';
+
+  static Future<({PuzzleDifficulty difficulty, PuzzlePieceStyle style})>
+      load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final difficulty = _parseDifficulty(prefs.getString(_difficultyKey)) ??
+        PuzzleDifficulty.medium30;
+    final style =
+        _parseStyle(prefs.getString(_styleKey)) ?? PuzzlePieceStyle.jigsaw;
+    return (difficulty: difficulty, style: style);
+  }
+
+  static Future<void> save({
+    required PuzzleDifficulty difficulty,
+    required PuzzlePieceStyle style,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_difficultyKey, difficulty.name);
+    await prefs.setString(_styleKey, style.name);
+  }
+
+  static PuzzleDifficulty? _parseDifficulty(String? raw) {
+    if (raw == null) return null;
+    for (final d in PuzzleDifficulty.values) {
+      if (d.name == raw) return d;
+    }
+    return null;
+  }
+
+  static PuzzlePieceStyle? _parseStyle(String? raw) {
+    if (raw == null) return null;
+    for (final s in PuzzlePieceStyle.values) {
+      if (s.name == raw) return s;
+    }
+    return null;
+  }
 }

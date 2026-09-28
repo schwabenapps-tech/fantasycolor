@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../data/paint_catalog.dart';
+import 'flood_fill_tuning.dart';
 import 'flood_fill_worker.dart';
 
 /// PNG-Ausmalbild mit Flood-Fill auf hellen Flächen (Linien bleiben).
@@ -25,8 +26,8 @@ class ColoringBitmap {
   /// Aktuell sichtbares, ausgemaltes Bild.
   img.Image working;
 
-  /// Pixel unter diesem Helligkeitswert gelten als Kontur.
-  static const double lineLuminanceMax = 145;
+  /// Anti-Alias- / Rand-Stärke (skalierbar: standard / soft / tight).
+  static FloodFillTuning tuning = FloodFillTuning.standard;
 
   static Future<ColoringBitmap> load(String assetPath) async {
     final data = await rootBundle.load(assetPath);
@@ -87,7 +88,7 @@ class ColoringBitmap {
   bool isLinePixel(img.Image source, int x, int y) {
     final p = source.getPixel(x, y);
     final lum = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
-    return lum <= lineLuminanceMax;
+    return lum <= tuning.hardLineLuminanceMax;
   }
 
   /// Füllt die zusammenhängende helle Region um (x,y) im Hintergrund-Isolate.
@@ -109,6 +110,7 @@ class ColoringBitmap {
         colorArgb: color.toARGB32(),
         categoryIndex: category.index,
         erase: erase,
+        tuning: tuning,
       ),
     );
     if (result.changed <= 0) return 0;
@@ -124,31 +126,23 @@ class ColoringBitmap {
     required PaintCategory category,
     bool erase = false,
   }) {
+    final t = tuning;
     if (x < 0 || y < 0 || x >= width || y >= height) return 0;
-    if (isLinePixel(original, x, y)) return 0;
+    final seed = original.getPixel(x, y);
+    final seedLum = 0.299 * seed.r + 0.587 * seed.g + 0.114 * seed.b;
+    if (seedLum < t.fillRegionLuminanceMin) return 0;
 
     final targetR = color.r * 255.0;
     final targetG = color.g * 255.0;
     final targetB = color.b * 255.0;
 
-    final visited = Uint8List(width * height);
+    final painted = Uint8List(width * height);
     final stackX = <int>[x];
     final stackY = <int>[y];
-    final filled = <int>[];
     var count = 0;
 
-    while (stackX.isNotEmpty) {
-      final cx = stackX.removeLast();
-      final cy = stackY.removeLast();
-      if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
-      final idx = cy * width + cx;
-      if (visited[idx] == 1) continue;
-      visited[idx] = 1;
-
+    void paintAt(int cx, int cy) {
       final orig = original.getPixel(cx, cy);
-      final origLum = 0.299 * orig.r + 0.587 * orig.g + 0.114 * orig.b;
-      if (origLum <= lineLuminanceMax) continue;
-
       if (erase) {
         working.setPixelRgba(
           cx,
@@ -167,8 +161,21 @@ class ColoringBitmap {
         );
         working.setPixelRgba(cx, cy, fill.$1, fill.$2, fill.$3, 255);
       }
+    }
 
-      filled.add(idx);
+    while (stackX.isNotEmpty) {
+      final cx = stackX.removeLast();
+      final cy = stackY.removeLast();
+      if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
+      final idx = cy * width + cx;
+      if (painted[idx] == 1) continue;
+
+      final orig = original.getPixel(cx, cy);
+      final origLum = 0.299 * orig.r + 0.587 * orig.g + 0.114 * orig.b;
+      if (origLum < t.fillRegionLuminanceMin) continue;
+
+      painted[idx] = 1;
+      paintAt(cx, cy);
       count++;
 
       stackX
@@ -181,6 +188,52 @@ class ColoringBitmap {
         ..add(cy)
         ..add(cy - 1)
         ..add(cy + 1);
+    }
+
+    final neighborDeltas = t.fringeDiagonals
+        ? const <(int, int)>[
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
+          ]
+        : const <(int, int)>[
+            (0, -1),
+            (-1, 0),
+            (1, 0),
+            (0, 1),
+          ];
+
+    for (var pass = 0; pass < t.fringeExpandPasses; pass++) {
+      final frontier = <int>[
+        for (var i = 0; i < painted.length; i++)
+          if (painted[i] == 1) i,
+      ];
+      var grew = 0;
+      for (final i in frontier) {
+        final cx = i % width;
+        final cy = i ~/ width;
+        for (final (dx, dy) in neighborDeltas) {
+          final nx = cx + dx;
+          final ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          final nIdx = ny * width + nx;
+          if (painted[nIdx] == 1) continue;
+          final p = original.getPixel(nx, ny);
+          final lum = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+          if (lum <= t.hardLineLuminanceMax) continue;
+          if (lum < t.fringeLuminanceMin) continue;
+          painted[nIdx] = 1;
+          paintAt(nx, ny);
+          count++;
+          grew++;
+        }
+      }
+      if (grew == 0) break;
     }
 
     return count;

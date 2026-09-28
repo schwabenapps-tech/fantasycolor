@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
@@ -8,8 +9,10 @@ import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
+import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../utils/app_layout.dart';
+import '../utils/asset_precache.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
 import '../widgets/progress_badge.dart';
@@ -38,6 +41,7 @@ class _GalleryScreenState extends State<GalleryScreen>
   Future<EventTags>? _tagsFuture;
   final _gridScroll = ScrollController();
   final _rowScroll = ScrollController();
+  bool _thumbsPrecached = false;
 
   @override
   void initState() {
@@ -62,6 +66,22 @@ class _GalleryScreenState extends State<GalleryScreen>
     _tagsFuture ??= EventTags.load();
   }
 
+  void _precacheThumbs(List<ColoringPage> pages) {
+    if (_thumbsPrecached || pages.isEmpty) return;
+    _thumbsPrecached = true;
+    final cacheW = thumbCacheWidth(
+      context,
+      MediaQuery.sizeOf(context).shortestSide * 0.42,
+    );
+    unawaited(
+      precacheAssetImages(
+        context,
+        pages.map((p) => p.assetPath),
+        cacheWidth: cacheW,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _gridScroll.dispose();
@@ -71,6 +91,7 @@ class _GalleryScreenState extends State<GalleryScreen>
   }
 
   void _openSimplePage(ColoringPage page) {
+    AnalyticsService.instance.logStartColoring(page.id);
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
@@ -150,12 +171,16 @@ class _GalleryScreenState extends State<GalleryScreen>
                               );
                             }
 
+                            _precacheThumbs(pages);
+
                             if (layout.isPortrait) {
                               return GridView.builder(
                                 key: const PageStorageKey<String>(
                                   'gallery_grid',
                                 ),
                                 controller: _gridScroll,
+                                scrollCacheExtent:
+                                    const ScrollCacheExtent.viewport(1.5),
                                 padding: layout.galleryGridPadding(size).copyWith(
                                   top: 56,
                                 ),
@@ -196,6 +221,8 @@ class _GalleryScreenState extends State<GalleryScreen>
                                     'gallery_row',
                                   ),
                                   controller: _rowScroll,
+                                  scrollCacheExtent:
+                                      const ScrollCacheExtent.viewport(1.5),
                                   scrollDirection: Axis.horizontal,
                                   padding: EdgeInsets.symmetric(
                                     horizontal: size.width * 0.055,

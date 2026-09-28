@@ -9,6 +9,7 @@ import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../services/ads_service.dart';
+import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
 import '../widgets/coloring_canvas.dart';
@@ -160,6 +161,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     if (!mounted) return;
     setState(() => _celebrating = true);
     unawaited(AudioService.instance.playLevelComplete());
+    AnalyticsService.instance.logCompleteColoring(widget.page.id);
   }
 
   Future<void> _saveToPhotos() async {

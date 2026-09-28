@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
+import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
+import '../utils/asset_precache.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
 import '../widgets/silver_back_button.dart';
@@ -30,6 +33,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   late final Animation<double> _fadeAnimation;
   late final Future<List<ColoringPage>> _puzzlesFuture;
   late final Future<EventTags> _tagsFuture;
+  bool _thumbsPrecached = false;
 
   @override
   void initState() {
@@ -48,6 +52,22 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
     _fadeController.forward();
   }
 
+  void _precacheThumbs(List<ColoringPage> puzzles) {
+    if (_thumbsPrecached || puzzles.isEmpty) return;
+    _thumbsPrecached = true;
+    final cacheW = thumbCacheWidth(
+      context,
+      MediaQuery.sizeOf(context).shortestSide * 0.42,
+    );
+    unawaited(
+      precacheAssetImages(
+        context,
+        puzzles.map((p) => p.assetPath),
+        cacheWidth: cacheW,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _fadeController.dispose();
@@ -55,6 +75,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   }
 
   void _openPuzzle(ColoringPage puzzle) {
+    AnalyticsService.instance.logStartPuzzle(puzzle.id);
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: const Duration(milliseconds: 420),
@@ -123,8 +144,12 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                         );
                       }
 
+                      _precacheThumbs(puzzles);
+
                       if (layout.isPortrait) {
                         return GridView.builder(
+                          scrollCacheExtent:
+                              const ScrollCacheExtent.viewport(1.5),
                           padding: layout.galleryGridPadding(size).copyWith(
                             top: 56,
                           ),
@@ -163,6 +188,8 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                               child: SizedBox(
                                 height: tileHeight,
                                 child: ListView.separated(
+                                  scrollCacheExtent:
+                                      const ScrollCacheExtent.viewport(1.5),
                                   scrollDirection: Axis.horizontal,
                                   padding: EdgeInsets.symmetric(
                                     horizontal: size.width * 0.04,

@@ -8,6 +8,7 @@ import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
 import '../services/ads_service.dart';
+import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
@@ -115,6 +116,20 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       }
     });
     _reset();
+    unawaited(_restorePreferences());
+  }
+
+  Future<void> _restorePreferences() async {
+    final saved = await PuzzlePreferences.load();
+    if (!mounted) return;
+    if (saved.difficulty == _difficulty && saved.style == _pieceStyle) {
+      return;
+    }
+    setState(() {
+      _difficulty = saved.difficulty;
+      _pieceStyle = saved.style;
+      _reset();
+    });
   }
 
   void _onBoardTransformChanged() {
@@ -484,6 +499,12 @@ class _PuzzleScreenState extends State<PuzzleScreen>
         _pieceStyle = draftStyle;
         _reset();
       });
+      unawaited(
+        PuzzlePreferences.save(
+          difficulty: draftDifficulty,
+          style: draftStyle,
+        ),
+      );
     }
   }
 
@@ -508,6 +529,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!mounted) return;
     setState(() => _celebrating = true);
     unawaited(AudioService.instance.playLevelComplete());
+    AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
   }
 
   Future<void> _savePuzzleToPhotos() async {

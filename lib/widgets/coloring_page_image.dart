@@ -49,34 +49,58 @@ class ColoringPageImage extends StatelessWidget {
     final file = progress?.fileFor(page.id);
     final version = progress?.versionOf(page.id) ?? 0;
 
-    Widget image = ColoredBox(
-      color: Colors.white,
-      child: file != null
-          ? Image(
-              image: _VersionedFileImage(file, version: version),
-              key: ValueKey('progress_${page.id}_$version'),
-              fit: fit,
-              alignment: alignment,
-              filterQuality: FilterQuality.medium,
-              gaplessPlayback: true,
-              errorBuilder: (_, _, _) => _assetImage(),
-            )
-          : _assetImage(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final dpr = MediaQuery.devicePixelRatioOf(context);
+        final maxW = constraints.maxWidth;
+        final maxH = constraints.maxHeight;
+        // Nur cacheWidth (Höhe folgt Aspect) — gleicher Key wie Precache.
+        final logical = [
+          if (maxW.isFinite && maxW > 0) maxW,
+          if (maxH.isFinite && maxH > 0) maxH,
+        ];
+        final cacheW = logical.isEmpty
+            ? null
+            : (logical.reduce((a, b) => a > b ? a : b) * dpr)
+                .round()
+                .clamp(64, 2048);
+
+        Widget image = ColoredBox(
+          color: Colors.white,
+          child: file != null
+              ? Image(
+                  image: ResizeImage.resizeIfNeeded(
+                    cacheW,
+                    null,
+                    _VersionedFileImage(file, version: version),
+                  ),
+                  key: ValueKey('progress_${page.id}_$version'),
+                  fit: fit,
+                  alignment: alignment,
+                  filterQuality: FilterQuality.medium,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => _assetImage(cacheW),
+                )
+              : _assetImage(cacheW),
+        );
+
+        if (borderRadius != null) {
+          image = ClipRRect(borderRadius: borderRadius!, child: image);
+        }
+
+        return image;
+      },
     );
-
-    if (borderRadius != null) {
-      image = ClipRRect(borderRadius: borderRadius!, child: image);
-    }
-
-    return image;
   }
 
-  Widget _assetImage() {
+  Widget _assetImage(int? cacheWidth) {
     return Image.asset(
       page.assetPath,
       fit: fit,
       alignment: alignment,
       filterQuality: FilterQuality.medium,
+      gaplessPlayback: true,
+      cacheWidth: cacheWidth,
       errorBuilder: (_, _, _) => Center(
         child: Icon(Icons.broken_image_outlined, color: placeholderColor),
       ),

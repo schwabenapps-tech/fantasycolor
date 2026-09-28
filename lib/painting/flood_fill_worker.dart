@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import '../data/paint_catalog.dart';
+import 'flood_fill_tuning.dart';
 
 /// Parameter für Flood-Fill im Hintergrund-Isolate.
 class FloodFillRequest {
@@ -15,6 +16,7 @@ class FloodFillRequest {
     required this.colorArgb,
     required this.categoryIndex,
     required this.erase,
+    this.tuning = FloodFillTuning.standard,
   });
 
   final Uint8List workingBytes;
@@ -26,6 +28,7 @@ class FloodFillRequest {
   final int colorArgb;
   final int categoryIndex;
   final bool erase;
+  final FloodFillTuning tuning;
 }
 
 class FloodFillResult {
@@ -38,13 +41,7 @@ class FloodFillResult {
   final Uint8List workingBytes;
 }
 
-const _lineLuminanceMax = 145.0;
-
-bool _isLinePixel(img.Image source, int x, int y) {
-  final p = source.getPixel(x, y);
-  final lum = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
-  return lum <= _lineLuminanceMax;
-}
+double _luminance(img.Pixel p) => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
 
 (int, int, int) _fillColorFor(
   PaintCategory category,
@@ -72,7 +69,35 @@ bool _isLinePixel(img.Image source, int x, int y) {
   );
 }
 
+void _paintPixel({
+  required img.Image working,
+  required img.Image original,
+  required int x,
+  required int y,
+  required bool erase,
+  required PaintCategory category,
+  required double targetR,
+  required double targetG,
+  required double targetB,
+}) {
+  final orig = original.getPixel(x, y);
+  if (erase) {
+    working.setPixelRgba(
+      x,
+      y,
+      orig.r.toInt(),
+      orig.g.toInt(),
+      orig.b.toInt(),
+      orig.a.toInt(),
+    );
+  } else {
+    final fill = _fillColorFor(category, targetR, targetG, targetB);
+    working.setPixelRgba(x, y, fill.$1, fill.$2, fill.$3, 255);
+  }
+}
+
 FloodFillResult floodFillWorker(FloodFillRequest request) {
+  final tuning = request.tuning;
   final original = img.Image.fromBytes(
     width: request.width,
     height: request.height,
@@ -98,7 +123,7 @@ FloodFillResult floodFillWorker(FloodFillRequest request) {
   if (x < 0 || y < 0 || x >= width || y >= height) {
     return FloodFillResult(changed: 0, workingBytes: request.workingBytes);
   }
-  if (_isLinePixel(original, x, y)) {
+  if (_luminance(original.getPixel(x, y)) < tuning.fillRegionLuminanceMin) {
     return FloodFillResult(changed: 0, workingBytes: request.workingBytes);
   }
 
@@ -109,7 +134,7 @@ FloodFillResult floodFillWorker(FloodFillRequest request) {
   final targetG = ((colorArgb >> 8) & 0xFF) * (a / 255.0);
   final targetB = (colorArgb & 0xFF) * (a / 255.0);
 
-  final visited = Uint8List(width * height);
+  final painted = Uint8List(width * height);
   final stackX = <int>[x];
   final stackY = <int>[y];
   var count = 0;
@@ -119,27 +144,23 @@ FloodFillResult floodFillWorker(FloodFillRequest request) {
     final cy = stackY.removeLast();
     if (cx < 0 || cy < 0 || cx >= width || cy >= height) continue;
     final idx = cy * width + cx;
-    if (visited[idx] == 1) continue;
-    visited[idx] = 1;
+    if (painted[idx] == 1) continue;
 
-    final orig = original.getPixel(cx, cy);
-    final origLum = 0.299 * orig.r + 0.587 * orig.g + 0.114 * orig.b;
-    if (origLum <= _lineLuminanceMax) continue;
+    final origLum = _luminance(original.getPixel(cx, cy));
+    if (origLum < tuning.fillRegionLuminanceMin) continue;
 
-    if (request.erase) {
-      working.setPixelRgba(
-        cx,
-        cy,
-        orig.r.toInt(),
-        orig.g.toInt(),
-        orig.b.toInt(),
-        orig.a.toInt(),
-      );
-    } else {
-      final fill = _fillColorFor(category, targetR, targetG, targetB);
-      working.setPixelRgba(cx, cy, fill.$1, fill.$2, fill.$3, 255);
-    }
-
+    painted[idx] = 1;
+    _paintPixel(
+      working: working,
+      original: original,
+      x: cx,
+      y: cy,
+      erase: request.erase,
+      category: category,
+      targetR: targetR,
+      targetG: targetG,
+      targetB: targetB,
+    );
     count++;
 
     stackX
@@ -152,6 +173,62 @@ FloodFillResult floodFillWorker(FloodFillRequest request) {
       ..add(cy)
       ..add(cy - 1)
       ..add(cy + 1);
+  }
+
+  final neighborDeltas = tuning.fringeDiagonals
+      ? const <(int, int)>[
+          (-1, -1),
+          (0, -1),
+          (1, -1),
+          (-1, 0),
+          (1, 0),
+          (-1, 1),
+          (0, 1),
+          (1, 1),
+        ]
+      : const <(int, int)>[
+          (0, -1),
+          (-1, 0),
+          (1, 0),
+          (0, 1),
+        ];
+
+  for (var pass = 0; pass < tuning.fringeExpandPasses; pass++) {
+    final frontier = <int>[
+      for (var i = 0; i < painted.length; i++)
+        if (painted[i] == 1) i,
+    ];
+    var grew = 0;
+    for (final i in frontier) {
+      final cx = i % width;
+      final cy = i ~/ width;
+      for (final (dx, dy) in neighborDeltas) {
+        final nx = cx + dx;
+        final ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+        final nIdx = ny * width + nx;
+        if (painted[nIdx] == 1) continue;
+        final lum = _luminance(original.getPixel(nx, ny));
+        // Nur helle Anti-Alias-Fransen — nicht durch dünne Graulinien.
+        if (lum <= tuning.hardLineLuminanceMax) continue;
+        if (lum < tuning.fringeLuminanceMin) continue;
+        painted[nIdx] = 1;
+        _paintPixel(
+          working: working,
+          original: original,
+          x: nx,
+          y: ny,
+          erase: request.erase,
+          category: category,
+          targetR: targetR,
+          targetG: targetG,
+          targetB: targetB,
+        );
+        count++;
+        grew++;
+      }
+    }
+    if (grew == 0) break;
   }
 
   final outBytes =

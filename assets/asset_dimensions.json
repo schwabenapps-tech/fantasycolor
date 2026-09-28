@@ -193,132 +193,192 @@
   ],
   "print_templates": [
     {
-      "path": "assets/print_templates/ballerinafee1.png",
+      "path": "assets/print_templates/227f10e2-c21e-43be-8187-a571e6bf30a4.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_27_sept_2026_00_06_29.png",
+      "width": 1371,
+      "height": 1148
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_27_sept_2026_00_51_02.png",
+      "width": 1369,
+      "height": 1149
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_28_sept_2026_11_35_41.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_28_sept_2026_22_16_32.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_21_17_41.png",
+      "width": 1429,
+      "height": 1075
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_21_49_51.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_00_55.png",
+      "width": 1691,
+      "height": 930
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_07_36.png",
       "width": 1200,
       "height": 1310
     },
     {
-      "path": "assets/print_templates/ballerinafee2.png",
-      "width": 1132,
-      "height": 1390
-    },
-    {
-      "path": "assets/print_templates/chatgpt_image_30_aug_2026_23_48_09.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/print_templates/eisfee.png",
-      "width": 1023,
-      "height": 1537
-    },
-    {
-      "path": "assets/print_templates/feeballerina.png",
-      "width": 1121,
-      "height": 1403
-    },
-    {
-      "path": "assets/print_templates/feemitschmetterling.png",
-      "width": 1086,
-      "height": 1448
-    },
-    {
-      "path": "assets/print_templates/feetropfen.png",
-      "width": 1266,
-      "height": 1243
-    },
-    {
-      "path": "assets/print_templates/fliegende_fee.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/print_templates/galaxy_fee.png",
-      "width": 1408,
-      "height": 768
-    },
-    {
-      "path": "assets/print_templates/huebsche_fee.png",
-      "width": 1122,
-      "height": 1402
-    },
-    {
-      "path": "assets/print_templates/kristallfee.png",
-      "width": 1122,
-      "height": 1402
-    },
-    {
-      "path": "assets/print_templates/lilia_fee.png",
-      "width": 1163,
-      "height": 1353
-    },
-    {
-      "path": "assets/print_templates/malende_fee.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/print_templates/mariposa.png",
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_09_45.png",
       "width": 1604,
       "height": 981
     },
     {
-      "path": "assets/print_templates/mariposa2.png",
-      "width": 1692,
-      "height": 929
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_35_51.png",
+      "width": 1254,
+      "height": 1254
     },
     {
-      "path": "assets/print_templates/nachprinzessinfee.png",
-      "width": 1503,
-      "height": 1047
-    },
-    {
-      "path": "assets/print_templates/nachtballet.png",
-      "width": 1132,
-      "height": 1390
-    },
-    {
-      "path": "assets/print_templates/nachtfee.png",
-      "width": 1148,
-      "height": 1370
-    },
-    {
-      "path": "assets/print_templates/schoene_fee.png",
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_38_35.png",
       "width": 1122,
       "height": 1402
     },
     {
-      "path": "assets/print_templates/schwanensee.png",
-      "width": 1188,
-      "height": 1324
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_42_15.png",
+      "width": 1148,
+      "height": 1371
     },
     {
-      "path": "assets/print_templates/schwanensee_theater.png",
-      "width": 1123,
-      "height": 1401
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_50_22.png",
+      "width": 1122,
+      "height": 1402
     },
     {
-      "path": "assets/print_templates/waldballerina.png",
-      "width": 1690,
-      "height": 931
+      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_52_23.png",
+      "width": 1254,
+      "height": 1254
     },
     {
-      "path": "assets/print_templates/waldballerina2.png",
-      "width": 1680,
-      "height": 936
+      "path": "assets/print_templates/chatgpt_image_11_sept_2026_21_59_12.png",
+      "width": 1536,
+      "height": 1024
     },
     {
-      "path": "assets/print_templates/waldfee1.png",
-      "width": 1693,
-      "height": 929
+      "path": "assets/print_templates/chatgpt_image_11_sept_2026_22_04_46.png",
+      "width": 1086,
+      "height": 1448
     },
     {
-      "path": "assets/print_templates/wasserfee.png",
-      "width": 1654,
-      "height": 951
+      "path": "assets/print_templates/chatgpt_image_11_sept_2026_22_07_20.png",
+      "width": 1163,
+      "height": 1353
     },
     {
-      "path": "assets/print_templates/wasserfee_schoen.png",
+      "path": "assets/print_templates/chatgpt_image_11_sept_2026_22_13_20.png",
+      "width": 1442,
+      "height": 1091
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_11_sept_2026_22_15_13.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_00_50.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_04_45.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_10_24.png",
+      "width": 1144,
+      "height": 1375
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_15_58.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_21_15.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_19_sept_2026_11_29_36.png",
+      "width": 1370,
+      "height": 1148
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_24_sept_2026_11_08_41.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_21_40_45.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_21_43_42.png",
+      "width": 1121,
+      "height": 1403
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_03_54.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_39_37.png",
+      "width": 1503,
+      "height": 1046
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_42_49.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_59_11.png",
+      "width": 1189,
+      "height": 1323
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_19_30.png",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_26_35.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_42_09.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/vereinfacht.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/wasserfee_vereinfacht.png",
       "width": 1122,
       "height": 1402
     }
@@ -486,16 +546,6 @@
     },
     {
       "path": "assets/puzzle_images/chatgpt_image_12_sept_2026_00_20_57.png",
-      "width": 1145,
-      "height": 1374
-    },
-    {
-      "path": "assets/puzzle_images/chatgpt_image_13_sept_2026_20_35_25.png",
-      "width": 1145,
-      "height": 1374
-    },
-    {
-      "path": "assets/puzzle_images/chatgpt_image_13_sept_2026_20_39_11.png",
       "width": 1145,
       "height": 1374
     },
