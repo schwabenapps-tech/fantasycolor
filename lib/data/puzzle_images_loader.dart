@@ -4,14 +4,18 @@ import 'package:flutter/services.dart';
 
 import '../models/coloring_page.dart';
 import 'asset_dimensions.dart';
+import 'event_tags.dart';
 
 /// Lädt alle Puzzle-Bilder aus `assets/puzzle_images/`.
+///
+/// Featured/Halloween stehen immer vorne; der Rest wird gemischt.
 Future<List<ColoringPage>> loadPuzzleImages({
   bool shuffle = true,
   Random? random,
 }) async {
   final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
   final dimensions = await AssetDimensionsManifest.load();
+  final tags = await EventTags.load();
   final paths = manifest
       .listAssets()
       .where(
@@ -22,13 +26,12 @@ Future<List<ColoringPage>> loadPuzzleImages({
     ..sort();
 
   final puzzles = paths.map(dimensions.pageFromPath).toList(growable: false);
-
-  if (shuffle) {
-    final list = List<ColoringPage>.from(puzzles);
-    list.shuffle(random ?? Random());
-    return List<ColoringPage>.unmodifiable(list);
-  }
-  return puzzles;
+  return tags.prioritize(
+    puzzles,
+    featuredOrder: tags.featuredPuzzle,
+    shuffleRest: shuffle,
+    random: random,
+  );
 }
 
 bool _isImagePath(String path) {

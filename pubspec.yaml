@@ -42,6 +42,7 @@ dependencies:
   gal: ^2.3.3
   image: ^4.9.1
   google_mobile_ads: ^9.1.0
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -89,6 +90,7 @@ flutter:
     - assets/coloring_asset_hashes.json
     - assets/coloring_invalidate_ids.json
     - assets/coloring_source_map.json
+    - assets/event_tags.json
     - assets/puzzle_invalidate_ids.json
 
   # An image asset can refer to one or more resolution-specific "variants", see

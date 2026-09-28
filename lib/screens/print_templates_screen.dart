@@ -109,7 +109,11 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
 
                       return Column(
                         children: [
-                          SizedBox(height: layout.galleryTopSpacer),
+                          SizedBox(
+                            height: layout.isPortrait
+                                ? 52
+                                : layout.galleryTopSpacer,
+                          ),
                           Text(
                             'Ausmalvorlagen',
                             style: TextStyle(
@@ -136,40 +140,65 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                           ),
                           const SizedBox(height: 10),
                           Expanded(
-                            child: Align(
-                              alignment: const Alignment(0, 0.35),
-                              child: SizedBox(
-                                height: tileHeight,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: size.width * 0.055,
-                                  ),
-                                  itemCount: pages.length,
-                                  separatorBuilder: (_, _) =>
-                                      SizedBox(width: size.width * 0.03),
-                                  itemBuilder: (context, index) {
-                                    final page = pages[index];
-                                    final ratio = page.aspectRatio <= 0
-                                        ? 0.78
-                                        : page.aspectRatio;
-                                    final pageTileWidth = (tileHeight * ratio)
-                                        .clamp(
-                                          tileHeight * 0.55,
-                                          tileHeight * 1.75,
-                                        );
-                                    return _PrintTemplateTile(
-                                      page: page,
-                                      width: pageTileWidth,
+                            child: layout.isPortrait
+                                ? GridView.builder(
+                                    padding: layout.galleryGridPadding(size),
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount:
+                                          layout.galleryGridCrossAxisCount,
+                                      mainAxisSpacing: 14,
+                                      crossAxisSpacing: 14,
+                                      childAspectRatio:
+                                          layout.galleryGridChildAspectRatio,
+                                    ),
+                                    itemCount: pages.length,
+                                    itemBuilder: (context, index) {
+                                      final page = pages[index];
+                                      return _PrintTemplateTile(
+                                        page: page,
+                                        fillPreview: true,
+                                        onTap: () => _openPreview(page),
+                                      );
+                                    },
+                                  )
+                                : Align(
+                                    alignment: const Alignment(0, 0.35),
+                                    child: SizedBox(
                                       height: tileHeight,
-                                      onTap: () => _openPreview(page),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
+                                      child: ListView.separated(
+                                        scrollDirection: Axis.horizontal,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: size.width * 0.055,
+                                        ),
+                                        itemCount: pages.length,
+                                        separatorBuilder: (_, _) =>
+                                            SizedBox(width: size.width * 0.03),
+                                        itemBuilder: (context, index) {
+                                          final page = pages[index];
+                                          final ratio = page.aspectRatio <= 0
+                                              ? 0.78
+                                              : page.aspectRatio;
+                                          final pageTileWidth =
+                                              (tileHeight * ratio).clamp(
+                                            tileHeight * 0.55,
+                                            tileHeight * 1.75,
+                                          );
+                                          return SizedBox(
+                                            width: pageTileWidth,
+                                            height: tileHeight,
+                                            child: _PrintTemplateTile(
+                                              page: page,
+                                              onTap: () => _openPreview(page),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
                           ),
-                          SizedBox(height: size.height * 0.03),
+                          if (layout.isLandscape)
+                            SizedBox(height: size.height * 0.03),
                         ],
                       );
                     },
@@ -194,104 +223,99 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
 class _PrintTemplateTile extends StatelessWidget {
   const _PrintTemplateTile({
     required this.page,
-    required this.width,
-    required this.height,
     required this.onTap,
+    this.fillPreview = false,
   });
 
   final ColoringPage page;
-  final double width;
-  final double height;
   final VoidCallback onTap;
+  final bool fillPreview;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: GestureDetector(
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFF4F7FC),
-                Color(0xFFB8C0D0),
-                Color(0xFF8E97A8),
-                Color(0xFFE6EAF2),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF9EC8FF).withValues(alpha: 0.28),
-                blurRadius: 18,
-                spreadRadius: 1,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF4F7FC),
+              Color(0xFFB8C0D0),
+              Color(0xFF8E97A8),
+              Color(0xFFE6EAF2),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: ColoredBox(
-                      color: Colors.white,
-                      child: Image.asset(
-                        page.assetPath,
-                        fit: BoxFit.contain,
-                        alignment: Alignment.center,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E2A44).withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.visibility_rounded,
-                            color: Color(0xFFE8EEF8),
-                            size: 16,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Vorschau',
-                            style: TextStyle(
-                              color: Color(0xFFE8EEF8),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF9EC8FF).withValues(alpha: 0.28),
+              blurRadius: 18,
+              spreadRadius: 1,
             ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: ColoredBox(
+                    color: Colors.white,
+                    child: Image.asset(
+                      page.assetPath,
+                      fit: fillPreview ? BoxFit.cover : BoxFit.contain,
+                      alignment: const Alignment(0, -0.12),
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2A44).withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.visibility_rounded,
+                          color: Color(0xFFE8EEF8),
+                          size: 16,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Vorschau',
+                          style: TextStyle(
+                            color: Color(0xFFE8EEF8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

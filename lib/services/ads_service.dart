@@ -8,8 +8,13 @@ import 'ads_config.dart';
 /// Interstitials für Fantasy Color (Kids-Mode / kindgerechte Ads).
 ///
 /// Während des Malens/Puzzles: keine Werbung.
-/// Beim Verlassen oder Abschluss: nur jedes **zweite** Mal ein Interstitial.
-/// Freischalten des Pixel-Modus: einmalig Interstitial (`showInterstitial`), dann persistiert.
+///
+/// Timing:
+/// - Ausmalen verlassen: jedes **3.** Mal
+/// - Nach Ausmalen-Feier (Fertig / Als Puzzle): immer
+/// - Puzzle gelöst: jedes **2.** Mal
+///
+/// Freischalten des Pixel-Modus: einmalig Interstitial (`showInterstitial`).
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
 class AdsService {
   AdsService._();
@@ -19,8 +24,8 @@ class AdsService {
   static bool _loading = false;
   static bool _showing = false;
 
-  /// Zählt Verlassen/Erledigt — Ad erst beim 2., 4., 6. … Mal.
-  static int _exitOrFinishCount = 0;
+  static int _coloringLeaveCount = 0;
+  static int _puzzleFinishCount = 0;
 
   static bool get isReady => _initialized;
 
@@ -69,15 +74,33 @@ class AdsService {
     }
   }
 
-  /// Verlassen oder Fertig: nur jedes zweite Mal Werbung zeigen.
-  static Future<void> showExitInterstitial() async {
-    _exitOrFinishCount++;
-    if (_exitOrFinishCount % 2 != 0) {
+  /// Ausmalen/Pixel ohne Fertig-Feier verlassen: jedes 3. Mal.
+  static Future<void> showColoringLeaveInterstitial() async {
+    _coloringLeaveCount++;
+    if (_coloringLeaveCount % 3 != 0) {
       unawaited(preloadInterstitial());
       return;
     }
     await showInterstitial();
   }
+
+  /// Nach der Ausmalen-Feier, wenn Kind „Fertig“ oder „Als Puzzle“ wählt.
+  static Future<void> showColoringFinishChoiceInterstitial() async {
+    await showInterstitial();
+  }
+
+  /// Puzzle gelöst: jedes 2. Mal.
+  static Future<void> showPuzzleFinishInterstitial() async {
+    _puzzleFinishCount++;
+    if (_puzzleFinishCount % 2 != 0) {
+      unawaited(preloadInterstitial());
+      return;
+    }
+    await showInterstitial();
+  }
+
+  /// @Deprecated — bitte spezifische Methoden nutzen.
+  static Future<void> showExitInterstitial() => showColoringLeaveInterstitial();
 
   /// Zeigt ein Interstitial, falls geladen — sonst sofort return.
   /// Für Freischaltungen o.Ä., die immer Werbung brauchen.

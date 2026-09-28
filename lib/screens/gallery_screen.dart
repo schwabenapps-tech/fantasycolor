@@ -1,12 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
+import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
+import '../services/audio_service.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
+import '../widgets/event_badges.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
@@ -30,11 +35,14 @@ class _GalleryScreenState extends State<GalleryScreen>
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   Future<List<ColoringPage>>? _pagesFuture;
+  Future<EventTags>? _tagsFuture;
 
   @override
   void initState() {
     super.initState();
     _ensureFutures();
+    // Galerie = normale Fantasy-Musik (Halloween nur im Motiv selbst).
+    unawaited(AudioService.instance.startAmbient(halloween: false));
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -49,6 +57,7 @@ class _GalleryScreenState extends State<GalleryScreen>
   /// Hot-Reload-sicher: Futures ggf. nachträglich anlegen.
   void _ensureFutures() {
     _pagesFuture ??= loadColoringPages();
+    _tagsFuture ??= EventTags.load();
   }
 
   @override
@@ -97,10 +106,14 @@ class _GalleryScreenState extends State<GalleryScreen>
                 children: [
                   Column(
                     children: [
-                      SizedBox(height: layout.galleryTopSpacer * 0.55),
+                      if (layout.isLandscape)
+                        SizedBox(height: layout.galleryTopSpacer * 0.55),
                       Expanded(
-                        child: FutureBuilder<List<ColoringPage>>(
-                          future: _pagesFuture!,
+                        child: FutureBuilder<List<Object>>(
+                          future: Future.wait([
+                            _pagesFuture!,
+                            _tagsFuture!,
+                          ]),
                           builder: (context, snapshot) {
                             if (snapshot.connectionState !=
                                 ConnectionState.done) {
@@ -116,8 +129,13 @@ class _GalleryScreenState extends State<GalleryScreen>
                               );
                             }
 
-                            final pages =
-                                snapshot.data ?? const <ColoringPage>[];
+                            final data = snapshot.data;
+                            final pages = data == null
+                                ? const <ColoringPage>[]
+                                : data[0] as List<ColoringPage>;
+                            final tags = data == null
+                                ? null
+                                : data[1] as EventTags;
                             if (pages.isEmpty) {
                               return const Center(
                                 child: Text(
@@ -127,6 +145,46 @@ class _GalleryScreenState extends State<GalleryScreen>
                                     fontSize: 16,
                                   ),
                                 ),
+                              );
+                            }
+
+                            if (layout.isPortrait) {
+                              return GridView.builder(
+                                padding: layout.galleryGridPadding(size).copyWith(
+                                  top: 56,
+                                ),
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount:
+                                      layout.galleryGridCrossAxisCount,
+                                  mainAxisSpacing: 14,
+                                  crossAxisSpacing: 14,
+                                  childAspectRatio:
+                                      layout.galleryGridChildAspectRatio,
+                                ),
+                                itemCount: pages.length,
+                                itemBuilder: (context, index) {
+                                  final page = pages[index];
+                                  final halloween = tags
+                                          ?.isHalloweenColoring(page.id) ??
+                                      false;
+                                  final isNew = !halloween &&
+                                      (tags?.isFeaturedColoring(page.id) ??
+                                          false);
+                                  return _ColoringPageTile(
+                                    page: page,
+                                    isFavorite:
+                                        favorites.isFavorite(page.id),
+                                    hasProgress:
+                                        progress.hasProgress(page.id),
+                                    isHalloween: halloween,
+                                    isNew: isNew,
+                                    compact: true,
+                                    onTap: () => _openSimplePage(page),
+                                    onToggleFavorite: () =>
+                                        favorites.toggle(page.id),
+                                  );
+                                },
                               );
                             }
 
@@ -154,17 +212,27 @@ class _GalleryScreenState extends State<GalleryScreen>
                                           tileHeight * 0.55,
                                           tileHeight * 1.75,
                                         );
-                                    return _ColoringPageTile(
-                                      page: page,
+                                    final halloween =
+                                        tags?.isHalloweenColoring(page.id) ??
+                                            false;
+                                    final isNew = !halloween &&
+                                        (tags?.isFeaturedColoring(page.id) ??
+                                            false);
+                                    return SizedBox(
                                       width: pageTileWidth,
                                       height: tileHeight,
-                                      isFavorite:
-                                          favorites.isFavorite(page.id),
-                                      hasProgress:
-                                          progress.hasProgress(page.id),
-                                      onTap: () => _openSimplePage(page),
-                                      onToggleFavorite: () =>
-                                          favorites.toggle(page.id),
+                                      child: _ColoringPageTile(
+                                        page: page,
+                                        isFavorite:
+                                            favorites.isFavorite(page.id),
+                                        hasProgress:
+                                            progress.hasProgress(page.id),
+                                        isHalloween: halloween,
+                                        isNew: isNew,
+                                        onTap: () => _openSimplePage(page),
+                                        onToggleFavorite: () =>
+                                            favorites.toggle(page.id),
+                                      ),
                                     );
                                   },
                                 ),
@@ -173,7 +241,8 @@ class _GalleryScreenState extends State<GalleryScreen>
                           },
                         ),
                       ),
-                      SizedBox(height: size.height * 0.03),
+                      if (layout.isLandscape)
+                        SizedBox(height: size.height * 0.03),
                     ],
                   ),
                   Positioned(
@@ -196,86 +265,88 @@ class _GalleryScreenState extends State<GalleryScreen>
 class _ColoringPageTile extends StatelessWidget {
   const _ColoringPageTile({
     required this.page,
-    required this.width,
-    required this.height,
     required this.isFavorite,
     required this.hasProgress,
+    required this.isHalloween,
+    required this.isNew,
     required this.onTap,
     required this.onToggleFavorite,
+    this.compact = false,
   });
 
   final ColoringPage page;
-  final double width;
-  final double height;
   final bool isFavorite;
   final bool hasProgress;
+  final bool isHalloween;
+  final bool isNew;
+  final bool compact;
   final VoidCallback onTap;
   final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: onTap,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFF4F7FC),
-                      Color(0xFFB8C0D0),
-                      Color(0xFF8E97A8),
-                      Color(0xFFE6EAF2),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF9EC8FF).withValues(alpha: 0.28),
-                      blurRadius: 18,
-                      spreadRadius: 1,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
+    final framed = GalleryFrame(
+      style: isHalloween
+          ? GalleryFrameStyle.halloween
+          : GalleryFrameStyle.fantasy,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: compact
+            ? SizedBox.expand(
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.95),
                   child: ColoringPageImage(
                     page: page,
-                    fit: BoxFit.contain,
+                    fit: BoxFit.cover,
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
+              )
+            : ColoredBox(
+                color: Colors.white.withValues(alpha: 0.95),
+                child: ColoringPageImage(
+                  page: page,
+                  fit: BoxFit.contain,
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
-            ),
-          ),
-          if (hasProgress)
-            const Positioned(
-              left: 12,
-              bottom: 12,
-              child: ProgressBadge(),
-            ),
-          Positioned(
-            top: 12,
-            right: 12,
-            child: FavoriteStarButton(
-              isFavorite: isFavorite,
-              onPressed: onToggleFavorite,
-              size: 42,
-            ),
-          ),
-        ],
       ),
+    );
+
+    final starSize = compact ? 34.0 : 42.0;
+    final inset = compact ? 8.0 : 12.0;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: onTap,
+            child: framed,
+          ),
+        ),
+        if (isNew)
+          Positioned(
+            left: inset,
+            top: inset,
+            child: const NewBadge(),
+          ),
+        if (hasProgress)
+          Positioned(
+            left: inset,
+            bottom: inset,
+            child: const ProgressBadge(),
+          ),
+        Positioned(
+          top: inset,
+          right: inset,
+          child: FavoriteStarButton(
+            isFavorite: isFavorite,
+            onPressed: onToggleFavorite,
+            size: starSize,
+          ),
+        ),
+      ],
     );
   }
 }

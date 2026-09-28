@@ -10,6 +10,7 @@ import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
 import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
+import 'services/audio_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,8 +21,9 @@ Future<void> main() async {
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // Ads asynchron — App startet nicht erst nach AdMob.
+  // Ads / Audio asynchron — App startet nicht erst danach.
   unawaited(AdsService.initialize());
+  unawaited(AudioService.instance.initialize());
 
   final favorites = FavoritesStore();
   await favorites.load();
@@ -78,6 +80,9 @@ class FantasyColorApp extends StatelessWidget {
         ),
         ChangeNotifierProvider.value(
           value: pixelProgress ?? PixelProgressStore(),
+        ),
+        ChangeNotifierProvider.value(
+          value: AudioService.instance,
         ),
       ],
       child: MaterialApp(

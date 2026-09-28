@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../data/event_tags.dart';
 import '../services/ads_service.dart';
+import '../services/audio_service.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -50,7 +52,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   late final ImageProvider _imageProvider;
   bool _imagePrecached = false;
 
-  PuzzleDifficulty _difficulty = PuzzleDifficulty.medium;
+  PuzzleDifficulty _difficulty = PuzzleDifficulty.medium30;
   PuzzlePieceStyle _pieceStyle = PuzzlePieceStyle.jigsaw;
 
   late int _cols;
@@ -66,11 +68,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
+  bool _boardZoomed = false;
 
   late final AnimationController _celebrateController;
   late final AnimationController _revealController;
   late final AnimationController _popController;
   late final AnimationController _shakeController;
+  late final TransformationController _boardTransform;
 
   /// Hochkant-Bilder bleiben aufrecht (nicht seitlich legen).
   bool get _rotatePortrait => false;
@@ -107,6 +111,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
+    _boardTransform = TransformationController();
+    _boardTransform.addListener(_onBoardTransformChanged);
     _popController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         setState(() => _popPiece = null);
@@ -120,6 +126,29 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       }
     });
     _reset();
+    unawaited(_syncAmbientMusic());
+  }
+
+  Future<void> _syncAmbientMusic() async {
+    final tags = await EventTags.load();
+    final id = widget.puzzle.id;
+    final halloween =
+        tags.isHalloweenPuzzle(id) || tags.isHalloweenColoring(id);
+    await AudioService.instance.startAmbient(halloween: halloween);
+  }
+
+  void _onBoardTransformChanged() {
+    final zoomed = _boardTransform.value.getMaxScaleOnAxis() > 1.05;
+    if (zoomed != _boardZoomed && mounted) {
+      setState(() => _boardZoomed = zoomed);
+    }
+  }
+
+  void _resetBoardZoom() {
+    _boardTransform.value = Matrix4.identity();
+    if (_boardZoomed) {
+      setState(() => _boardZoomed = false);
+    }
   }
 
   @override
@@ -133,6 +162,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   @override
   void dispose() {
+    _boardTransform.removeListener(_onBoardTransformChanged);
+    _boardTransform.dispose();
     _celebrateController.dispose();
     _revealController.dispose();
     _popController.dispose();
@@ -140,31 +171,48 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     super.dispose();
   }
 
+  /// Wählt ein Raster möglichst nah an [targetCount], mit passendem Seitenverhältnis.
   static ({int cols, int rows}) gridForDisplayAspect(
     double aspect, {
     required int targetCount,
   }) {
     final a = aspect.clamp(0.45, 2.6);
-    final minN = math.max(4, (targetCount * 0.65).round());
-    final maxN = math.min(48, (targetCount * 1.35).round());
-    var bestCols = 4;
-    var bestRows = 3;
+    final maxDim =
+        math.max(12, (math.sqrt(targetCount.toDouble()) * 1.8).ceil() + 2);
+    var bestCols = 3;
+    var bestRows = 2;
     var bestScore = double.infinity;
 
-    for (var cols = 2; cols <= 9; cols++) {
-      for (var rows = 2; rows <= 9; rows++) {
-        final n = cols * rows;
-        if (n < minN || n > maxN) continue;
-        final cellAspect = a * rows / cols;
-        final score =
-            (cellAspect - 1).abs() * 3 + (n - targetCount).abs() * 0.08;
-        if (score < bestScore) {
-          bestScore = score;
-          bestCols = cols;
-          bestRows = rows;
-        }
+    void consider(int cols, int rows) {
+      final n = cols * rows;
+      final cellAspect = a * rows / cols;
+      final score = (cellAspect - 1).abs() * 3 +
+          (n - targetCount).abs() * 0.35 -
+          (n == targetCount ? 0.8 : 0);
+      if (score < bestScore) {
+        bestScore = score;
+        bestCols = cols;
+        bestRows = rows;
       }
     }
+
+    // Zuerst exakte Faktoren (z. B. 8×8 = 64).
+    for (var cols = 2; cols <= maxDim; cols++) {
+      if (targetCount % cols != 0) continue;
+      final rows = targetCount ~/ cols;
+      if (rows >= 2 && rows <= maxDim) consider(cols, rows);
+    }
+
+    // Dann nahe Alternativen.
+    final slack = math.max(4, (targetCount * 0.12).round());
+    for (var cols = 2; cols <= maxDim; cols++) {
+      for (var rows = 2; rows <= maxDim; rows++) {
+        final n = cols * rows;
+        if ((n - targetCount).abs() > slack) continue;
+        consider(cols, rows);
+      }
+    }
+
     return (cols: bestCols, rows: bestRows);
   }
 
@@ -195,6 +243,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _revealController.value = 0;
     _popController.value = 0;
     _shakeController.value = 0;
+    _boardTransform.value = Matrix4.identity();
+    _boardZoomed = false;
   }
 
   void _checkSolved() {
@@ -209,6 +259,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   Future<void> _openSettings() async {
     HapticFeedback.selectionClick();
+    var draftTier = _difficulty.tier;
     var draftDifficulty = _difficulty;
     var draftStyle = _pieceStyle;
 
@@ -229,6 +280,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
             child: StatefulBuilder(
               builder: (context, setSheetState) {
+                final pieceChoices = PuzzleDifficulty.forTier(draftTier);
                 return Center(
                   child: Material(
                     color: Colors.transparent,
@@ -238,6 +290,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                           520,
                           MediaQuery.sizeOf(context).width * 0.88,
                         ),
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.88,
                       ),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -268,7 +321,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                             ),
                           ],
                         ),
-                        child: Padding(
+                        child: SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
@@ -311,9 +364,46 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                 runSpacing: 8,
                                 alignment: WrapAlignment.center,
                                 children: [
-                                  for (final d in PuzzleDifficulty.values)
+                                  for (final tier in PuzzleTier.values)
                                     _SettingsChip(
-                                      label: '${d.label} · ~${d.targetPieces}',
+                                      label: tier.label,
+                                      selected: draftTier == tier,
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setSheetState(() {
+                                          draftTier = tier;
+                                          final options =
+                                              PuzzleDifficulty.forTier(tier);
+                                          if (!options.contains(draftDifficulty)) {
+                                            draftDifficulty = options.first;
+                                          }
+                                        });
+                                      },
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Teile',
+                                  style: TextStyle(
+                                    color: const Color(0xFFFFD56A)
+                                        .withValues(alpha: 0.9),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  for (final d in pieceChoices)
+                                    _SettingsChip(
+                                      label: '${d.targetPieces}',
                                       selected: draftDifficulty == d,
                                       onTap: () {
                                         HapticFeedback.selectionClick();
@@ -324,6 +414,17 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                     ),
                                 ],
                               ),
+                              if (draftTier.allowsZoom) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Tipp: Mit zwei Fingern zoomen',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.55),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(height: 14),
                               Align(
                                 alignment: Alignment.centerLeft,
@@ -408,14 +509,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     }
   }
 
-  Future<void> _showExitAdOnce() async {
-    if (_exitAdShown) return;
-    _exitAdShown = true;
-    await AdsService.showExitInterstitial();
-  }
-
   Future<void> _leavePuzzle() async {
-    await _showExitAdOnce();
+    // Verlassen ohne Fertigstellen: keine Werbung.
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -429,9 +524,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     await _revealController.forward(from: 0);
     if (!mounted) return;
     setState(() => _celebrating = true);
+    unawaited(AudioService.instance.playLevelComplete());
     await _celebrateController.forward(from: 0);
     if (!mounted) return;
-    await _showExitAdOnce();
+    if (!_exitAdShown) {
+      _exitAdShown = true;
+      await AdsService.showPuzzleFinishInterstitial();
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -515,28 +614,60 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   Widget _buildBoard(Size maxSize) {
     final boardSize = _fitBoard(maxSize);
-    return Center(
-      child: _JigsawBoard(
-        boardSize: boardSize,
-        layout: _layout,
-        imageProvider: _imageProvider,
-        rotatePortrait: _rotatePortrait,
-        board: _board,
-        ghostOpacity: _ghostOpacity,
-        magnetFactor: _magnetFactor,
-        hintFactor: _hintFactor,
-        popPiece: _popPiece,
-        popAnimation: _popController,
-        shakeSlot: _shakeSlot,
-        shakeAnimation: _shakeController,
-        hoverSlot: _hoverSlot,
-        reveal: _revealController,
-        solved: _solved,
-        onAcceptPiece: _placePiece,
-        onHoverSlot: _setHover,
-        onReturnPiece: _returnPieceToTray,
-        onRejectPiece: _rejectDrop,
-      ),
+    final pad = math.max(boardSize.width, boardSize.height) *
+        _JigsawBoard.padFraction;
+    final framed = Size(
+      boardSize.width + pad * 2,
+      boardSize.height + pad * 2,
+    );
+    final board = _JigsawBoard(
+      boardSize: boardSize,
+      layout: _layout,
+      imageProvider: _imageProvider,
+      rotatePortrait: _rotatePortrait,
+      board: _board,
+      ghostOpacity: _ghostOpacity,
+      magnetFactor: _magnetFactor,
+      hintFactor: _hintFactor,
+      popPiece: _popPiece,
+      popAnimation: _popController,
+      shakeSlot: _shakeSlot,
+      shakeAnimation: _shakeController,
+      hoverSlot: _hoverSlot,
+      reveal: _revealController,
+      solved: _solved,
+      onAcceptPiece: _placePiece,
+      onHoverSlot: _setHover,
+      onReturnPiece: _returnPieceToTray,
+      onRejectPiece: _rejectDrop,
+    );
+
+    if (!_difficulty.allowsZoom) {
+      return Center(child: board);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        InteractiveViewer(
+          transformationController: _boardTransform,
+          minScale: 1,
+          maxScale: 3.8,
+          boundaryMargin: const EdgeInsets.all(120),
+          clipBehavior: Clip.none,
+          child: SizedBox(
+            width: math.max(maxSize.width, framed.width),
+            height: math.max(maxSize.height, framed.height),
+            child: Center(child: board),
+          ),
+        ),
+        if (_boardZoomed)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: _ZoomResetChip(onPressed: _resetBoardZoom),
+          ),
+      ],
     );
   }
 
@@ -613,7 +744,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                         size: 40,
                         iconSize: 20,
                         icon: Icons.refresh_rounded,
-                        onPressed: () => setState(_reset),
+                        onPressed: () {
+                          _resetBoardZoom();
+                          setState(_reset);
+                        },
                       ),
                     ],
                   ),
@@ -685,6 +819,48 @@ class _PuzzleScreenState extends State<PuzzleScreen>
           if (_celebrating)
             _PuzzleCelebration(animation: _celebrateController),
         ],
+      ),
+    );
+  }
+}
+
+class _ZoomResetChip extends StatelessWidget {
+  const _ZoomResetChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.black.withValues(alpha: 0.5),
+            border: Border.all(
+              color: const Color(0xFFFFD56A).withValues(alpha: 0.55),
+            ),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 6),
+              Text(
+                'Ganzes Bild',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

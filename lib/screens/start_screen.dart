@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'hub_screen.dart';
+import '../services/audio_service.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -65,6 +66,7 @@ class _StartScreenState extends State<StartScreen>
 
   Future<void> _onPlay() async {
     await SystemChrome.setPreferredOrientations(_appOrientations);
+    unawaited(AudioService.instance.startAmbient());
     if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -77,7 +79,8 @@ class _StartScreenState extends State<StartScreen>
         },
       ),
     );
-    // Zurück zum Start: wieder nur Landscape.
+    // Zurück zum Start: wieder nur Landscape, Musik aus.
+    await AudioService.instance.stopAmbient();
     await SystemChrome.setPreferredOrientations(_startOrientations);
   }
 

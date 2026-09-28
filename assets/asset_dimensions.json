@@ -172,23 +172,23 @@
     },
     {
       "path": "assets/coloring_pages/fee_clean_35.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_36.png",
-      "width": 1312,
-      "height": 1199
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_37.png",
       "width": 1371,
       "height": 1148
     },
     {
-      "path": "assets/coloring_pages/fee_clean_38.png",
+      "path": "assets/coloring_pages/fee_clean_36.png",
       "width": 1369,
       "height": 1149
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_37.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_38.png",
+      "width": 1254,
+      "height": 1254
     }
   ],
   "print_templates": [

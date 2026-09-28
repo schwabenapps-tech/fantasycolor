@@ -29,6 +29,7 @@ class ColoringPageImage extends StatelessWidget {
     super.key,
     required this.page,
     this.fit = BoxFit.contain,
+    this.alignment = const Alignment(0, -0.12),
     this.borderRadius,
     this.placeholderColor = const Color(0xFF8FA0C8),
     this.placeholderSize = 28,
@@ -36,6 +37,7 @@ class ColoringPageImage extends StatelessWidget {
 
   final ColoringPage page;
   final BoxFit fit;
+  final AlignmentGeometry alignment;
   final BorderRadius? borderRadius;
   final Color placeholderColor;
   final double placeholderSize;
@@ -54,7 +56,7 @@ class ColoringPageImage extends StatelessWidget {
               image: _VersionedFileImage(file, version: version),
               key: ValueKey('progress_${page.id}_$version'),
               fit: fit,
-              alignment: Alignment.center,
+              alignment: alignment,
               filterQuality: FilterQuality.medium,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) => _assetImage(),
@@ -73,7 +75,7 @@ class ColoringPageImage extends StatelessWidget {
     return Image.asset(
       page.assetPath,
       fit: fit,
-      alignment: Alignment.center,
+      alignment: alignment,
       filterQuality: FilterQuality.medium,
       errorBuilder: (_, _, _) => Center(
         child: Icon(Icons.broken_image_outlined, color: placeholderColor),

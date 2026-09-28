@@ -29,6 +29,23 @@ class AppLayout {
     return raw.clamp(180.0, maxH);
   }
 
+  /// Puzzle-Galerie: in Landscape bewusst größer (mehr Bildschirmhöhe nutzbar).
+  double get puzzleGalleryTileHeight {
+    if (isLandscape) {
+      final raw = size.height * (isTablet ? 0.62 : 0.68);
+      final maxH = isLargeTablet
+          ? 520.0
+          : isTablet
+              ? 440.0
+              : size.height * 0.76;
+      return raw.clamp(220.0, maxH);
+    }
+    return galleryTileHeight;
+  }
+
+  double get puzzleGalleryTopSpacer =>
+      isLandscape ? size.height * (isTablet ? 0.05 : 0.08) : galleryTopSpacer;
+
   double get galleryTileWidth => galleryTileHeight * 0.78;
 
   double get galleryTopSpacer => size.height * (isTablet ? 0.08 : 0.14);
@@ -61,4 +78,21 @@ class AppLayout {
     if (isTablet) return landscape ? 4 : 3;
     return size.width > 900 ? 4 : 3;
   }
+
+  /// Portrait-Auswahlgitter (Ausmalen / Puzzle).
+  int get galleryGridCrossAxisCount {
+    if (isLargeTablet) return 4;
+    if (isTablet) return 3;
+    return 2;
+  }
+
+  /// Einheitliches Kachel-Format (Portrait-Vorschaugitter).
+  double get galleryGridChildAspectRatio => 0.82;
+
+  EdgeInsets galleryGridPadding(Size size) => EdgeInsets.fromLTRB(
+        size.width * 0.045,
+        size.height * 0.02,
+        size.width * 0.045,
+        size.height * 0.03,
+      );
 }

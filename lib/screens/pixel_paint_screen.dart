@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
 
 import '../data/paint_catalog.dart';
@@ -13,6 +12,7 @@ import '../painting/pixel_export.dart';
 import '../painting/pixel_quantizer.dart';
 import '../providers/pixel_progress_store.dart';
 import '../services/ads_service.dart';
+import '../services/gallery_export.dart';
 import '../widgets/pixel_paint_rail.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -290,7 +290,11 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Future<void> _showExitAdOnce() async {
     if (_exitAdShown) return;
     _exitAdShown = true;
-    await AdsService.showExitInterstitial();
+    if (_celebrating) {
+      await AdsService.showColoringFinishChoiceInterstitial();
+    } else {
+      await AdsService.showColoringLeaveInterstitial();
+    }
   }
 
   Future<void> _leave() async {
@@ -372,17 +376,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     final bytes = _finishedPng;
     if (bytes == null) return;
     try {
-      final granted = await Gal.requestAccess();
-      if (!granted) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bitte Zugriff auf Fotos erlauben.'),
-          ),
-        );
-        return;
-      }
-      await Gal.putImageBytes(
+      await GalleryExport.savePngBytes(
         bytes,
         name: 'fantasy_color_pixel_${widget.page.id}',
       );
@@ -394,7 +388,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+        SnackBar(content: Text('$e')),
       );
     }
   }

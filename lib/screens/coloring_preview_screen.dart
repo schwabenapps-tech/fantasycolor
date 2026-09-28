@@ -9,7 +9,10 @@ import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../data/event_tags.dart';
 import '../services/ads_service.dart';
+import '../services/audio_service.dart';
+import '../services/gallery_export.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
@@ -36,7 +39,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   bool _saveInFlight = false;
   bool _saveAgain = false;
   bool _wantFlatten = false;
-  bool _exitAdShown = false;
+  bool _leaveAdShown = false;
+  bool _finishChoiceAdShown = false;
   Timer? _autoSaveTimer;
   late final AnimationController _celebrateController;
   Uint8List? _finishedPng;
@@ -50,6 +54,13 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     );
+    unawaited(_syncAmbientMusic());
+  }
+
+  Future<void> _syncAmbientMusic() async {
+    final tags = await EventTags.load();
+    final halloween = tags.isHalloweenColoring(widget.page.id);
+    await AudioService.instance.startAmbient(halloween: halloween);
   }
 
   @override
@@ -124,16 +135,25 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     }
   }
 
-  Future<void> _showExitAdOnce() async {
-    if (_exitAdShown) return;
-    _exitAdShown = true;
-    await AdsService.showExitInterstitial();
+  Future<void> _showLeaveAdOnce() async {
+    if (_leaveAdShown) return;
+    _leaveAdShown = true;
+    await AdsService.showColoringLeaveInterstitial();
+  }
+
+  Future<void> _showFinishChoiceAdOnce() async {
+    if (_finishChoiceAdShown) return;
+    _finishChoiceAdShown = true;
+    await AdsService.showColoringFinishChoiceInterstitial();
   }
 
   Future<void> _leaveScreen() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: false);
-    await _showExitAdOnce();
+    // Nur wenn man ohne Fertig-Feier zurückgeht.
+    if (!_celebrating) {
+      await _showLeaveAdOnce();
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -142,8 +162,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: true);
-    // Fertig-Haken: einmal Werbung, danach Feier — Malen selbst bleibt ad-frei.
-    await _showExitAdOnce();
+    // Keine Werbung beim Haken — erst bei Fertig / Als Puzzle.
 
     if (!mounted) return;
     final saved = await context
@@ -156,13 +175,35 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
       _celebrating = true;
       _showFinishActions = false;
     });
+    unawaited(AudioService.instance.playLevelComplete());
     await _celebrateController.forward(from: 0);
     if (!mounted) return;
     setState(() => _showFinishActions = true);
   }
 
+  Future<void> _saveToPhotos() async {
+    try {
+      final bytes = _finishedPng ?? await _session.renderColoredPng();
+      if (bytes == null) return;
+      await GalleryExport.savePngBytes(
+        bytes,
+        name: 'fantasy_color_${widget.page.id}',
+      );
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   Future<void> _closeAfterFinish() async {
-    await _showExitAdOnce();
+    await _showFinishChoiceAdOnce();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -172,7 +213,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
       await _closeAfterFinish();
       return;
     }
-    await _showExitAdOnce();
+    await _showFinishChoiceAdOnce();
     if (!mounted) return;
     HapticFeedback.mediumImpact();
     Navigator.of(context).pushReplacement(
@@ -291,14 +332,27 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
                                         ),
                                         const SizedBox(width: 10),
                                         _MagicToolButton(
-                                          icon: Icons.auto_awesome_rounded,
+                                          icon: Icons.download_rounded,
+                                          tooltip: 'In Fotos speichern',
+                                          colors: const [
+                                            Color(0xFFE8F6FF),
+                                            Color(0xFF9EC8FF),
+                                            Color(0xFF5B8FD4),
+                                          ],
+                                          iconColor: const Color(0xFF1A3358),
+                                          onPressed: () =>
+                                              unawaited(_saveToPhotos()),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        _MagicToolButton(
+                                          icon: Icons.check_rounded,
                                           tooltip: 'Fertig',
                                           colors: const [
-                                            Color(0xFFFFF4C8),
-                                            Color(0xFFFFD56A),
-                                            Color(0xFFE8A83A),
+                                            Color(0xFFB6F5C8),
+                                            Color(0xFF3DDC84),
+                                            Color(0xFF1FA855),
                                           ],
-                                          iconColor: const Color(0xFF3A2A08),
+                                          iconColor: const Color(0xFF0E3B22),
                                           onPressed: _finish,
                                         ),
                                       ],
@@ -322,6 +376,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
                 showActions: _showFinishActions,
                 onDone: _closeAfterFinish,
                 onPlayPuzzle: _playAsPuzzle,
+                onSave: () => unawaited(_saveToPhotos()),
               ),
           ],
         ),
@@ -336,12 +391,14 @@ class _FinishCelebration extends StatelessWidget {
     required this.showActions,
     required this.onDone,
     required this.onPlayPuzzle,
+    required this.onSave,
   });
 
   final Animation<double> animation;
   final bool showActions;
   final VoidCallback onDone;
   final VoidCallback onPlayPuzzle;
+  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -439,16 +496,23 @@ class _FinishCelebration extends StatelessWidget {
                       ),
                       if (showActions) ...[
                         const SizedBox(height: 22),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: 12,
+                          runSpacing: 10,
                           children: [
+                            _FinishActionButton(
+                              icon: Icons.download_rounded,
+                              label: 'In Fotos',
+                              filled: true,
+                              onPressed: onSave,
+                            ),
                             _FinishActionButton(
                               icon: Icons.extension_rounded,
                               label: 'Als Puzzle',
                               filled: true,
                               onPressed: onPlayPuzzle,
                             ),
-                            const SizedBox(width: 12),
                             _FinishActionButton(
                               icon: Icons.check_rounded,
                               label: 'Fertig',

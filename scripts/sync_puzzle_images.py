@@ -110,8 +110,49 @@ def main() -> int:
     (ROOT / "assets/puzzle_invalidate_ids.json").write_text(
         json.dumps(uniq, indent=2) + "\n", encoding="utf-8"
     )
+
+    halloween_dir = str(
+        (Path.home() / "Desktop/fantasycolor_event_halloween").resolve()
+    )
+    halloween_puzzle = sorted(
+        page_id(name)
+        for name, src in wanted.items()
+        if str(src.resolve()).startswith(halloween_dir)
+        and src.parent.name != "halloween ausmalbilder"
+    )
+    # Neueste Halloween-Motive (24./26./27. Sept) nach Dateiname absteigend.
+    halloween_puzzle = sorted(halloween_puzzle, reverse=True)
+
+    # Featured = Halloween + neuere Puzzle-Motive (ab 13. Sept / neue UUIDs).
+    featured_extra = sorted(
+        (
+            page_id(name)
+            for name in wanted
+            if page_id(name) not in set(halloween_puzzle)
+            and (
+                re.search(r"chatgpt_image_(1[3-9]|2\d)_sept", name) is not None
+                or name.startswith("chatgpt-bild_2")
+                or name.startswith("233c320c")
+            )
+        ),
+        reverse=True,
+    )
+    featured_puzzle = halloween_puzzle + featured_extra
+
+    tags_path = ROOT / "assets/event_tags.json"
+    tags: dict[str, object] = {}
+    if tags_path.exists():
+        tags = json.loads(tags_path.read_text(encoding="utf-8"))
+    tags["halloween_puzzle"] = halloween_puzzle
+    tags["featured_puzzle"] = featured_puzzle
+    tags_path.write_text(
+        json.dumps(tags, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
     print(f"\nInvalidate IDs ({len(uniq)}): {uniq}")
     print(f"Total puzzle images: {len(wanted)}")
+    print(f"Halloween puzzle: {len(halloween_puzzle)}")
 
     subprocess.check_call([sys.executable, str(ROOT / "scripts/generate_asset_manifest.py")])
     return 0

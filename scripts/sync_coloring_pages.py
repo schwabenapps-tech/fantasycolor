@@ -155,11 +155,58 @@ def main() -> int:
         json.dumps(source_map, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+    halloween_ids = [
+        f"fee_clean_{i:02d}"
+        for i, name in enumerate(order, 1)
+        if "halloween" in str(desk[name].parent).lower()
+    ]
+    # Neueste zuerst (höhere fee_clean-Nummer).
+    halloween_ids = list(reversed(halloween_ids))
+    featured_ids = list(
+        reversed([f"fee_clean_{i:02d}" for i in range(1, len(order) + 1) if i >= 27])
+    )
+    # Halloween vor den übrigen neuen Motiven.
+    hall_set = set(halloween_ids)
+    featured_ids = [i for i in featured_ids if i in hall_set] + [
+        i for i in featured_ids if i not in hall_set
+    ]
+    _merge_event_tags(
+        halloween_coloring=halloween_ids,
+        featured_coloring=featured_ids,
+    )
+
     print(f"\nChanged IDs ({len(changed)}): {changed}")
     print(f"Total coloring pages: {len(order)}")
+    print(f"Halloween coloring: {halloween_ids}")
 
     subprocess.check_call([sys.executable, str(ROOT / "scripts/generate_asset_manifest.py")])
     return 0
+
+
+def _merge_event_tags(
+    *,
+    halloween_coloring: list[str] | None = None,
+    featured_coloring: list[str] | None = None,
+    halloween_puzzle: list[str] | None = None,
+    featured_puzzle: list[str] | None = None,
+) -> None:
+    path = ROOT / "assets/event_tags.json"
+    data: dict[str, object] = {}
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+    if halloween_coloring is not None:
+        data["halloween_coloring"] = halloween_coloring
+    if featured_coloring is not None:
+        data["featured_coloring"] = featured_coloring
+    if halloween_puzzle is not None:
+        data["halloween_puzzle"] = halloween_puzzle
+    if featured_puzzle is not None:
+        data["featured_puzzle"] = featured_puzzle
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
