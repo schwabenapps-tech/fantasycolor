@@ -17,6 +17,7 @@ import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
 import 'pixel_paint_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Rasteransicht: favorisierte Ausmalbilder + fertige Pixelbilder.
 class FavoritesScreen extends StatefulWidget {
@@ -45,15 +46,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   void _openColoringPage(ColoringPage page) {
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: ColoringPreviewScreen(page: page),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => ColoringPreviewScreen(page: page),
       ),
     );
   }
@@ -65,19 +59,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     if (!mounted) return;
 
     await Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: PixelPaintScreen(
+      AppPageRoute<void>(
+        builder: (_) => PixelPaintScreen(
               page: page,
               difficulty: PixelDifficulty.standard,
               resumeSnapshot: existing,
             ),
-          );
-        },
       ),
     );
   }

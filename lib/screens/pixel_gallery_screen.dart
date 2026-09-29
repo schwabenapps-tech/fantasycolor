@@ -15,6 +15,7 @@ import '../widgets/coloring_page_image.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'pixel_paint_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie für den fortgeschrittenen Pixel-/Malen-nach-Zahlen-Modus.
 ///
@@ -64,20 +65,13 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
 
     if (existing != null && !existing.completed && existing.filledCount > 0) {
       await Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          transitionDuration: const Duration(milliseconds: 420),
-          reverseTransitionDuration: const Duration(milliseconds: 280),
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return FadeTransition(
-              opacity: animation,
-              child: PixelPaintScreen(
+        AppPageRoute<void>(
+        builder: (_) => PixelPaintScreen(
                 page: page,
                 difficulty: PixelDifficulty.standard,
                 resumeSnapshot: existing,
               ),
-            );
-          },
-        ),
+      ),
       );
       return;
     }
@@ -88,18 +82,11 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     if (!mounted) return;
 
     await Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: PixelPaintScreen(
+      AppPageRoute<void>(
+        builder: (_) => PixelPaintScreen(
               page: page,
               difficulty: PixelDifficulty.standard,
             ),
-          );
-        },
       ),
     );
   }
@@ -258,16 +245,9 @@ Future<void> openPixelModeFromGallery(BuildContext context) async {
   }
 
   await Navigator.of(context).push(
-    PageRouteBuilder<void>(
-      transitionDuration: const Duration(milliseconds: 420),
-      reverseTransitionDuration: const Duration(milliseconds: 280),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return FadeTransition(
-          opacity: animation,
-          child: const PixelGalleryScreen(),
-        );
-      },
-    ),
+    AppPageRoute<void>(
+        builder: (_) => const PixelGalleryScreen(),
+      ),
   );
 }
 

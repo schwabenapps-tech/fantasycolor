@@ -14,6 +14,7 @@ import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie zur Auswahl der Puzzle-Bilder — Event-Hubs vorne, Standard getrennt.
 class PuzzleGalleryScreen extends StatefulWidget {
@@ -91,15 +92,8 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   void _openPuzzle(ColoringPage puzzle) {
     AnalyticsService.instance.logStartPuzzle(puzzle.id);
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: PuzzleScreen(puzzle: puzzle),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => PuzzleScreen(puzzle: puzzle),
       ),
     );
   }

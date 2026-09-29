@@ -18,6 +18,7 @@ import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
 import 'puzzle_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie nur für ein Event-Pack (nach Tippen auf den Event-Hub).
 class EventPackGalleryScreen extends StatelessWidget {
@@ -38,30 +39,16 @@ class EventPackGalleryScreen extends StatelessWidget {
     if (coloring) {
       AnalyticsService.instance.logStartColoring(page.id);
       Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          transitionDuration: const Duration(milliseconds: 420),
-          reverseTransitionDuration: const Duration(milliseconds: 280),
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return FadeTransition(
-              opacity: animation,
-              child: ColoringPreviewScreen(page: page),
-            );
-          },
-        ),
+        AppPageRoute<void>(
+        builder: (_) => ColoringPreviewScreen(page: page),
+      ),
       );
     } else {
       AnalyticsService.instance.logStartPuzzle(page.id);
       Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          transitionDuration: const Duration(milliseconds: 420),
-          reverseTransitionDuration: const Duration(milliseconds: 280),
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return FadeTransition(
-              opacity: animation,
-              child: PuzzleScreen(puzzle: page),
-            );
-          },
-        ),
+        AppPageRoute<void>(
+        builder: (_) => PuzzleScreen(puzzle: page),
+      ),
       );
     }
   }
@@ -240,6 +227,7 @@ class GalleryPageTile extends StatelessWidget {
       style: isHalloween
           ? GalleryFrameStyle.halloween
           : GalleryFrameStyle.fantasy,
+      showHalloweenBadge: false,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: compact

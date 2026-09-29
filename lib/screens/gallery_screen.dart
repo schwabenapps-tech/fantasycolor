@@ -14,6 +14,7 @@ import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie für klassisches Ausmalen — Event-Hubs vorne, Standard getrennt.
 class GalleryScreen extends StatefulWidget {
@@ -95,15 +96,8 @@ class _GalleryScreenState extends State<GalleryScreen>
   void _openSimplePage(ColoringPage page) {
     AnalyticsService.instance.logStartColoring(page.id);
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: ColoringPreviewScreen(page: page),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => ColoringPreviewScreen(page: page),
       ),
     );
   }

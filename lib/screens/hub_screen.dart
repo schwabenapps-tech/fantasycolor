@@ -1,47 +1,57 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../services/audio_service.dart';
+import '../data/coloring_pages_loader.dart';
+import '../data/event_catalog.dart';
+import '../data/event_tags.dart';
+import '../data/puzzle_images_loader.dart';
 import '../services/analytics_service.dart';
+import '../services/audio_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
+import '../widgets/event_hub_portal.dart';
+import '../widgets/silver_back_button.dart';
+import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
 import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
 import 'puzzle_gallery_screen.dart';
+import 'settings_screen.dart';
+import '../utils/app_page_route.dart';
 
-/// Zentraler Einstieg: zwei große Welten (Malen / Puzzle) + kleine Nebenaktionen.
+/// Zentraler Einstieg: Malen / Puzzle + Druck/Favoriten + Event-Hub.
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
 
-  /// Diashow: eher quadratisch/hochkant, damit Cover im Portal ohne Ränder sitzt.
+  /// Nur Standard-Motive (keine Event-/Halloween-Bilder).
   static const malenSlideshow = <String>[
-    'assets/coloring_pages/fee_clean_38.png', // 1:1
-    'assets/coloring_pages/fee_clean_28.png', // hochkant
-    'assets/coloring_pages/fee_clean_12.png', // hochkant
-    'assets/coloring_pages/fee_clean_37.png', // leicht quer
-    'assets/coloring_pages/fee_clean_36.png',
+    'assets/coloring_pages/fee_clean_28.png',
+    'assets/coloring_pages/fee_clean_12.png',
     'assets/coloring_pages/fee_clean_32.png',
-    'assets/coloring_pages/fee_clean_33.png',
-    'assets/coloring_pages/fee_clean_35.png',
+    'assets/coloring_pages/fee_clean_01.png',
+    'assets/coloring_pages/fee_clean_09.png',
+    'assets/coloring_pages/fee_clean_20.png',
+    'assets/coloring_pages/fee_clean_15.png',
+    'assets/coloring_pages/fee_clean_27.png',
   ];
 
-  /// Puzzle-Diashow: gleiche Idee — starkes Querformat vermeiden.
+  /// Nur Standard-Puzzle-Motive.
   static const puzzleSlideshow = <String>[
-    'assets/puzzle_images/7ff08153-2c3e-465e-814f-df41d674f49e.png', // 1:1
-    'assets/puzzle_images/a93a657b-db82-472a-b9a7-d8898f88ef96.png', // hochkant
+    'assets/puzzle_images/233c320c-4dd9-4fb3-8c34-af15942026cb.png',
     'assets/puzzle_images/chatgpt_image_18_sept_2026_10_26_05.png',
     'assets/puzzle_images/chatgpt_image_13_sept_2026_21_09_00.png',
-    'assets/puzzle_images/chatgpt_image_24_sept_2026_09_34_55.png',
-    'assets/puzzle_images/chatgpt_image_24_sept_2026_10_27_54.png',
-    'assets/puzzle_images/chatgpt_image_24_sept_2026_11_00_48.png',
-    'assets/puzzle_images/chatgpt-bild_27_sept_2026_00_35_51.png',
+    'assets/puzzle_images/chatgpt_image_18_sept_2026_09_38_35.png',
+    'assets/puzzle_images/chatgpt_image_15_sept_2026_14_57_20.png',
+    'assets/puzzle_images/chatgpt_image_14_sept_2026_20_51_13.png',
+    'assets/puzzle_images/chatgpt_image_13_sept_2026_21_21_30.png',
+    'assets/puzzle_images/a41fc2b5-8a30-4684-8560-d13fc9396cb3.png',
   ];
+
+  /// Festes Hero-Bild für den Event-Hub (kein Slideshow).
+  static const eventHubImage = 'assets/images/halloween_event_hub.jpg';
 
   @override
   State<HubScreen> createState() => _HubScreenState();
@@ -52,12 +62,14 @@ class _HubScreenState extends State<HubScreen>
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   bool _slideshowPrecached = false;
+  Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>?
+      _eventFuture;
 
   @override
   void initState() {
     super.initState();
-    // Musik hier nochmal anstoßen — überlebt Hot-Reload und Mute-Races.
     unawaited(AudioService.instance.startAmbient());
+    _eventFuture = _loadActiveEvent();
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -69,17 +81,41 @@ class _HubScreenState extends State<HubScreen>
     _fadeController.forward();
   }
 
+  Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>
+      _loadActiveEvent() async {
+    final tags = await EventTags.load();
+    final coloringCatalog = await loadColoringCatalog(shuffle: false);
+    final puzzleCatalog = await loadPuzzleCatalog(shuffle: false);
+    final coloring = coloringCatalog.activeEvents.isEmpty
+        ? null
+        : coloringCatalog.activeEvents.first;
+    final puzzle = puzzleCatalog.activeEvents.isEmpty
+        ? null
+        : puzzleCatalog.activeEvents.first;
+    // Prefer matching event ids when both exist.
+    GallerySection? c = coloring;
+    GallerySection? p = puzzle;
+    if (c != null && p != null && c.id != p.id) {
+      final match = puzzleCatalog.activeEvents.where((e) => e.id == c.id);
+      if (match.isNotEmpty) p = match.first;
+    }
+    return (coloring: c, puzzle: p, tags: tags);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_slideshowPrecached) return;
     _slideshowPrecached = true;
-    // Diashow-Motive vorab dekodieren — sonst erscheinen sie erst beim Wechsel.
     final cacheW = thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
     unawaited(
       precacheAssetImages(
         context,
-        [...HubScreen.malenSlideshow, ...HubScreen.puzzleSlideshow],
+        [
+          ...HubScreen.malenSlideshow,
+          ...HubScreen.puzzleSlideshow,
+          HubScreen.eventHubImage,
+        ],
         cacheWidth: cacheW,
       ),
     );
@@ -95,14 +131,61 @@ class _HubScreenState extends State<HubScreen>
     AnalyticsService.instance.logOpenWorld(world);
     AnalyticsService.instance.logScreen(world);
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
+      AppPageRoute<void>(
         settings: RouteSettings(name: world),
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(opacity: animation, child: screen);
+        builder: (_) => screen,
+      ),
+    );
+  }
+
+  void _openEventHub({
+    required GallerySection coloring,
+    required GallerySection puzzle,
+    required EventTags tags,
+  }) {
+    _open(
+      EventWorldHubScreen(
+        title: coloring.title,
+        coloringSection: coloring,
+        puzzleSection: puzzle,
+        halloweenIds: {
+          ...tags.halloweenColoring,
+          ...tags.halloweenPuzzle,
         },
       ),
+      world: 'event',
+    );
+  }
+
+  Widget _sideColumn({
+    required double gap,
+    required List<Widget> sideActions,
+    required Widget? eventHub,
+  }) {
+    final actionsRow = SizedBox(
+      height: 42,
+      child: Row(
+        children: [
+          Expanded(child: sideActions[0]),
+          SizedBox(width: gap * 0.55),
+          Expanded(child: sideActions[1]),
+        ],
+      ),
+    );
+
+    if (eventHub == null) {
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: actionsRow,
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(child: eventHub),
+        SizedBox(height: gap * 0.65),
+        actionsRow,
+      ],
     );
   }
 
@@ -114,8 +197,8 @@ class _HubScreenState extends State<HubScreen>
 
     final worlds = [
       _WorldPortal(
-        semanticLabel: 'Malen',
-        title: 'Malen',
+        semanticLabel: 'Color',
+        title: 'Color',
         imageAssets: HubScreen.malenSlideshow,
         accent: const Color(0xFFE8A0BF),
         slideOffset: Duration.zero,
@@ -133,7 +216,7 @@ class _HubScreenState extends State<HubScreen>
 
     final sideActions = [
       _SideAction(
-        semanticLabel: 'Drucken',
+        semanticLabel: 'Print',
         icon: Icons.print_rounded,
         colors: const [
           Color(0xFFF4FFF8),
@@ -144,7 +227,7 @@ class _HubScreenState extends State<HubScreen>
         onTap: () => _open(const PrintTemplatesScreen(), world: 'drucken'),
       ),
       _SideAction(
-        semanticLabel: 'Favoriten',
+        semanticLabel: 'Favorites',
         icon: Icons.star_rounded,
         colors: const [
           Color(0xFFFFFAF0),
@@ -180,8 +263,29 @@ class _HubScreenState extends State<HubScreen>
                         constraints: BoxConstraints(
                           maxWidth: layout.isTablet ? 1100 : double.infinity,
                         ),
-                        child: layout.isPortrait
-                            ? Column(
+                        child: FutureBuilder(
+                          future: _eventFuture,
+                          builder: (context, snapshot) {
+                            final data = snapshot.data;
+                            final hasEvent = data?.coloring != null &&
+                                data?.puzzle != null;
+                            final eventHub = !hasEvent
+                                ? null
+                                : EventHubPortal(
+                                    title: data!.coloring!.title,
+                                    imagePaths: const [HubScreen.eventHubImage],
+                                    accent: const Color(0xFFFF8C42),
+                                    isHalloween: true,
+                                    brightenImage: true,
+                                    onTap: () => _openEventHub(
+                                      coloring: data.coloring!,
+                                      puzzle: data.puzzle!,
+                                      tags: data.tags,
+                                    ),
+                                  );
+
+                            if (layout.isPortrait) {
+                              return Column(
                                 children: [
                                   Expanded(
                                     flex: 5,
@@ -195,50 +299,50 @@ class _HubScreenState extends State<HubScreen>
                                   ),
                                   SizedBox(height: gap),
                                   SizedBox(
-                                    height: size.height * 0.12,
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: sideActions[0]),
-                                        SizedBox(width: gap),
-                                        Expanded(child: sideActions[1]),
-                                      ],
+                                    height: size.height * (hasEvent ? 0.30 : 0.10),
+                                    child: _sideColumn(
+                                      gap: gap,
+                                      sideActions: sideActions,
+                                      eventHub: eventHub,
                                     ),
                                   ),
                                 ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(
-                                    flex: 5,
-                                    child: Row(
-                                      children: [
-                                        Expanded(child: worlds[0]),
-                                        SizedBox(width: gap),
-                                        Expanded(child: worlds[1]),
-                                      ],
-                                    ),
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(
+                                  flex: 5,
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: worlds[0]),
+                                      SizedBox(width: gap),
+                                      Expanded(child: worlds[1]),
+                                    ],
                                   ),
-                                  SizedBox(width: gap * 1.1),
-                                  SizedBox(
-                                    width: size.width *
-                                        (layout.isTablet ? 0.12 : 0.14),
-                                    child: Column(
-                                      children: [
-                                        Expanded(child: sideActions[0]),
-                                        SizedBox(height: gap),
-                                        Expanded(child: sideActions[1]),
-                                      ],
-                                    ),
+                                ),
+                                SizedBox(width: gap * 1.1),
+                                SizedBox(
+                                  width: size.width *
+                                      (layout.isTablet ? 0.20 : 0.22),
+                                  child: _sideColumn(
+                                    gap: gap,
+                                    sideActions: sideActions,
+                                    eventHub: eventHub,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
                   const Positioned(
                     top: 8,
                     right: 12,
-                    child: _MusicMuteButton(),
+                    child: _SettingsButton(),
                   ),
                 ],
               ),
@@ -250,76 +354,26 @@ class _HubScreenState extends State<HubScreen>
   }
 }
 
-class _MusicMuteButton extends StatelessWidget {
-  const _MusicMuteButton();
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton();
 
   @override
   Widget build(BuildContext context) {
-    final audio = context.watch<AudioService>();
-    final muted = audio.muted;
     return Semantics(
       button: true,
-      label: muted ? 'Musik einschalten' : 'Musik ausschalten',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          unawaited(audio.toggleMuted());
-          AnalyticsService.instance.logMuteToggled(muted: !audio.muted);
+      label: 'Settings',
+      child: SilverBackButton(
+        icon: Icons.settings_rounded,
+        onPressed: () {
+          AnalyticsService.instance.logOpenWorld('settings');
+          AnalyticsService.instance.logScreen('settings');
+          Navigator.of(context).push(
+            AppPageRoute<void>(
+        settings: const RouteSettings(name: 'settings'),
+        builder: (_) => const SettingsScreen(),
+      ),
+          );
         },
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFF6E8),
-                Color(0xFFE8C9A0),
-                Color(0xFFC9A06A),
-              ],
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.75),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFC9A06A).withValues(alpha: 0.35),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Center(
-            child: SizedBox(
-              width: 26,
-              height: 26,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(
-                    Icons.music_note_rounded,
-                    color: Color(0xFF3A2810),
-                    size: 24,
-                  ),
-                  if (muted)
-                    Transform.rotate(
-                      angle: -math.pi / 4,
-                      child: Container(
-                        width: 28,
-                        height: 2.8,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3A2810),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -367,7 +421,6 @@ class _WorldPortalState extends State<_WorldPortal> {
     super.didChangeDependencies();
     _portalCacheWidth ??=
         thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
-    // Erstes + nächstes Motiv sofort warmhalten.
     _warmAround(_index);
   }
 
@@ -445,7 +498,6 @@ class _WorldPortalState extends State<_WorldPortal> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // AnimatedSwitcher sonst auf Intrinsic-Size → Ränder bei Landscape.
                   Positioned.fill(
                     child: AnimatedSwitcher(
                       duration: _fadeDuration,
@@ -557,36 +609,31 @@ class _SideActionState extends State<_SideAction> {
         onTapCancel: () => setState(() => _pressed = false),
         child: AnimatedScale(
           scale: _pressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 120),
+          duration: const Duration(milliseconds: 110),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(12),
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: widget.colors,
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.85),
-                width: 1.5,
+                color: Colors.white.withValues(alpha: 0.8),
+                width: 1.4,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: widget.accent.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
+                  color: widget.accent.withValues(alpha: 0.35),
                   blurRadius: 10,
-                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Center(
               child: Icon(
                 widget.icon,
-                size: AppLayout.of(context).isTablet ? 42 : 34,
                 color: widget.accent,
+                size: 20,
               ),
             ),
           ),

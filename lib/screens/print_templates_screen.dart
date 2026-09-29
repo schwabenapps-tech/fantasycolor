@@ -5,6 +5,7 @@ import '../models/coloring_page.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 import 'print_preview_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie zum Speichern und Teilen von Ausmalvorlagen (zum Ausdrucken).
 class PrintTemplatesScreen extends StatefulWidget {
@@ -45,15 +46,8 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
 
   void _openPreview(ColoringPage page) {
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 360),
-        reverseTransitionDuration: const Duration(milliseconds: 260),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: PrintPreviewScreen(page: page),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => PrintPreviewScreen(page: page),
       ),
     );
   }

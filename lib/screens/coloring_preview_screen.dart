@@ -17,6 +17,7 @@ import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
+import '../utils/app_page_route.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Fertig.
 class ColoringPreviewScreen extends StatefulWidget {
@@ -202,18 +203,11 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     if (!mounted) return;
     HapticFeedback.mediumImpact();
     Navigator.of(context).pushReplacement(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: PuzzleScreen(
-              puzzle: widget.page,
-              customImage: MemoryImage(bytes),
-            ),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => PuzzleScreen(
+          puzzle: widget.page,
+          customImage: MemoryImage(bytes),
+        ),
       ),
     );
   }

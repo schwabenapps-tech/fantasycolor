@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'hub_screen.dart';
 import '../services/audio_service.dart';
+import '../utils/app_page_route.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -69,14 +70,8 @@ class _StartScreenState extends State<StartScreen>
     unawaited(AudioService.instance.startAmbient());
     if (!mounted) return;
     await Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 700),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: const HubScreen(),
-          );
-        },
+      AppPageRoute<void>(
+        builder: (_) => const HubScreen(),
       ),
     );
     // Zurück zum Start: wieder nur Landscape, Musik aus.

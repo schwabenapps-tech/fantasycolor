@@ -18,6 +18,8 @@ class EventHubPortal extends StatefulWidget {
     this.subtitle,
     this.slideOffset = Duration.zero,
     this.isHalloween = false,
+    this.showPumpkinEmoji = false,
+    this.brightenImage = false,
   });
 
   final String title;
@@ -27,6 +29,9 @@ class EventHubPortal extends StatefulWidget {
   final VoidCallback onTap;
   final Duration slideOffset;
   final bool isHalloween;
+  final bool showPumpkinEmoji;
+  /// Etwas helleres Vorschaubild (z. B. Start-Hub Event).
+  final bool brightenImage;
 
   @override
   State<EventHubPortal> createState() => _EventHubPortalState();
@@ -84,6 +89,35 @@ class _EventHubPortalState extends State<EventHubPortal> {
     super.dispose();
   }
 
+  Widget _buildPreviewImage(String path) {
+    final image = Image(
+      image: ResizeImage.resizeIfNeeded(
+        _cacheWidth,
+        null,
+        imageProviderFor(path),
+      ),
+      fit: BoxFit.cover,
+      alignment: widget.imagePaths.length == 1
+          ? Alignment.center
+          : const Alignment(0, -0.15),
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, _, _) => ColoredBox(
+        color: widget.accent.withValues(alpha: 0.35),
+      ),
+    );
+    if (!widget.brightenImage) return image;
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        1.18, 0, 0, 0, 22,
+        0, 1.18, 0, 0, 22,
+        0, 0, 1.18, 0, 22,
+        0, 0, 0, 1, 0,
+      ]),
+      child: image,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final assets = widget.imagePaths;
@@ -131,20 +165,7 @@ class _EventHubPortalState extends State<EventHubPortal> {
                           ? ColoredBox(
                               color: widget.accent.withValues(alpha: 0.35),
                             )
-                          : Image(
-                              image: ResizeImage.resizeIfNeeded(
-                                _cacheWidth,
-                                null,
-                                imageProviderFor(current),
-                              ),
-                              fit: BoxFit.cover,
-                              alignment: const Alignment(0, -0.15),
-                              gaplessPlayback: true,
-                              filterQuality: FilterQuality.medium,
-                              errorBuilder: (_, _, _) => ColoredBox(
-                                color: widget.accent.withValues(alpha: 0.35),
-                              ),
-                            ),
+                          : _buildPreviewImage(current),
                     ),
                   ),
                 ),
@@ -154,8 +175,12 @@ class _EventHubPortalState extends State<EventHubPortal> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.05),
-                        Colors.black.withValues(alpha: 0.58),
+                        Colors.black.withValues(
+                          alpha: widget.brightenImage ? 0.0 : 0.05,
+                        ),
+                        Colors.black.withValues(
+                          alpha: widget.brightenImage ? 0.32 : 0.58,
+                        ),
                       ],
                     ),
                   ),
@@ -217,72 +242,58 @@ class _EventHubPortalState extends State<EventHubPortal> {
       );
     }
 
-    return GalleryFrame(
-      style: GalleryFrameStyle.halloween,
-      showHalloweenBadge: false,
-      child: Stack(
-        clipBehavior: Clip.none,
-        fit: StackFit.expand,
-        children: [
-          portal,
-          // Kürbis oben links
-          const Positioned(
-            left: 6,
-            top: 6,
-            child: _EmojiChip('🎃', fontSize: 18),
+    // Rahmen etwas eingerückt; große Emojis sitzen als Overlay auf den Ecken.
+    return Stack(
+      clipBehavior: Clip.none,
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          left: 10,
+          top: 12,
+          right: 10,
+          bottom: 12,
+          child: GalleryFrame(
+            style: GalleryFrameStyle.halloween,
+            showHalloweenBadge: false,
+            child: portal,
           ),
-          // Fledermaus oben rechts
+        ),
+        if (widget.showPumpkinEmoji)
           const Positioned(
-            right: 6,
-            top: 6,
-            child: _EmojiChip('🦇', fontSize: 17),
+            left: 0,
+            top: 0,
+            child: _FrameEmoji('🎃', size: 36),
           ),
-          // Spinne unten links
-          const Positioned(
-            left: 6,
-            bottom: 6,
-            child: _EmojiChip('🕷️', fontSize: 16),
-          ),
-          // Kleine Fledermaus unten rechts
-          const Positioned(
-            right: 8,
-            bottom: 8,
-            child: _EmojiChip('🦇', fontSize: 14),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _EmojiChip extends StatelessWidget {
-  const _EmojiChip(this.emoji, {this.fontSize = 16});
+class _FrameEmoji extends StatelessWidget {
+  const _FrameEmoji(this.emoji, {required this.size});
 
   final String emoji;
-  final double fontSize;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.48),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFFD56A).withValues(alpha: 0.75),
-          width: 1.1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF8C42).withValues(alpha: 0.35),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        child: Text(
-          emoji,
-          style: TextStyle(fontSize: fontSize, height: 1.1),
+    return IgnorePointer(
+      child: Text(
+        emoji,
+        style: TextStyle(
+          fontSize: size,
+          height: 1,
+          shadows: const [
+            Shadow(
+              color: Color(0xCC000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+            Shadow(
+              color: Color(0x66FF8C42),
+              blurRadius: 10,
+            ),
+          ],
         ),
       ),
     );

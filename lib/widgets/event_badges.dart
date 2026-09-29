@@ -8,7 +8,7 @@ class GalleryFrame extends StatelessWidget {
     super.key,
     required this.child,
     this.style = GalleryFrameStyle.fantasy,
-    this.showHalloweenBadge = true,
+    this.showHalloweenBadge = false,
   });
 
   final Widget child;
@@ -87,7 +87,7 @@ class HalloweenFrame extends StatelessWidget {
   const HalloweenFrame({
     super.key,
     required this.child,
-    this.showBadge = true,
+    this.showBadge = false,
   });
 
   final Widget child;

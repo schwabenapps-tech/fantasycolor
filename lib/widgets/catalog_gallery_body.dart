@@ -7,6 +7,7 @@ import '../models/coloring_page.dart';
 import '../screens/event_pack_gallery_screen.dart';
 import '../utils/app_layout.dart';
 import '../widgets/event_hub_portal.dart';
+import '../utils/app_page_route.dart';
 
 /// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Motive → abgelaufene Hubs hinten.
 class CatalogGalleryBody extends StatelessWidget {
@@ -51,19 +52,12 @@ class CatalogGalleryBody extends StatelessWidget {
         ? tags.halloweenColoring
         : tags.halloweenPuzzle;
     Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 420),
-        reverseTransitionDuration: const Duration(milliseconds: 280),
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: EventPackGalleryScreen(
+      AppPageRoute<void>(
+        builder: (_) => EventPackGalleryScreen(
               section: section,
               coloring: coloring,
               halloweenIds: halloweenIds,
             ),
-          );
-        },
       ),
     );
   }
@@ -83,7 +77,7 @@ class CatalogGalleryBody extends StatelessWidget {
   Widget _hubTile(BuildContext context, GallerySection hub, {int index = 0}) {
     return EventHubPortal(
       title: hub.title,
-      subtitle: hub.isPastEvent ? 'Archiv' : 'Event',
+      subtitle: hub.isPastEvent ? 'Archive' : null,
       imagePaths: [
         for (final p in hub.pages) p.assetPath,
       ],
