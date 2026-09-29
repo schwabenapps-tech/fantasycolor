@@ -12,6 +12,7 @@ import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
+import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -88,7 +89,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   @override
   void initState() {
     super.initState();
-    _imageProvider = widget.customImage ?? AssetImage(widget.puzzle.assetPath);
+    _imageProvider =
+        widget.customImage ?? imageProviderFor(widget.puzzle.assetPath);
     _revealController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -539,8 +541,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       if (custom is MemoryImage) {
         bytes = custom.bytes;
       } else {
-        final data = await rootBundle.load(widget.puzzle.assetPath);
-        bytes = data.buffer.asUint8List();
+        bytes = await loadImageBytes(widget.puzzle.assetPath);
       }
       await GalleryExport.savePngBytes(
         bytes,

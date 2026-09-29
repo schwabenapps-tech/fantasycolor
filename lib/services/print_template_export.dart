@@ -1,19 +1,19 @@
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/coloring_page.dart';
+import '../utils/image_source.dart';
 
 /// Exportiert Ausmal-Vorlagen zum Speichern (Fotos) oder Teilen/Drucken.
 class PrintTemplateExport {
   PrintTemplateExport._();
 
   static Future<Uint8List> loadAssetBytes(ColoringPage page) async {
-    final data = await rootBundle.load(page.assetPath);
-    return data.buffer.asUint8List();
+    return loadImageBytes(page.assetPath);
   }
 
   /// Speichert die leere Vorlage in der Geräte-Fotogalerie.

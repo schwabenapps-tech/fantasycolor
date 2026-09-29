@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../data/paint_catalog.dart';
+import '../utils/image_source.dart';
 import 'flood_fill_tuning.dart';
 import 'flood_fill_worker.dart';
 
@@ -30,8 +31,7 @@ class ColoringBitmap {
   static FloodFillTuning tuning = FloodFillTuning.standard;
 
   static Future<ColoringBitmap> load(String assetPath) async {
-    final data = await rootBundle.load(assetPath);
-    final bytes = data.buffer.asUint8List();
+    final bytes = await loadImageBytes(assetPath);
     final decoded = img.decodeImage(bytes);
     if (decoded == null) {
       throw StateError('PNG konnte nicht geladen werden: $assetPath');

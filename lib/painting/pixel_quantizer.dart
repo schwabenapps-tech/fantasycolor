@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 import '../models/pixel_puzzle.dart';
+import '../utils/image_source.dart';
 
 /// Erzeugt ein Malen-nach-Zahlen-Raster aus dem **gesamten** Asset-Bild.
 ///
@@ -17,8 +18,7 @@ class PixelQuantizer {
     String assetPath, {
     required PixelDifficulty difficulty,
   }) async {
-    final data = await rootBundle.load(assetPath);
-    final bytes = data.buffer.asUint8List();
+    final bytes = await loadImageBytes(assetPath);
     final raw = await compute(
       _quantizeIsolate,
       _QuantizeArgs(

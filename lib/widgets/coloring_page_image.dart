@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
+import '../utils/image_source.dart';
 
 /// FileImage mit Versions-Key — sonst bleibt nach Speichern das alte Thumbnail.
 class _VersionedFileImage extends FileImage {
@@ -79,9 +80,9 @@ class ColoringPageImage extends StatelessWidget {
                   alignment: alignment,
                   filterQuality: FilterQuality.medium,
                   gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => _assetImage(cacheW),
+                  errorBuilder: (_, _, _) => _sourceImage(cacheW),
                 )
-              : _assetImage(cacheW),
+              : _sourceImage(cacheW),
         );
 
         if (borderRadius != null) {
@@ -93,14 +94,14 @@ class ColoringPageImage extends StatelessWidget {
     );
   }
 
-  Widget _assetImage(int? cacheWidth) {
-    return Image.asset(
-      page.assetPath,
+  Widget _sourceImage(int? cacheWidth) {
+    final provider = imageProviderFor(page.assetPath);
+    return Image(
+      image: ResizeImage.resizeIfNeeded(cacheWidth, null, provider),
       fit: fit,
       alignment: alignment,
       filterQuality: FilterQuality.medium,
       gaplessPlayback: true,
-      cacheWidth: cacheWidth,
       errorBuilder: (_, _, _) => Center(
         child: Icon(Icons.broken_image_outlined, color: placeholderColor),
       ),

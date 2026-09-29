@@ -3,12 +3,27 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 
 import '../models/coloring_page.dart';
+import '../services/remote_pack_service.dart';
 import 'asset_dimensions.dart';
+import 'event_catalog.dart';
 import 'event_tags.dart';
 
-/// Lädt alle Puzzle-Bilder aus `assets/puzzle_images/`.
-///
-/// Featured/Halloween stehen immer vorne; der Rest wird gemischt.
+/// Bundle + Remote Puzzle-Motive als Event-/Standard-Katalog.
+Future<GalleryCatalog> loadPuzzleCatalog({
+  bool shuffle = true,
+  Random? random,
+}) async {
+  final pages = await loadPuzzleImages(shuffle: false, random: random);
+  final tags = await EventTags.load();
+  return tags.buildCatalog(
+    pages,
+    coloring: false,
+    shuffleStandard: shuffle,
+    random: random,
+  );
+}
+
+/// Lädt alle Puzzle-Bilder aus Bundle + Remote-Packs.
 Future<List<ColoringPage>> loadPuzzleImages({
   bool shuffle = true,
   Random? random,
@@ -25,9 +40,21 @@ Future<List<ColoringPage>> loadPuzzleImages({
       .toList()
     ..sort();
 
-  final puzzles = paths.map(dimensions.pageFromPath).toList(growable: false);
+  final bundlePages = paths.map(dimensions.pageFromPath).toList();
+  final bundleKeys = {
+    for (final path in paths) normalizeImageKey(path.split('/').last),
+  };
+  final remotePages = await RemotePackService.instance.puzzlePages(
+    bundleSourceKeys: bundleKeys,
+  );
+
+  final byId = <String, ColoringPage>{
+    for (final p in bundlePages) p.id: p,
+    for (final p in remotePages) p.id: p,
+  };
+
   return tags.prioritize(
-    puzzles,
+    byId.values.toList(growable: false),
     featuredOrder: tags.featuredPuzzle,
     shuffleRest: shuffle,
     random: random,
@@ -38,5 +65,6 @@ bool _isImagePath(String path) {
   final lower = path.toLowerCase();
   return lower.endsWith('.png') ||
       lower.endsWith('.jpg') ||
-      lower.endsWith('.jpeg');
+      lower.endsWith('.jpeg') ||
+      lower.endsWith('.webp');
 }

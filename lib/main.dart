@@ -17,6 +17,7 @@ import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
 import 'services/analytics_service.dart';
 import 'services/audio_service.dart';
+import 'services/remote_pack_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,9 +40,10 @@ Future<void> main() async {
   ]);
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // Ads / Audio asynchron — App startet nicht erst danach.
+  // Ads / Audio / Remote-Packs asynchron — App startet nicht erst danach.
   unawaited(AdsService.initialize());
   unawaited(AudioService.instance.initialize());
+  unawaited(RemotePackService.instance.sync());
 
   final favorites = FavoritesStore();
   await favorites.load();
@@ -101,6 +103,9 @@ class FantasyColorApp extends StatelessWidget {
         ),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
+        ),
+        ChangeNotifierProvider.value(
+          value: RemotePackService.instance,
         ),
       ],
       child: MaterialApp(

@@ -1,24 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Lokale Asset-Bilder sind im Bundle, müssen aber trotzdem dekodiert werden.
-/// Precache hält sie im ImageCache, damit schnelles Scrollen/Sliden nicht leer wirkt.
+import 'image_source.dart';
+
+/// Precache für Bundle-Assets und heruntergeladene Pack-Dateien.
 Future<void> precacheAssetImages(
   BuildContext context,
   Iterable<String> assetPaths, {
   int? cacheWidth,
-}) async {
-  for (final path in assetPaths) {
-    if (!context.mounted) return;
-    if (path.isEmpty) continue;
-    try {
-      final ImageProvider provider = cacheWidth == null
-          ? AssetImage(path)
-          : ResizeImage(AssetImage(path), width: cacheWidth);
-      await precacheImage(provider, context);
-    } catch (_) {
-      // Einzelne kaputte Assets sollen den Rest nicht blockieren.
-    }
-  }
+}) {
+  return precacheImagePaths(context, assetPaths, cacheWidth: cacheWidth);
 }
 
 int thumbCacheWidth(BuildContext context, double logicalWidth) {

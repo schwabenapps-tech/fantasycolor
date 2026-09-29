@@ -13,6 +13,7 @@ import '../painting/pixel_quantizer.dart';
 import '../providers/pixel_progress_store.dart';
 import '../services/ads_service.dart';
 import '../services/gallery_export.dart';
+import '../utils/image_source.dart';
 import '../widgets/pixel_paint_rail.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -515,8 +516,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                     children: [
                                       Opacity(
                                         opacity: 0.38,
-                                        child: Image.asset(
-                                          widget.page.assetPath,
+                                        child: Image(
+                                          image: imageProviderFor(
+                                            widget.page.assetPath,
+                                          ),
                                           fit: BoxFit.fill,
                                           filterQuality:
                                               FilterQuality.medium,

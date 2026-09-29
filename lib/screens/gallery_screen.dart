@@ -1,29 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:provider/provider.dart';
 
 import '../data/coloring_pages_loader.dart';
+import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
-import '../providers/coloring_progress_store.dart';
-import '../providers/favorites_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/remote_pack_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
-import '../widgets/coloring_page_image.dart';
-import '../widgets/event_badges.dart';
-import '../widgets/progress_badge.dart';
+import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
-import 'favorites_screen.dart';
 
-/// Galerie für klassisches Ausmalen.
-///
-/// Pixel Art ist vorerst ausgeblendet — Motive dort waren zu detailreich;
-/// später eigene minimalistische Sets.
+/// Galerie für klassisches Ausmalen — Event-Hubs vorne, Standard getrennt.
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
 
@@ -37,17 +29,19 @@ class _GalleryScreenState extends State<GalleryScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
-  Future<List<ColoringPage>>? _pagesFuture;
+  Future<GalleryCatalog>? _catalogFuture;
   Future<EventTags>? _tagsFuture;
   final _gridScroll = ScrollController();
   final _rowScroll = ScrollController();
   bool _thumbsPrecached = false;
+  int _heardGeneration = -1;
 
   @override
   void initState() {
     super.initState();
-    _ensureFutures();
-    // Galerie = normale Fantasy-Musik (Halloween nur im Motiv selbst).
+    _reloadFutures();
+    _heardGeneration = RemotePackService.instance.generation;
+    RemotePackService.instance.addListener(_onRemoteChanged);
     unawaited(AudioService.instance.startAmbient());
     _fadeController = AnimationController(
       vsync: this,
@@ -60,10 +54,17 @@ class _GalleryScreenState extends State<GalleryScreen>
     _fadeController.forward();
   }
 
-  /// Hot-Reload-sicher: Futures ggf. nachträglich anlegen.
-  void _ensureFutures() {
-    _pagesFuture ??= loadColoringPages();
-    _tagsFuture ??= EventTags.load();
+  void _onRemoteChanged() {
+    final gen = RemotePackService.instance.generation;
+    if (!mounted || gen == _heardGeneration) return;
+    _heardGeneration = gen;
+    setState(_reloadFutures);
+  }
+
+  void _reloadFutures() {
+    _catalogFuture = loadColoringCatalog();
+    _tagsFuture = EventTags.load();
+    _thumbsPrecached = false;
   }
 
   void _precacheThumbs(List<ColoringPage> pages) {
@@ -84,6 +85,7 @@ class _GalleryScreenState extends State<GalleryScreen>
 
   @override
   void dispose() {
+    RemotePackService.instance.removeListener(_onRemoteChanged);
     _gridScroll.dispose();
     _rowScroll.dispose();
     _fadeController.dispose();
@@ -108,10 +110,8 @@ class _GalleryScreenState extends State<GalleryScreen>
 
   @override
   Widget build(BuildContext context) {
-    _ensureFutures();
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
-    final tileHeight = layout.galleryTileHeight;
 
     return Scaffold(
       body: Stack(
@@ -130,11 +130,12 @@ class _GalleryScreenState extends State<GalleryScreen>
                   Column(
                     children: [
                       if (layout.isLandscape)
-                        SizedBox(height: layout.galleryTopSpacer * 0.55),
+                        SizedBox(height: layout.galleryTopSpacer * 0.15),
                       Expanded(
                         child: FutureBuilder<List<Object>>(
+                          key: ValueKey('coloring_catalog_$_heardGeneration'),
                           future: Future.wait([
-                            _pagesFuture!,
+                            _catalogFuture!,
                             _tagsFuture!,
                           ]),
                           builder: (context, snapshot) {
@@ -153,13 +154,21 @@ class _GalleryScreenState extends State<GalleryScreen>
                             }
 
                             final data = snapshot.data;
-                            final pages = data == null
-                                ? const <ColoringPage>[]
-                                : data[0] as List<ColoringPage>;
+                            final catalog = data == null
+                                ? const GalleryCatalog(
+                                    activeEvents: [],
+                                    standard: GallerySection(
+                                      id: 'standard',
+                                      title: 'Motive',
+                                      pages: [],
+                                    ),
+                                    pastEvents: [],
+                                  )
+                                : data[0] as GalleryCatalog;
                             final tags = data == null
                                 ? null
                                 : data[1] as EventTags;
-                            if (pages.isEmpty) {
+                            if (catalog.isEmpty || tags == null) {
                               return const Center(
                                 child: Text(
                                   'Keine Ausmalbilder gefunden',
@@ -171,102 +180,21 @@ class _GalleryScreenState extends State<GalleryScreen>
                               );
                             }
 
-                            _precacheThumbs(pages);
+                            _precacheThumbs(catalog.allPages);
 
-                            if (layout.isPortrait) {
-                              return GridView.builder(
-                                key: const PageStorageKey<String>(
-                                  'gallery_grid',
-                                ),
-                                controller: _gridScroll,
-                                scrollCacheExtent:
-                                    const ScrollCacheExtent.viewport(1.5),
-                                padding: layout.galleryGridPadding(size).copyWith(
-                                  top: 56,
-                                ),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount:
-                                      layout.galleryGridCrossAxisCount,
-                                  mainAxisSpacing: 14,
-                                  crossAxisSpacing: 14,
-                                  childAspectRatio:
-                                      layout.galleryGridChildAspectRatio,
-                                ),
-                                itemCount: pages.length,
-                                itemBuilder: (context, index) {
-                                  final page = pages[index];
-                                  final halloween = tags
-                                          ?.isHalloweenColoring(page.id) ??
-                                      false;
-                                  final isNew = !halloween &&
-                                      (tags?.isNewColoring(page.id) ?? false);
-                                  return _ColoringPageTile(
-                                    page: page,
-                                    isHalloween: halloween,
-                                    isNew: isNew,
-                                    compact: true,
-                                    onTap: () => _openSimplePage(page),
-                                  );
-                                },
-                              );
-                            }
-
-                            return Align(
-                              alignment: const Alignment(0, 0.35),
-                              child: SizedBox(
-                                height: tileHeight,
-                                child: ListView.separated(
-                                  key: const PageStorageKey<String>(
-                                    'gallery_row',
-                                  ),
-                                  controller: _rowScroll,
-                                  scrollCacheExtent:
-                                      const ScrollCacheExtent.viewport(1.5),
-                                  scrollDirection: Axis.horizontal,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: size.width * 0.055,
-                                  ),
-                                  itemCount: pages.length,
-                                  separatorBuilder: (context, index) =>
-                                      SizedBox(width: size.width * 0.03),
-                                  itemBuilder: (context, index) {
-                                    final page = pages[index];
-                                    // Kachelbreite am echten Bildformat — sonst
-                                    // werden Querformat-Motive mit cover abgeschnitten.
-                                    final ratio = page.aspectRatio <= 0
-                                        ? 0.78
-                                        : page.aspectRatio;
-                                    final pageTileWidth = (tileHeight * ratio)
-                                        .clamp(
-                                          tileHeight * 0.55,
-                                          tileHeight * 1.75,
-                                        );
-                                    final halloween =
-                                        tags?.isHalloweenColoring(page.id) ??
-                                            false;
-                                    final isNew = !halloween &&
-                                        (tags?.isNewColoring(page.id) ??
-                                            false);
-                                    return SizedBox(
-                                      width: pageTileWidth,
-                                      height: tileHeight,
-                                      child: _ColoringPageTile(
-                                        page: page,
-                                        isHalloween: halloween,
-                                        isNew: isNew,
-                                        onTap: () => _openSimplePage(page),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
+                            return CatalogGalleryBody(
+                              catalog: catalog,
+                              tags: tags,
+                              coloring: true,
+                              onOpenPage: _openSimplePage,
+                              gridScroll: _gridScroll,
+                              rowScroll: _rowScroll,
                             );
                           },
                         ),
                       ),
                       if (layout.isLandscape)
-                        SizedBox(height: size.height * 0.03),
+                        SizedBox(height: size.height * 0.02),
                     ],
                   ),
                   Positioned(
@@ -282,101 +210,6 @@ class _GalleryScreenState extends State<GalleryScreen>
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ColoringPageTile extends StatelessWidget {
-  const _ColoringPageTile({
-    required this.page,
-    required this.isHalloween,
-    required this.isNew,
-    required this.onTap,
-    this.compact = false,
-  });
-
-  final ColoringPage page;
-  final bool isHalloween;
-  final bool isNew;
-  final bool compact;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final framed = GalleryFrame(
-      style: isHalloween
-          ? GalleryFrameStyle.halloween
-          : GalleryFrameStyle.fantasy,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: compact
-            ? SizedBox.expand(
-                child: ColoredBox(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  child: ColoringPageImage(
-                    page: page,
-                    fit: BoxFit.cover,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              )
-            : ColoredBox(
-                color: Colors.white.withValues(alpha: 0.95),
-                child: ColoringPageImage(
-                  page: page,
-                  fit: BoxFit.contain,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-      ),
-    );
-
-    final starSize = compact ? 34.0 : 42.0;
-    final inset = compact ? 8.0 : 12.0;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: onTap,
-            child: framed,
-          ),
-        ),
-        if (isNew)
-          Positioned(
-            left: inset,
-            top: inset,
-            child: const NewBadge(),
-          ),
-        // Nur diese Badges rebuilden — verhindert Scroll-Sprung der Galerie.
-        Selector<ColoringProgressStore, bool>(
-          selector: (_, store) => store.hasProgress(page.id),
-          builder: (context, hasProgress, _) {
-            if (!hasProgress) return const SizedBox.shrink();
-            return Positioned(
-              left: inset,
-              bottom: inset,
-              child: const ProgressBadge(),
-            );
-          },
-        ),
-        Positioned(
-          top: inset,
-          right: inset,
-          child: Selector<FavoritesStore, bool>(
-            selector: (_, store) => store.isFavorite(page.id),
-            builder: (context, isFavorite, _) {
-              return FavoriteStarButton(
-                isFavorite: isFavorite,
-                onPressed: () =>
-                    context.read<FavoritesStore>().toggle(page.id),
-                size: starSize,
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }

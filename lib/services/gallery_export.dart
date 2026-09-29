@@ -1,5 +1,8 @@
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
+
 import 'package:gal/gal.dart';
+
+import '../utils/image_source.dart';
 
 /// Speichert Bilder in die Geräte-Fotogalerie (iOS + Android).
 class GalleryExport {
@@ -22,8 +25,8 @@ class GalleryExport {
     String assetPath, {
     required String name,
   }) async {
-    final data = await rootBundle.load(assetPath);
-    await savePngBytes(data.buffer.asUint8List(), name: name);
+    final bytes = await loadImageBytes(assetPath);
+    await savePngBytes(bytes, name: name);
   }
 }
 

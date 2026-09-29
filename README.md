@@ -1,17 +1,34 @@
 # fantasy_color
 
-Fantasy Color - eine Mal- und Ausmal-App
+Fantasy Color — eine Mal- und Ausmal-App (Flutter).
+
+## Cloudflare R2 (Bild-Packs hochladen)
+
+| | |
+|---|---|
+| Bucket | `fantasy-color-packs` |
+| Öffentliche URL | `https://cdn.schwabenapps.com` |
+| Manifest | `https://cdn.schwabenapps.com/manifest.json` |
+
+Die App lädt neue Packs beim Start automatisch. Motive, die schon im Bundle sind, werden weder hochgeladen noch doppelt angezeigt. Events erscheinen in Ausmalen/Puzzle als Hub vorne; nach Event-Ende rutschen sie nach hinten.
+
+```bash
+python3 scripts/upload_r2_pack.py \
+  --pack-id mein-event \
+  --title "Mein Event" \
+  --source ~/Desktop/ordner \
+  --as-coloring \
+  --starts-at 2026-09-15 \
+  --ends-at 2026-11-02
+```
+
+Mehr: [remote_packs/README.md](remote_packs/README.md).
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Flutter-Docs: [docs.flutter.dev](https://docs.flutter.dev/).

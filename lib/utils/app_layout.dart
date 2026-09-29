@@ -19,18 +19,8 @@ class AppLayout {
 
   bool get isPortrait => !isLandscape;
 
+  /// Gemeinsame Vorschaugröße Ausmalen/Puzzle — Landscape füllt den Screen.
   double get galleryTileHeight {
-    final raw = size.height * (isTablet ? 0.48 : 0.56);
-    final maxH = isLargeTablet
-        ? 420.0
-        : isTablet
-            ? 360.0
-            : size.height * 0.62;
-    return raw.clamp(180.0, maxH);
-  }
-
-  /// Puzzle-Galerie: in Landscape bewusst größer (mehr Bildschirmhöhe nutzbar).
-  double get puzzleGalleryTileHeight {
     if (isLandscape) {
       final raw = size.height * (isTablet ? 0.62 : 0.68);
       final maxH = isLargeTablet
@@ -40,15 +30,25 @@ class AppLayout {
               : size.height * 0.76;
       return raw.clamp(220.0, maxH);
     }
-    return galleryTileHeight;
+    final raw = size.height * (isTablet ? 0.48 : 0.56);
+    final maxH = isLargeTablet
+        ? 420.0
+        : isTablet
+            ? 360.0
+            : size.height * 0.62;
+    return raw.clamp(180.0, maxH);
   }
 
-  double get puzzleGalleryTopSpacer =>
-      isLandscape ? size.height * (isTablet ? 0.05 : 0.08) : galleryTopSpacer;
+  /// Alias — gleiche Größe wie [galleryTileHeight].
+  double get puzzleGalleryTileHeight => galleryTileHeight;
+
+  /// Weniger Top-Abstand in Landscape, damit die Vorschau den Screen füllt.
+  double get galleryTopSpacer =>
+      isLandscape ? size.height * (isTablet ? 0.05 : 0.08) : size.height * (isTablet ? 0.08 : 0.14);
+
+  double get puzzleGalleryTopSpacer => galleryTopSpacer;
 
   double get galleryTileWidth => galleryTileHeight * 0.78;
-
-  double get galleryTopSpacer => size.height * (isTablet ? 0.08 : 0.14);
 
   double get hubHorizontalPadding =>
       size.width * (isTablet ? 0.1 : 0.08);

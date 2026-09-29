@@ -1,4 +1,47 @@
 {
+  "events": [
+    {
+      "id": "halloween-2026",
+      "title": "Halloween",
+      "starts_at": "2026-09-15",
+      "ends_at": "2026-11-02",
+      "coloring_ids": [
+        "fee_clean_38",
+        "fee_clean_37",
+        "fee_clean_36",
+        "fee_clean_35",
+        "fee_clean_34",
+        "fee_clean_33"
+      ],
+      "puzzle_ids": [
+        "d48ff0b9-983c-4f75-b712-cf1d79fe3ac4",
+        "d2d1032d-296b-4bf1-bea4-de7c2585535d",
+        "chatgpt_image_24_sept_2026_11_26_55",
+        "chatgpt_image_24_sept_2026_11_05_40",
+        "chatgpt_image_24_sept_2026_11_00_48",
+        "chatgpt_image_24_sept_2026_10_53_20",
+        "chatgpt_image_24_sept_2026_10_38_54",
+        "chatgpt_image_24_sept_2026_10_34_33",
+        "chatgpt_image_24_sept_2026_10_27_54",
+        "chatgpt_image_24_sept_2026_10_18_43",
+        "chatgpt_image_24_sept_2026_10_10_13",
+        "chatgpt_image_24_sept_2026_10_06_10",
+        "chatgpt_image_24_sept_2026_09_59_38",
+        "chatgpt_image_24_sept_2026_09_56_21",
+        "chatgpt_image_24_sept_2026_09_49_00",
+        "chatgpt_image_24_sept_2026_09_42_48",
+        "chatgpt_image_24_sept_2026_09_38_38",
+        "chatgpt_image_24_sept_2026_09_34_55",
+        "chatgpt-bild_27_sept_2026_00_35_51",
+        "chatgpt-bild_26_sept_2026_23_57_46",
+        "a93a657b-db82-472a-b9a7-d8898f88ef96",
+        "97d9993f-ad12-4832-8cb0-64d1ccce8c3f",
+        "9310d3ff-0e9a-41ec-90f9-e00c5c364f74",
+        "7ff08153-2c3e-465e-814f-df41d674f49e",
+        "7a8e54bf-337c-46c4-a1a1-f0b236b83cc3"
+      ]
+    }
+  ],
   "halloween_coloring": [
     "fee_clean_38",
     "fee_clean_37",
