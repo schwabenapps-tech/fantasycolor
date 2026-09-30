@@ -8,11 +8,10 @@ import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_session.dart';
 import 'freehand_stroke_painter.dart';
 
-/// Zoombares PNG-Ausmalblatt mit Flood-Fill und Stift.
+/// Zoombares PNG-Ausmalblatt mit Flood-Fill und Pen.
 ///
-/// Vollflächiger Zoom wie in typischen Ausmal-Apps:
-/// Pinch = Zoomen, bei Zoom verschieben (Fill: 1 Finger, Stift: 2 Finger),
-/// Doppeltipp = rein/raus.
+/// Pinch = Zoomen, bei Zoom verschieben (Fill: 1 Finger, Pen: 2 Finger).
+/// Doppeltipp setzt Zoom nur zurück (kein Reinzoomen — sonst stören schnelle Füll-Tipps).
 class ColoringCanvas extends StatefulWidget {
   const ColoringCanvas({
     super.key,
@@ -172,8 +171,8 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     }
   }
 
-  /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Stift-Zug nötig ist.
-  /// So bleibt Tippen = Füllen kinderleicht; Stift zeichnet weiter mit 1 Finger.
+  /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Pen-Zug nötig ist.
+  /// So bleibt Tippen = Füllen kinderleicht; Pen zeichnet weiter mit 1 Finger.
   bool get _panEnabled {
     if (!_isZoomed) return false;
     final tool = widget.session.tool;
@@ -184,19 +183,13 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     return true;
   }
 
+  /// Doppeltipp zoomt nicht mehr rein (schnelle Füll-Tipps wirkten sonst wie Zoom).
+  /// Nur wenn schon gezoomt: Doppeltipp = Zoom zurücksetzen.
   void _onSoftZoom(Offset viewportPos) {
     final current = _transform.value.getMaxScaleOnAxis();
     if (current > 1.2) {
       _resetZoom(animated: true);
-      return;
     }
-
-    const targetScale = 3.0;
-    final matrix = Matrix4.identity()
-      ..translateByDouble(viewportPos.dx, viewportPos.dy, 0, 1)
-      ..scaleByDouble(targetScale, targetScale, 1, 1)
-      ..translateByDouble(-viewportPos.dx, -viewportPos.dy, 0, 1);
-    _animateTo(matrix);
   }
 
   void _resetZoom({bool animated = true}) {

@@ -153,7 +153,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                                     activeEvents: [],
                                     standard: GallerySection(
                                       id: 'standard',
-                                      title: 'Motive',
+                                      title: 'Gallery',
                                       pages: [],
                                     ),
                                     pastEvents: [],
@@ -165,7 +165,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                             if (catalog.isEmpty || tags == null) {
                               return const Center(
                                 child: Text(
-                                  'Keine Ausmalbilder gefunden',
+                                  'No coloring pages found',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 16,

@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/consent_service.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -27,6 +28,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final audio = context.watch<AudioService>();
+    final consent = context.watch<ConsentService>();
 
     return Scaffold(
       body: Stack(
@@ -148,6 +150,16 @@ class SettingsScreen extends StatelessWidget {
                                   subtitle:
                                       'How Fantasy Color handles your data',
                                   onTap: () => _openUrl(context, privacyUrl),
+                                ),
+                                const Divider(height: 8),
+                                _SettingsTile(
+                                  icon: Icons.tune_rounded,
+                                  title: 'Ad privacy choices',
+                                  subtitle: consent.privacyOptionsRequired
+                                      ? 'Review or change ad privacy settings'
+                                      : 'Open privacy choices when available '
+                                          'in your region',
+                                  onTap: () => _openAdPrivacyChoices(context),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
@@ -295,6 +307,32 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static Future<void> _openAdPrivacyChoices(BuildContext context) async {
+    final consent = context.read<ConsentService>();
+    if (!consent.privacyOptionsRequired) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No extra ad privacy form is required in your region. '
+            'See Privacy for details.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final error = await consent.showPrivacyOptions();
+    if (!context.mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open privacy choices: ${error.message}'),
+        ),
+      );
+    }
   }
 }
 

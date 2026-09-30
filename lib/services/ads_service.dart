@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'ads_config.dart';
+import 'consent_service.dart';
 
 /// Interstitials für Fantasy Color (Kids-Mode / kindgerechte Ads).
 ///
@@ -11,11 +12,12 @@ import 'ads_config.dart';
 ///
 /// Timing:
 /// - Ausmalen/Pixel verlassen (ohne Feier): jedes **3.** Mal
-/// - Nach Ausmalen-/Pixel-Feier (Fertig / Als Puzzle): jedes **2.** Mal
+/// - Nach Ausmalen-/Pixel-Feier (Done / As puzzle): jedes **2.** Mal
 /// - Puzzle gelöst (beim Schließen der Feier): jedes **2.** Mal
 /// - Pixel-Modus freischalten: **einmalig**
 ///
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
+/// Ads starten erst nach UMP-Consent ([ConsentService.gatherConsent]).
 class AdsService {
   AdsService._();
 
@@ -35,10 +37,16 @@ class AdsService {
     extras: <String, String>{'npa': '1'},
   );
 
-  /// SDK starten + Kindermodus (COPPA / child-directed) + erste Ad laden.
+  /// UMP → SDK starten + Kindermodus (COPPA / child-directed) + erste Ad laden.
   static Future<void> initialize() async {
     if (_initialized) return;
     try {
+      await ConsentService.instance.gatherConsent();
+      if (!ConsentService.instance.canRequestAds) {
+        debugPrint('AdsService: canRequestAds=false — skipping Mobile Ads init');
+        return;
+      }
+
       await MobileAds.instance.updateRequestConfiguration(
         RequestConfiguration(
           // Kinder-App: kindgerechte Behandlung + nur G-Content.
@@ -85,7 +93,7 @@ class AdsService {
     }
   }
 
-  /// Ausmalen/Pixel ohne Fertig-Feier verlassen: jedes 3. Mal.
+  /// Ausmalen/Pixel ohne Done-Feier verlassen: jedes 3. Mal.
   static Future<void> showColoringLeaveInterstitial() async {
     _coloringLeaveCount++;
     if (_coloringLeaveCount % 3 != 0) {
@@ -95,7 +103,7 @@ class AdsService {
     await showInterstitial();
   }
 
-  /// Nach der Ausmalen-/Pixel-Feier („Fertig“ / „Als Puzzle“): jedes 2. Mal.
+  /// Nach der Ausmalen-/Pixel-Feier („Done“ / „As puzzle“): jedes 2. Mal.
   static Future<void> showColoringFinishChoiceInterstitial() async {
     _coloringFinishCount++;
     if (_coloringFinishCount % 2 != 0) {

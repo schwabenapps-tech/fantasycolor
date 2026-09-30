@@ -25,7 +25,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
     try {
       await PrintTemplateExport.saveToPhotos(widget.page);
       if (!mounted) return;
-      _toast('Vorlage in Fotos gespeichert');
+      _toast('Template saved to Photos');
     } on PrintTemplateExportException catch (e) {
       if (!mounted) return;
       _toast(e.message);
@@ -44,7 +44,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
       await PrintTemplateExport.shareOrPrint(widget.page);
     } catch (_) {
       if (!mounted) return;
-      _toast('Teilen hat nicht geklappt');
+      _toast('Sharing failed');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -140,7 +140,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       Expanded(
                         child: _PreviewActionButton(
                           icon: Icons.photo_library_rounded,
-                          label: 'In Fotos speichern',
+                          label: 'Save to Photos',
                           color: const Color(0xFF7AD7A8),
                           enabled: !_busy,
                           onPressed: _saveToPhotos,
@@ -150,7 +150,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       Expanded(
                         child: _PreviewActionButton(
                           icon: Icons.print_rounded,
-                          label: 'Teilen & Drucken',
+                          label: 'Share & Print',
                           color: const Color(0xFF9EC8FF),
                           enabled: !_busy,
                           onPressed: _shareOrPrint,

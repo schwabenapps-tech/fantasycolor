@@ -20,13 +20,13 @@ import 'puzzle_gallery_screen.dart';
 import 'settings_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Zentraler Einstieg: Malen / Puzzle + Druck/Favoriten + Event-Hub.
+/// Zentraler Einstieg: Malen / Puzzle + Druck/Favorites + Event-Hub.
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
 
-  /// Nur Standard-Motive (keine Event-/Halloween-Bilder).
+  /// Nur Standard-Gallery (keine Event-/Halloween-Bilder).
   static const malenSlideshow = <String>[
     'assets/coloring_pages/fee_clean_28.png',
     'assets/coloring_pages/fee_clean_12.png',
@@ -38,7 +38,7 @@ class HubScreen extends StatefulWidget {
     'assets/coloring_pages/fee_clean_27.png',
   ];
 
-  /// Nur Standard-Puzzle-Motive.
+  /// Nur Standard-Puzzle-Gallery.
   static const puzzleSlideshow = <String>[
     'assets/puzzle_images/233c320c-4dd9-4fb3-8c34-af15942026cb.png',
     'assets/puzzle_images/chatgpt_image_18_sept_2026_10_26_05.png',

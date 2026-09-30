@@ -75,7 +75,7 @@ class _QuantizeResult {
 _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   final decoded = img.decodeImage(args.bytes);
   if (decoded == null) {
-    throw StateError('Bild konnte nicht geladen werden');
+    throw StateError('Could not load image');
   }
 
   final src = decoded.convert(numChannels: 4);

@@ -45,7 +45,9 @@ If the app crashes, we may receive technical crash diagnostics (for example devi
 
 ### 3.3 Advertising (Google AdMob)
 
-Fantasy Color may show ads. Ads are configured for **child-directed / age-restricted treatment** and **G-rated** ad content where supported by the ad SDK and platform rules.
+Fantasy Color may show ads. Ads are configured for **child-directed / age-restricted treatment** and **G-rated** ad content where supported by the ad SDK and platform rules. We also request **non-personalized** ads where supported.
+
+Where European privacy rules require it, we use Google’s **User Messaging Platform (UMP)** before ads load. Because Fantasy Color is directed to children and families, we treat users as **under the age of consent** for UMP (consent is not collected from children). Where required, privacy choices are available in **Settings → Ad privacy choices**.
 
 Ad providers may process device and advertising identifiers according to their own policies and applicable law (including parental/guardian consent requirements where required).
 
@@ -98,6 +100,7 @@ These providers process data under their terms and privacy policies. We do not s
 ## 8. Your choices
 
 - Turn music on/off in Settings.
+- Open **Settings → Ad privacy choices** when Google’s privacy messaging requires a privacy-options entry point in your region.
 - Limit ad tracking / personalized ads in your device settings (where available).
 - Uninstall the app to remove local app data from the device.
 - Contact us to ask questions about this policy: **fantasycolor@schwabenapps.com**

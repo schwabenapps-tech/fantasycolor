@@ -4,12 +4,13 @@ import 'package:flutter/rendering.dart';
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
+import '../providers/favorites_store.dart';
 import '../screens/event_pack_gallery_screen.dart';
 import '../utils/app_layout.dart';
-import '../widgets/event_hub_portal.dart';
 import '../utils/app_page_route.dart';
+import '../widgets/event_hub_portal.dart';
 
-/// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Motive → abgelaufene Hubs hinten.
+/// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Gallery → abgelaufene Hubs hinten.
 class CatalogGalleryBody extends StatelessWidget {
   const CatalogGalleryBody({
     super.key,
@@ -97,8 +98,8 @@ class CatalogGalleryBody extends StatelessWidget {
       return Center(
         child: Text(
           coloring
-              ? 'Keine Ausmalbilder gefunden'
-              : 'Keine Puzzle-Bilder gefunden',
+              ? 'No coloring pages found'
+              : 'No puzzle images found',
           style: const TextStyle(color: Colors.white70, fontSize: 16),
         ),
       );
@@ -131,6 +132,8 @@ class CatalogGalleryBody extends StatelessWidget {
             isNew: _isNew(page.id),
             compact: true,
             showDownloadButton: showDownloadButton,
+            favoriteKind:
+                coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
             onTap: () => onOpenPage(page),
           );
         },
@@ -182,6 +185,8 @@ class CatalogGalleryBody extends StatelessWidget {
                 isHalloween: _isHalloween(page.id),
                 isNew: _isNew(page.id),
                 showDownloadButton: showDownloadButton,
+                favoriteKind:
+                    coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
                 onTap: () => onOpenPage(page),
               ),
             );

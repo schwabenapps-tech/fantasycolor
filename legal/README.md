@@ -25,8 +25,20 @@ Covered in the hosted Privacy Policy:
 - International transfers / processor list (Firebase, AdMob, Cloudflare)
 - No automated decision-making of significant effect
 - On-device data vs analytics/crash/ads/support categories
+- Google UMP for European disclosures; kids = under age of consent; Settings → Ad privacy choices
 
 These are practical store-ready drafts, not formal legal advice. Have a lawyer review before large markets if needed.
+
+## AdMob GDPR message (required in console)
+
+App code already runs UMP before ads. You still need a message in AdMob:
+
+1. AdMob → **Privacy & messaging**
+2. Create a **European regulations (GDPR)** message
+3. Publish and **assign it to Fantasy Color** (Android + iOS apps)
+4. Keep ads **child-directed / G-rated**; the app already sets TFUA + non-personalized requests
+
+Until the message is published and the app has real AdMob IDs, UMP may do little in production outside test setups.
 
 ## Store listing
 

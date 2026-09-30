@@ -8,10 +8,10 @@ import '../data/paint_catalog.dart';
 import '../painting/coloring_bitmap.dart';
 import '../widgets/freehand_stroke_painter.dart';
 
-/// Stiftstärke für kindgerechte Auswahl.
+/// Penstärke für kindgerechte Auswahl.
 enum PenSize { thin, medium, thick }
 
-/// Ein freier Stift- oder Radierer-Strich (Overlay).
+/// Ein freier Pen- oder Eraser-Strich (Overlay).
 class FreehandStroke {
   FreehandStroke({
     required this.points,
@@ -147,7 +147,7 @@ class ColoringSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Stiftstärke in Zeichenkoordinaten.
+  /// Penstärke in Zeichenkoordinaten.
   double penStrokeSize() {
     return switch (_penSize) {
       PenSize.thin => 2.5,
@@ -165,7 +165,7 @@ class ColoringSession extends ChangeNotifier {
     );
   }
 
-  /// Flood-Fill / Flächen-Radierer auf dem Bitmap (Hintergrund-Isolate).
+  /// Flood-Fill / Flächen-Eraser auf dem Bitmap (Hintergrund-Isolate).
   Future<bool> applyFillAt(Offset imagePoint) async {
     final bitmap = _bitmap;
     if (bitmap == null || _filling) return false;
@@ -237,7 +237,7 @@ class ColoringSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Rendert das aktuelle Bild inkl. Stift-Striche als PNG (Session bleibt unverändert).
+  /// Rendert das aktuelle Bild inkl. Pen-Striche als PNG (Session bleibt unverändert).
   Future<Uint8List?> renderColoredPng() async {
     final bitmap = _bitmap;
     if (bitmap == null) return null;
@@ -273,7 +273,7 @@ class ColoringSession extends ChangeNotifier {
     return bytes?.buffer.asUint8List();
   }
 
-  /// Ausgemaltes Bild inkl. Stift-Striche als PNG exportieren und in Bitmap übernehmen.
+  /// Ausgemaltes Bild inkl. Pen-Striche als PNG exportieren und in Bitmap übernehmen.
   Future<Uint8List?> exportColoredPng() async {
     final bitmap = _bitmap;
     if (bitmap == null) return null;

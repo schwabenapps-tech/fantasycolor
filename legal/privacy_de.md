@@ -45,7 +45,9 @@ Bei Abstürzen können technische Diagnoseinformationen (z. B. Gerätemodell, Be
 
 ### 3.3 Werbung (Google AdMob)
 
-Fantasy Color kann Werbung anzeigen. Die Anzeigen sind – soweit vom SDK und den Plattformregeln unterstützt – für **kindgerichtete / altersbeschränkte Behandlung** und **G-Content** konfiguriert.
+Fantasy Color kann Werbung anzeigen. Die Anzeigen sind – soweit vom SDK und den Plattformregeln unterstützt – für **kindgerichtete / altersbeschränkte Behandlung** und **G-Content** konfiguriert. Soweit unterstützt, fordern wir **nicht personalisierte** Anzeigen an.
+
+Soweit europäische Datenschutzregeln es verlangen, nutzen wir Googles **User Messaging Platform (UMP)** vor dem Laden von Werbung. Da Fantasy Color an Kinder und Familien gerichtet ist, behandeln wir Nutzer für UMP als **unter dem Einwilligungsalter** (keine Einwilligung von Kindern). Falls erforderlich, finden Sie Datenschutzoptionen unter **Settings → Ad privacy choices**.
 
 Werbeanbieter können Geräte- und Werbekennungen gemäß eigener Richtlinien und geltendem Recht verarbeiten (einschließlich ggf. erforderlicher Einwilligungen von Eltern/Erziehungsberechtigten).
 
@@ -98,6 +100,7 @@ Diese Anbieter verarbeiten Daten nach ihren eigenen Bedingungen und Datenschutzr
 ## 8. Ihre Wahlmöglichkeiten
 
 - Musik in den Einstellungen ein-/ausschalten.
+- **Settings → Ad privacy choices** öffnen, sofern Googles Privacy Messaging in Ihrer Region einen Einstiegspunkt verlangt.
 - Personalisierte Werbung / Tracking in den Geräteeinstellungen einschränken (soweit verfügbar).
 - App deinstallieren, um lokale App-Daten vom Gerät zu entfernen.
 - Fragen zu dieser Erklärung an: **fantasycolor@schwabenapps.com**

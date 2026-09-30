@@ -8,7 +8,7 @@ import 'asset_dimensions.dart';
 import 'event_catalog.dart';
 import 'event_tags.dart';
 
-/// Bundle + Remote Puzzle-Motive als Event-/Standard-Katalog.
+/// Bundle + Remote Puzzle-Gallery als Event-/Standard-Katalog.
 Future<GalleryCatalog> loadPuzzleCatalog({
   bool shuffle = true,
   Random? random,

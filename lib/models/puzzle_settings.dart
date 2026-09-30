@@ -2,18 +2,18 @@ import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Schwierigkeits-Stufe (Gruppe in den Einstellungen).
+/// Schwierigkeits-Stufe (Gruppe in den Settings).
 enum PuzzleTier {
   easy(
-    label: 'Leicht',
+    label: 'Easy',
     pieceOptions: [6, 12, 20],
   ),
   medium(
-    label: 'Mittel',
+    label: 'Medium',
     pieceOptions: [30, 42, 64],
   ),
   expert(
-    label: 'Profi',
+    label: 'Pro',
     pieceOptions: [80, 100, 120],
   );
 
@@ -25,7 +25,7 @@ enum PuzzleTier {
   final String label;
   final List<int> pieceOptions;
 
-  /// Zoom ab Mittel (viele kleine Teile).
+  /// Zoom ab Medium (viele kleine Teile).
   bool get allowsZoom => this != PuzzleTier.easy;
 
   static PuzzleTier forPieceCount(int count) {
@@ -100,21 +100,21 @@ enum PuzzlePieceStyle {
 
 extension PuzzlePieceStyleX on PuzzlePieceStyle {
   String get label => switch (this) {
-        PuzzlePieceStyle.jigsaw => 'Klassisch',
-        PuzzlePieceStyle.square => 'Viereck',
-        PuzzlePieceStyle.rounded => 'Rund',
-        PuzzlePieceStyle.wave => 'Wellen',
+        PuzzlePieceStyle.jigsaw => 'Classic',
+        PuzzlePieceStyle.square => 'Square',
+        PuzzlePieceStyle.rounded => 'Rounded',
+        PuzzlePieceStyle.wave => 'Wave',
       };
 
   String get hint => switch (this) {
-        PuzzlePieceStyle.jigsaw => 'Mit runden Zapfen wie echte Puzzles',
-        PuzzlePieceStyle.square => 'Einfache Rechtecke',
-        PuzzlePieceStyle.rounded => 'Weiche Ecken',
-        PuzzlePieceStyle.wave => 'Geschwungene Kanten',
+        PuzzlePieceStyle.jigsaw => 'Round tabs like real puzzles',
+        PuzzlePieceStyle.square => 'Straight rectangles',
+        PuzzlePieceStyle.rounded => 'Soft corners',
+        PuzzlePieceStyle.wave => 'Curved edges',
       };
 }
 
-/// Persistierte Puzzle-Einstellungen (Stückzahl + Stil).
+/// Persistierte Puzzle-Settings (Stückzahl + Stil).
 class PuzzlePreferences {
   PuzzlePreferences._();
 

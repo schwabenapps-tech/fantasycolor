@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Silberner Zurück-Button im Fantasy-Stil (wiederverwendbar).
+/// Silberner Back-Button im Fantasy-Stil (wiederverwendbar).
 class SilverBackButton extends StatelessWidget {
   const SilverBackButton({
     super.key,

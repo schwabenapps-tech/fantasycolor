@@ -5,7 +5,7 @@ class ProgressBadge extends StatelessWidget {
   const ProgressBadge({
     super.key,
     this.compact = false,
-    this.label = 'Weiter',
+    this.label = 'Continue',
     this.done = false,
   });
 

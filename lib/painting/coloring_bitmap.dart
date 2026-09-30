@@ -21,7 +21,7 @@ class ColoringBitmap {
   final int width;
   final int height;
 
-  /// Unveränderte Vorlage (für Radierer / Linien-Erkennung).
+  /// Unveränderte Vorlage (für Eraser / Linien-Erkennung).
   final img.Image original;
 
   /// Aktuell sichtbares, ausgemaltes Bild.

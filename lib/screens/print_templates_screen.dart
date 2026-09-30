@@ -7,7 +7,7 @@ import '../widgets/silver_back_button.dart';
 import 'print_preview_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Galerie zum Speichern und Teilen von Ausmalvorlagen (zum Ausdrucken).
+/// Galerie zum Speichern und Teilen von Print templates (zum Ausdrucken).
 class PrintTemplatesScreen extends StatefulWidget {
   const PrintTemplatesScreen({super.key});
 
@@ -92,7 +92,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                       if (pages.isEmpty) {
                         return const Center(
                           child: Text(
-                            'Keine Vorlagen gefunden',
+                            'No templates found',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 16,
@@ -109,7 +109,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                                 : layout.galleryTopSpacer,
                           ),
                           Text(
-                            'Ausmalvorlagen',
+                            'Print templates',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.95),
                               fontSize: 20,
@@ -126,7 +126,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Tippe ein Bild an für die Vorschau',
+                            'Tap an image for preview',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.75),
                               fontSize: 13,

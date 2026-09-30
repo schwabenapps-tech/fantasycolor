@@ -17,6 +17,7 @@ import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
 import 'services/analytics_service.dart';
 import 'services/audio_service.dart';
+import 'services/consent_service.dart';
 import 'services/remote_pack_service.dart';
 
 Future<void> main() async {
@@ -55,7 +56,7 @@ Future<void> main() async {
   final pixelUnlock = PixelModeUnlockStore();
   await pixelUnlock.load();
 
-  // load() invalidiert Pixel-Fortschritt nur für entfernte/geänderte Puzzle-Motive.
+  // load() invalidiert Pixel-Fortschritt nur für entfernte/geänderte Puzzle-Gallery.
   final pixelProgress = PixelProgressStore();
   await pixelProgress.load();
 
@@ -103,6 +104,9 @@ class FantasyColorApp extends StatelessWidget {
         ),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
+        ),
+        ChangeNotifierProvider.value(
+          value: ConsentService.instance,
         ),
         ChangeNotifierProvider.value(
           value: RemotePackService.instance,

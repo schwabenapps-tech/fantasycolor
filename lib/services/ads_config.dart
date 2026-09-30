@@ -5,20 +5,20 @@ import 'package:flutter/foundation.dart';
 /// AdMob-IDs für Fantasy Color.
 ///
 /// Solange die App in AdMob noch nicht verknüpft ist, laufen **Google-Test-IDs**.
-/// Später echte App-/Unit-IDs hier eintragen und [useTestAds] auf false setzen.
+/// Later echte App-/Unit-IDs hier eintragen und [useTestAds] auf false setzen.
 class AdsConfig {
   AdsConfig._();
 
   /// true = offizielle Google-Testwerbung (sicher für Entwicklung).
   static const bool useTestAds = true;
 
-  // --- Echte IDs eintragen, sobald AdMob verknüpft ist ---
-  static const String androidAppId = 'ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX';
-  static const String iosAppId = 'ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX';
+  // --- Echte IDs ---
+  static const String androidAppId = 'ca-app-pub-5511264969083689~6262583566';
+  static const String iosAppId = 'ca-app-pub-5511264969083689~7192521859';
   static const String androidInterstitialUnitId =
-      'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+      'ca-app-pub-5511264969083689/1038177048';
   static const String iosInterstitialUnitId =
-      'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX';
+      'ca-app-pub-5511264969083689/6052673887';
 
   // Google Sample / Test
   static const String _testAndroidAppId =

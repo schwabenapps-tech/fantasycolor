@@ -94,7 +94,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                       child: pages.isEmpty
                           ? const Center(
                               child: Text(
-                                'Keine Motive in diesem Event',
+                                'No images in this event',
                                 style: TextStyle(color: Colors.white70),
                               ),
                             )
@@ -122,6 +122,9 @@ class EventPackGalleryScreen extends StatelessWidget {
                                       isNew: false,
                                       compact: true,
                                       showDownloadButton: !coloring,
+                                      favoriteKind: coloring
+                                          ? FavoriteKind.coloring
+                                          : FavoriteKind.puzzle,
                                       onTap: () => _open(context, page),
                                     );
                                   },
@@ -156,6 +159,9 @@ class EventPackGalleryScreen extends StatelessWidget {
                                                 .contains(page.id),
                                             isNew: false,
                                             showDownloadButton: !coloring,
+                                            favoriteKind: coloring
+                                                ? FavoriteKind.coloring
+                                                : FavoriteKind.puzzle,
                                             onTap: () =>
                                                 _open(context, page),
                                           ),
@@ -193,6 +199,8 @@ class GalleryPageTile extends StatelessWidget {
     required this.onTap,
     this.compact = false,
     this.showDownloadButton = false,
+    this.favoriteKind = FavoriteKind.coloring,
+    this.showFavoriteButton = true,
   });
 
   final ColoringPage page;
@@ -200,6 +208,8 @@ class GalleryPageTile extends StatelessWidget {
   final bool isNew;
   final bool compact;
   final bool showDownloadButton;
+  final FavoriteKind favoriteKind;
+  final bool showFavoriteButton;
   final VoidCallback onTap;
 
   Future<void> _saveToPhotos(BuildContext context) async {
@@ -211,7 +221,7 @@ class GalleryPageTile extends StatelessWidget {
       if (!context.mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+        const SnackBar(content: Text('Saved to Photos!')),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -276,21 +286,24 @@ class GalleryPageTile extends StatelessWidget {
               return Positioned(
                 left: inset,
                 bottom: inset,
-                child: const ProgressBadge(),
+                child: const ProgressBadge(label: 'Continue'),
               );
             },
           ),
-        if (!showDownloadButton)
+        if (showFavoriteButton)
           Positioned(
             top: inset,
             right: inset,
             child: Selector<FavoritesStore, bool>(
-              selector: (_, store) => store.isFavorite(page.id),
+              selector: (_, store) =>
+                  store.isFavorite(page.id, kind: favoriteKind),
               builder: (context, isFavorite, _) {
                 return FavoriteStarButton(
                   isFavorite: isFavorite,
-                  onPressed: () =>
-                      context.read<FavoritesStore>().toggle(page.id),
+                  onPressed: () => context.read<FavoritesStore>().toggle(
+                        page.id,
+                        kind: favoriteKind,
+                      ),
                   size: starSize,
                 );
               },

@@ -4,7 +4,7 @@ import 'package:perfect_freehand/perfect_freehand.dart';
 import '../data/paint_catalog.dart';
 import '../providers/coloring_session.dart';
 
-/// Zeichnet freie Stift-/Radierer-Striche.
+/// Zeichnet freie Pen-/Eraser-Striche.
 class FreehandStrokePainter extends CustomPainter {
   FreehandStrokePainter({
     required this.strokes,

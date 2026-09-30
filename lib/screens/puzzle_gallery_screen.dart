@@ -149,7 +149,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                                     activeEvents: [],
                                     standard: GallerySection(
                                       id: 'standard',
-                                      title: 'Motive',
+                                      title: 'Gallery',
                                       pages: [],
                                     ),
                                     pastEvents: [],
@@ -161,7 +161,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                             if (catalog.isEmpty || tags == null) {
                               return const Center(
                                 child: Text(
-                                  'Keine Puzzle-Bilder gefunden',
+                                  'No puzzle images found',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 16,

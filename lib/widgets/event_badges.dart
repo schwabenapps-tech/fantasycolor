@@ -131,7 +131,7 @@ class _PumpkinBadge extends StatelessWidget {
   }
 }
 
-/// Kleines „NEU“-Badge für frische (nicht-Halloween) Motive.
+/// Kleines „NEU“-Badge für frische (nicht-Halloween) Gallery.
 class NewBadge extends StatelessWidget {
   const NewBadge({super.key});
 

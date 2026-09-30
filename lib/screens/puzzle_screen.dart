@@ -261,7 +261,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     final applied = await showGeneralDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Einstellungen',
+      barrierLabel: 'Settings',
       barrierColor: Colors.black.withValues(alpha: 0.55),
       transitionDuration: const Duration(milliseconds: 280),
       pageBuilder: (context, anim, secondary) {
@@ -464,7 +464,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                 children: [
                                   Expanded(
                                     child: _FantasyDialogButton(
-                                      label: 'Zurück',
+                                      label: 'Back',
                                       filled: false,
                                       onPressed: () =>
                                           Navigator.pop(context, false),
@@ -511,7 +511,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   Future<void> _leavePuzzle() async {
-    // Verlassen ohne Fertigstellen: keine Werbung.
+    // Verlassen ohne Donestellen: keine Werbung.
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -526,7 +526,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
-    // Fertiges Motiv kurz in Ruhe zeigen.
+    // Donees Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
     if (!mounted) return;
     setState(() => _celebrating = true);
@@ -550,7 +550,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+        const SnackBar(content: Text('Saved to Photos!')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -814,17 +814,17 @@ class _PuzzleScreenState extends State<PuzzleScreen>
           if (_celebrating)
             LevelCompleteOverlay(
               key: _levelKey,
-              title: 'Wunderbar!',
-              subtitle: 'Level geschafft',
+              title: 'Wonderful!',
+              subtitle: 'Level complete',
               actions: [
                 LevelCompleteActionButton(
                   icon: Icons.download_rounded,
-                  label: 'In Fotos',
+                  label: 'Photos',
                   onPressed: () => unawaited(_savePuzzleToPhotos()),
                 ),
                 LevelCompleteActionButton(
                   icon: Icons.check_rounded,
-                  label: 'Fertig',
+                  label: 'Done',
                   filled: false,
                   onPressed: () => unawaited(_closeAfterSolve()),
                 ),
@@ -1226,7 +1226,7 @@ class _JigsawBoard extends StatelessWidget {
                           strokeWidth: 2.4,
                         ),
                       ),
-                    // Fertig: volles Bild einblenden
+                    // Done: volles Bild einblenden
                     if (solved)
                       Positioned.fill(
                         child: AnimatedBuilder(

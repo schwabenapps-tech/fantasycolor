@@ -132,7 +132,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                       if (pages.isEmpty) {
                         return const Center(
                           child: Text(
-                            'Keine Pixel-Bilder gefunden',
+                            'No pixel images found',
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 16,
@@ -149,7 +149,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                               horizontal: size.width * 0.08,
                             ),
                             child: const Text(
-                              'Malen nach Zahlen',
+                              'Paint by numbers',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Color(0xFFFFE7A0),
@@ -161,7 +161,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Wähle ein Bild · tippe die Nummern an',
+                            'Pick an image · tap the numbers',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.65),
@@ -255,7 +255,7 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
   return showGeneralDialog<bool>(
     context: context,
     barrierDismissible: true,
-    barrierLabel: 'Freischalten',
+    barrierLabel: 'Unlock',
     barrierColor: Colors.black.withValues(alpha: 0.55),
     transitionDuration: const Duration(milliseconds: 280),
     pageBuilder: (context, anim, secondary) => const SizedBox.shrink(),
@@ -313,7 +313,7 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Fortgeschrittener Modus',
+                          'Advanced mode',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFFFFE7A0),
@@ -323,8 +323,8 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Malen nach Zahlen mit Pixelbildern.\n'
-                          'Kurz eine Werbung anschauen — dann ist der Modus freigeschaltet.',
+                          'Paint by numbers with pixel art.\n'
+                          'Watch a short ad to unlock this mode.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.72),
@@ -337,7 +337,7 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
                           children: [
                             Expanded(
                               child: _PixelDialogButton(
-                                label: 'Später',
+                                label: 'Later',
                                 filled: false,
                                 onPressed: () => Navigator.pop(context, false),
                               ),
@@ -345,7 +345,7 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
                             const SizedBox(width: 10),
                             Expanded(
                               child: _PixelDialogButton(
-                                label: 'Freischalten',
+                                label: 'Unlock',
                                 filled: true,
                                 onPressed: () => Navigator.pop(context, true),
                               ),
@@ -454,7 +454,7 @@ class _PixelPageTile extends StatelessWidget {
                     left: 10,
                     bottom: 10,
                     child: ProgressBadge(
-                      label: isCompleted ? 'Fertig' : 'Weiter',
+                      label: isCompleted ? 'Done' : 'Continue',
                       done: isCompleted,
                     ),
                   ),

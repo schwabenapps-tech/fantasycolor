@@ -69,7 +69,7 @@ class ColoringProgressStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Löscht Fortschritt nur für ausgetauschte Motive (+ Hash-Mismatch).
+  /// Löscht Fortschritt nur für ausgetauschte Gallery (+ Hash-Mismatch).
   Future<void> _invalidateStaleProgress(SharedPreferences prefs) async {
     final currentHashes = await _loadCurrentAssetHashes();
     final toClear = <String>{};

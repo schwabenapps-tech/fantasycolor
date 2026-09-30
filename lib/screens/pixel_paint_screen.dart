@@ -165,17 +165,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
   void _onSoftZoom(Offset viewportPos) {
     final current = _transform.value.getMaxScaleOnAxis();
+    // No zoom-in on double-tap — rapid paint taps were misread as zoom.
     if (current > 1.2) {
       _resetZoom(animated: true);
-      return;
     }
-
-    const targetScale = 3.0;
-    final matrix = Matrix4.identity()
-      ..translateByDouble(viewportPos.dx, viewportPos.dy, 0, 1)
-      ..scaleByDouble(targetScale, targetScale, 1, 1)
-      ..translateByDouble(-viewportPos.dx, -viewportPos.dy, 0, 1);
-    _animateTo(matrix);
   }
 
   void _resetZoom({bool animated = true}) {
@@ -224,7 +217,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   void _scheduleAutoSave() {
     if (_filledCount == 0 || _celebrating) return;
     _autoSaveTimer?.cancel();
-    // Mittel/Schwer: Vorschau-Render dauert länger — etwas mehr Debounce,
+    // Medium/Schwer: Vorschau-Render dauert länger — etwas mehr Debounce,
     // aber nie Saves verwerfen (siehe _persistProgress-Warteschlange).
     _autoSaveTimer = Timer(const Duration(milliseconds: 600), () {
       unawaited(_persistProgress(completed: false));
@@ -301,7 +294,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Future<void> _leave() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(completed: false);
-    // Warte auf evtl. Nachzieh-Save (Mittel hat große Raster → langsam).
+    // Warte auf evtl. Nachzieh-Save (Medium hat große Raster → langsam).
     var guard = 0;
     while (_saveInFlight && guard < 5) {
       guard++;
@@ -384,7 +377,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('In Fotos gespeichert!')),
+        const SnackBar(content: Text('Saved to Photos!')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -774,7 +767,7 @@ class _FinishOverlay extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Wunderbar!',
+                    'Wonderful!',
                     style: TextStyle(
                       color: Color(0xFFFFE7A0),
                       fontSize: 22,
@@ -795,7 +788,7 @@ class _FinishOverlay extends StatelessWidget {
                     children: [
                       Expanded(
                         child: _FinishButton(
-                          label: 'In Fotos',
+                          label: 'Photos',
                           filled: true,
                           onPressed: onSave,
                         ),
@@ -803,7 +796,7 @@ class _FinishOverlay extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _FinishButton(
-                          label: 'Fertig',
+                          label: 'Done',
                           filled: false,
                           onPressed: onClose,
                         ),

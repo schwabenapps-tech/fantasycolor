@@ -69,7 +69,7 @@ class ContentEvent {
   }
 }
 
-/// Abschnitt in der Galerie: Event-Hub oder Standard-Motive.
+/// Abschnitt in der Galerie: Event-Hub oder Standard-Gallery.
 class GallerySection {
   const GallerySection({
     required this.id,

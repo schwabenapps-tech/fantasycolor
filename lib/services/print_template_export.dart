@@ -21,7 +21,7 @@ class PrintTemplateExport {
     final granted = await Gal.requestAccess();
     if (!granted) {
       throw const PrintTemplateExportException(
-        'Kein Zugriff auf die Fotos. Bitte in den Einstellungen erlauben.',
+        'Kein Zugriff auf die Fotos. Bitte in den Settings erlauben.',
       );
     }
 
@@ -48,8 +48,8 @@ class PrintTemplateExport {
             name: '${page.title}.png',
           ),
         ],
-        subject: 'Ausmalvorlage: ${page.title}',
-        text: 'Fantasy Color – Ausmalvorlage zum Ausdrucken',
+        subject: 'Print template: ${page.title}',
+        text: 'Fantasy Color – Printable coloring page',
       ),
     );
   }

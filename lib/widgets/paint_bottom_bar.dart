@@ -4,7 +4,7 @@ import '../data/paint_catalog.dart';
 import '../providers/coloring_session.dart';
 import '../utils/app_layout.dart';
 
-/// Untere Farbleiste: Fill + Radierer, alle Farben ohne Kategorie-Filter.
+/// Untere Farbleiste: Fill + Eraser, alle Farben ohne Kategorie-Filter.
 class PaintBottomBar extends StatelessWidget {
   const PaintBottomBar({
     super.key,

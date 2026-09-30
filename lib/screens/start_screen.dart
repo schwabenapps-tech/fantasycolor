@@ -74,7 +74,7 @@ class _StartScreenState extends State<StartScreen>
         builder: (_) => const HubScreen(),
       ),
     );
-    // Zurück zum Start: wieder nur Landscape, Musik aus.
+    // Back zum Start: wieder nur Landscape, Musik aus.
     await AudioService.instance.stopAmbient();
     await SystemChrome.setPreferredOrientations(_startOrientations);
   }

@@ -15,7 +15,7 @@ class GalleryExport {
     final granted = await Gal.requestAccess();
     if (!granted) {
       throw const GalleryExportException(
-        'Kein Zugriff auf die Fotos. Bitte in den Einstellungen erlauben.',
+        'Kein Zugriff auf die Fotos. Bitte in den Settings erlauben.',
       );
     }
     await Gal.putImageBytes(bytes, name: name);

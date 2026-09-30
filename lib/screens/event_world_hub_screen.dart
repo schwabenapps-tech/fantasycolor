@@ -10,7 +10,7 @@ import '../widgets/silver_back_button.dart';
 import 'event_pack_gallery_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Nach Tippen auf den Start-Event-Hub: Malen + Puzzle nur mit Event-Motiven.
+/// Nach Tippen auf den Start-Event-Hub: Malen + Puzzle nur mit Event-Galleryn.
 class EventWorldHubScreen extends StatefulWidget {
   const EventWorldHubScreen({
     super.key,

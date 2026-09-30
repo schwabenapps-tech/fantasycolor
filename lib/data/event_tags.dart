@@ -176,7 +176,7 @@ class EventTags {
       activeEvents: List.unmodifiable(active),
       standard: GallerySection(
         id: 'standard',
-        title: 'Motive',
+        title: 'Gallery',
         pages: List.unmodifiable([...front, ...rest]),
       ),
       pastEvents: List.unmodifiable(past),

@@ -74,7 +74,7 @@ class PixelProgressStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Löscht Pixel-Fortschritt nur für entfernte/ausgetauschte Puzzle-Motive.
+  /// Löscht Pixel-Fortschritt nur für entfernte/ausgetauschte Puzzle-Gallery.
   Future<void> _invalidateStaleProgress(SharedPreferences prefs) async {
     try {
       final raw = await rootBundle.loadString(

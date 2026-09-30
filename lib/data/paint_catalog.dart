@@ -8,8 +8,8 @@ enum PaintCategory {
 
 extension PaintCategoryX on PaintCategory {
   String get label => switch (this) {
-        PaintCategory.solid => 'Malfarben',
-        PaintCategory.pastel => 'Pastelfarben',
+        PaintCategory.solid => 'Paint colors',
+        PaintCategory.pastel => 'Pastel colors',
       };
 
   IconData get icon => switch (this) {
@@ -37,9 +37,9 @@ enum PaintTool {
 
 extension PaintToolX on PaintTool {
   String get label => switch (this) {
-        PaintTool.brush => 'Pinsel',
-        PaintTool.pen => 'Stift',
-        PaintTool.eraser => 'Radierer',
+        PaintTool.brush => 'Brush',
+        PaintTool.pen => 'Pen',
+        PaintTool.eraser => 'Eraser',
       };
 
   IconData get icon => switch (this) {
@@ -73,13 +73,13 @@ enum MalenFilter {
   fortgeschritten;
 
   String get label => switch (this) {
-        MalenFilter.einfach => 'Einfach',
+        MalenFilter.einfach => 'Simple',
         MalenFilter.fortgeschritten => 'Pixel Art',
       };
 
   String get hint => switch (this) {
-        MalenFilter.einfach => 'Ausmalen mit Pinsel & Stift',
-        MalenFilter.fortgeschritten => 'Pixel · Malen nach Zahlen',
+        MalenFilter.einfach => 'Color with brush & pen',
+        MalenFilter.fortgeschritten => 'Pixel · paint by numbers',
       };
 
   IconData get icon => switch (this) {
@@ -106,14 +106,14 @@ class PaintCatalog {
     ];
   }
 
-  /// Flache Palette für die untere Leiste: Malfarben + Pastell, ohne Filter.
+  /// Flache Palette für die untere Leiste: Paint colors + Pastell, ohne Filter.
   static List<PaintSwatch> get allSwatches => [
         for (final category in categories) ...swatchesFor(category),
       ];
 
   /// Nummerierte Swatches aus den echten Farben eines Pixelbilds.
   ///
-  /// Erscheinen in der Leiste wie normale Malfarben — aber nur die
+  /// Erscheinen in der Leiste wie normale Paint colors — aber nur die
   /// Farben, die für genau dieses Bild vorgesehen sind.
   static List<PaintSwatch> numberedFromImageColors(List<Color> colors) {
     return [

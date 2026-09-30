@@ -19,7 +19,7 @@ import '../widgets/silver_back_button.dart';
 import 'puzzle_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Fertig.
+/// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
 class ColoringPreviewScreen extends StatefulWidget {
   const ColoringPreviewScreen({super.key, required this.page});
 
@@ -93,7 +93,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     if (!_session.canReset) return;
     if (flatten) _wantFlatten = true;
 
-    // Parallelaufrufe (Auto-Save + Zurück/Fertig) immer auf den letzten Stand bringen.
+    // Parallelaufrufe (Auto-Save + Back/Done) immer auf den letzten Stand bringen.
     if (_saveInFlight) {
       _saveAgain = true;
       while (_saveInFlight) {
@@ -137,7 +137,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Future<void> _leaveScreen() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: false);
-    // Nur wenn man ohne Fertig-Feier zurückgeht.
+    // Nur wenn man ohne Done-Feier zurückgeht.
     if (!_celebrating) {
       await _showLeaveAdOnce();
     }
@@ -176,7 +176,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('In die Fotogalerie gespeichert!')),
+        const SnackBar(content: Text('Saved to Photos!')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -246,7 +246,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                           if (snapshot.hasError) {
                             return Center(
                               child: Text(
-                                'Bild konnte nicht geladen werden',
+                                'Could not load image',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.9),
                                 ),
@@ -293,7 +293,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                       children: [
                                         _MagicToolButton(
                                           icon: Icons.replay_rounded,
-                                          tooltip: 'Zurücknehmen',
+                                          tooltip: 'Undo',
                                           colors: const [
                                             Color(0xFFFFE8F0),
                                             Color(0xFFE8A0BF),
@@ -312,7 +312,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                         const SizedBox(width: 10),
                                         _MagicToolButton(
                                           icon: Icons.download_rounded,
-                                          tooltip: 'In Fotos speichern',
+                                          tooltip: 'Save to Photos',
                                           colors: const [
                                             Color(0xFFE8F6FF),
                                             Color(0xFF9EC8FF),
@@ -325,7 +325,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                         const SizedBox(width: 10),
                                         _MagicToolButton(
                                           icon: Icons.check_rounded,
-                                          tooltip: 'Fertig',
+                                          tooltip: 'Done',
                                           colors: const [
                                             Color(0xFFB6F5C8),
                                             Color(0xFF3DDC84),
@@ -352,22 +352,22 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
             if (_celebrating)
               LevelCompleteOverlay(
                 key: _levelKey,
-                title: 'Wunderbar!',
-                subtitle: 'Level geschafft',
+                title: 'Wonderful!',
+                subtitle: 'Level complete',
                 actions: [
                   LevelCompleteActionButton(
                     icon: Icons.download_rounded,
-                    label: 'In Fotos',
+                    label: 'Photos',
                     onPressed: () => unawaited(_saveToPhotos()),
                   ),
                   LevelCompleteActionButton(
                     icon: Icons.extension_rounded,
-                    label: 'Als Puzzle',
+                    label: 'As puzzle',
                     onPressed: () => unawaited(_playAsPuzzle()),
                   ),
                   LevelCompleteActionButton(
                     icon: Icons.check_rounded,
-                    label: 'Fertig',
+                    label: 'Done',
                     filled: false,
                     onPressed: () => unawaited(_closeAfterFinish()),
                   ),
@@ -380,7 +380,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   }
 }
 
-/// Weicher Fantasy-Tool-Button (Undo / Fertig) — kein System-Grau.
+/// Weicher Fantasy-Tool-Button (Undo / Done) — kein System-Grau.
 class _MagicToolButton extends StatelessWidget {
   const _MagicToolButton({
     required this.icon,
