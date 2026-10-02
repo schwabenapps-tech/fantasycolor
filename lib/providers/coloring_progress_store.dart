@@ -70,11 +70,13 @@ class ColoringProgressStore extends ChangeNotifier {
   }
 
   /// Löscht Fortschritt nur für ausgetauschte Gallery (+ Hash-Mismatch).
+  ///
+  /// Invalidate-JSON: nur IDs, die seit dem zuletzt angewandten Stand **neu**
+  /// hinzukamen — nicht die gesamte Liste erneut.
   Future<void> _invalidateStaleProgress(SharedPreferences prefs) async {
     final currentHashes = await _loadCurrentAssetHashes();
     final toClear = <String>{};
 
-    // Explizite Liste aus dem Sync-Skript (nur geänderte IDs).
     try {
       final raw = await rootBundle.loadString(
         'assets/coloring_invalidate_ids.json',
@@ -82,12 +84,26 @@ class ColoringProgressStore extends ChangeNotifier {
       final list = (jsonDecode(raw) as List<dynamic>)
           .map((e) => e.toString())
           .toList(growable: false);
-      final fingerprint = list.join('|');
-      if (list.isNotEmpty &&
-          prefs.getString(_invalidateAppliedKey) != fingerprint) {
-        toClear.addAll(list);
-        await prefs.setString(_invalidateAppliedKey, fingerprint);
+      final previous = prefs.getStringList(_invalidateAppliedKey) ??
+          () {
+            // Migration: früher Fingerprint als join('|').
+            final legacy = prefs.getString(_invalidateAppliedKey);
+            if (legacy == null || legacy.isEmpty) return const <String>[];
+            return legacy.split('|');
+          }();
+      final previousSet = previous.toSet();
+      final newlyListed = <String>[
+        for (final id in list)
+          if (!previousSet.contains(id)) id,
+      ];
+      if (newlyListed.isNotEmpty) {
+        toClear.addAll(newlyListed);
       }
+      // Immer aktuellen Stand merken (auch wenn Diff leer).
+      await prefs.setStringList(
+        _invalidateAppliedKey,
+        list,
+      );
     } catch (_) {
       // Datei optional.
     }

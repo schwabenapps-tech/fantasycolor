@@ -1,11 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Für Speichern von Ausmalvorlagen in die Galerie (Android <= 29). -->
+    <!-- Galerie speichern (gal) — nur bis API 29 nötig. -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Für AdMob auf Android 13+ (auch mit Kids/G-Content). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!--
+      AdMob / Play Advertising ID (Android 13+).
+      Play Console → App-Inhalt → Werbe-ID: „Ja, die App verwendet die Werbe-ID“.
+      Passt zu child-directed / G-rated Ads im Code (kein Tracking-ATT).
+    -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
     <application
         android:label="Fairy Fantasy Color"
         android:name="${applicationName}"
@@ -22,10 +28,6 @@
             android:hardwareAccelerated="true"
             android:enableOnBackInvokedCallback="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -40,24 +42,33 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- AdMob App-ID (Fairy Fantasy Color Android). -->
+        <!-- AdMob App-ID (Fairy Fantasy Color Android). Pflicht für Store-Builds. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-5511264969083689~6262583566"/>
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <!-- Android 11+ Package Visibility: Browser (Privacy/Terms) + Mail + Share. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
         <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+        <intent>
             <action android:name="android.intent.action.SENDTO"/>
             <data android:scheme="mailto"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="image/*" />
         </intent>
     </queries>
 </manifest>

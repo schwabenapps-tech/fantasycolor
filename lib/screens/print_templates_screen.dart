@@ -128,8 +128,22 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                           Text(
                             'Tap an image for preview',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.75),
-                              fontSize: 13,
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 1),
+                                ),
+                                Shadow(
+                                  color: Color(0x88000000),
+                                  blurRadius: 2,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -297,7 +311,7 @@ class _PrintTemplateTile extends StatelessWidget {
                         ),
                         SizedBox(width: 6),
                         Text(
-                          'Vorschau',
+                          'Preview',
                           style: TextStyle(
                             color: Color(0xFFE8EEF8),
                             fontSize: 12,

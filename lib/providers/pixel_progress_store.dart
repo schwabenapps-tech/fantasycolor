@@ -74,7 +74,7 @@ class PixelProgressStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Löscht Pixel-Fortschritt nur für entfernte/ausgetauschte Puzzle-Gallery.
+  /// Löscht Pixel-Fortschritt nur für neu gelistete Invalidate-IDs (Diff).
   Future<void> _invalidateStaleProgress(SharedPreferences prefs) async {
     try {
       final raw = await rootBundle.loadString(
@@ -83,15 +83,21 @@ class PixelProgressStore extends ChangeNotifier {
       final list = (jsonDecode(raw) as List<dynamic>)
           .map((e) => e.toString())
           .toList(growable: false);
-      final fingerprint = list.join('|');
-      if (list.isEmpty ||
-          prefs.getString(_invalidateAppliedKey) == fingerprint) {
-        return;
-      }
-      for (final id in list) {
+      final previous = prefs.getStringList(_invalidateAppliedKey) ??
+          () {
+            final legacy = prefs.getString(_invalidateAppliedKey);
+            if (legacy == null || legacy.isEmpty) return const <String>[];
+            return legacy.split('|');
+          }();
+      final previousSet = previous.toSet();
+      final newlyListed = <String>[
+        for (final id in list)
+          if (!previousSet.contains(id)) id,
+      ];
+      for (final id in newlyListed) {
         await clearProgress(id);
       }
-      await prefs.setString(_invalidateAppliedKey, fingerprint);
+      await prefs.setStringList(_invalidateAppliedKey, list);
     } catch (_) {
       // Datei optional.
     }

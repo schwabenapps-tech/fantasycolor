@@ -22,9 +22,12 @@ class AdsService {
   AdsService._();
 
   static bool _initialized = false;
+  /// Consent war noch nicht bereit — Init später erneut versuchen.
+  static bool _skippedDueToConsent = false;
   static InterstitialAd? _interstitial;
   static bool _loading = false;
   static bool _showing = false;
+  static bool _listeningForConsent = false;
 
   static int _coloringLeaveCount = 0;
   static int _coloringFinishCount = 0;
@@ -40,13 +43,21 @@ class AdsService {
   /// UMP → SDK starten + Kindermodus (COPPA / child-directed) + erste Ad laden.
   static Future<void> initialize() async {
     if (_initialized) return;
+    _ensureConsentListener();
     try {
-      await ConsentService.instance.gatherConsent();
+      if (!ConsentService.instance.gathered) {
+        await ConsentService.instance.gatherConsent();
+      }
       if (!ConsentService.instance.canRequestAds) {
-        debugPrint('AdsService: canRequestAds=false — skipping Mobile Ads init');
+        _skippedDueToConsent = true;
+        debugPrint(
+          'AdsService: canRequestAds=false — skipping Mobile Ads init '
+          '(will retry when consent allows)',
+        );
         return;
       }
 
+      _skippedDueToConsent = false;
       await MobileAds.instance.updateRequestConfiguration(
         RequestConfiguration(
           // Kinder-App: kindgerechte Behandlung + nur G-Content.
@@ -66,6 +77,22 @@ class AdsService {
       debugPrint('AdsService.initialize failed: $e\n$st');
       _initialized = false;
     }
+  }
+
+  /// Erneut initialisieren, wenn Consent später freigibt.
+  static Future<void> retryAfterConsentIfNeeded() async {
+    if (_initialized || !_skippedDueToConsent) return;
+    if (!ConsentService.instance.canRequestAds) return;
+    debugPrint('AdsService: retrying init after consent became available');
+    await initialize();
+  }
+
+  static void _ensureConsentListener() {
+    if (_listeningForConsent) return;
+    _listeningForConsent = true;
+    ConsentService.instance.addListener(() {
+      unawaited(retryAfterConsentIfNeeded());
+    });
   }
 
   static Future<void> preloadInterstitial() async {

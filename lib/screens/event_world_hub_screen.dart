@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/event_catalog.dart';
+import '../data/event_tags.dart';
 import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/event_hub_portal.dart';
@@ -18,12 +19,14 @@ class EventWorldHubScreen extends StatefulWidget {
     required this.coloringSection,
     required this.puzzleSection,
     this.halloweenIds = const {},
+    this.tags,
   });
 
   final String title;
   final GallerySection coloringSection;
   final GallerySection puzzleSection;
   final Set<String> halloweenIds;
+  final EventTags? tags;
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
 
@@ -82,6 +85,7 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
               section: section,
               coloring: coloring,
               halloweenIds: widget.halloweenIds,
+              tags: widget.tags,
             ),
       ),
     );
@@ -106,6 +110,7 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
         imagePaths: coloringPaths,
         accent: const Color(0xFFFF8C42),
         isHalloween: true,
+        brightenImage: true,
         onTap: () => _openPack(widget.coloringSection, coloring: true),
       ),
       EventHubPortal(
@@ -114,6 +119,7 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
         imagePaths: puzzlePaths,
         accent: const Color(0xFF6B3FA0),
         isHalloween: true,
+        brightenImage: true,
         slideOffset: const Duration(milliseconds: 1400),
         onTap: () => _openPack(widget.puzzleSection, coloring: false),
       ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/event_catalog.dart';
+import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
@@ -14,6 +15,7 @@ import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
+import '../widgets/gallery_category_title.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
@@ -27,13 +29,21 @@ class EventPackGalleryScreen extends StatelessWidget {
     required this.section,
     required this.coloring,
     this.halloweenIds = const {},
+    this.tags,
   });
 
   final GallerySection section;
   final bool coloring;
   final Set<String> halloweenIds;
+  final EventTags? tags;
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
+
+  bool _isNew(String id) {
+    final t = tags;
+    if (t == null) return false;
+    return coloring ? t.isNewColoring(id) : t.isNewPuzzle(id);
+  }
 
   void _open(BuildContext context, ColoringPage page) {
     if (coloring) {
@@ -74,21 +84,12 @@ class EventPackGalleryScreen extends StatelessWidget {
               children: [
                 Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(56, 14, 16, 8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          section.title,
-                          style: TextStyle(
-                            color: section.isPastEvent
-                                ? const Color(0xFFB8C0D4)
-                                : const Color(0xFFFFB86B),
-                            fontSize: layout.isTablet ? 28 : 24,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
+                    GalleryCategoryTitle(
+                      title: coloring ? 'Color' : 'Puzzle',
+                      subtitle: section.title,
+                      accentColor: section.isPastEvent
+                          ? const Color(0xFFB8C0D4)
+                          : const Color(0xFFFFB86B),
                     ),
                     Expanded(
                       child: pages.isEmpty
@@ -119,7 +120,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                       page: page,
                                       isHalloween:
                                           halloweenIds.contains(page.id),
-                                      isNew: false,
+                                      isNew: _isNew(page.id),
                                       compact: true,
                                       showDownloadButton: !coloring,
                                       favoriteKind: coloring
@@ -157,7 +158,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                             page: page,
                                             isHalloween: halloweenIds
                                                 .contains(page.id),
-                                            isNew: false,
+                                            isNew: _isNew(page.id),
                                             showDownloadButton: !coloring,
                                             favoriteKind: coloring
                                                 ? FavoriteKind.coloring

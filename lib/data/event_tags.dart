@@ -19,8 +19,8 @@ class EventTags {
     required this.newSincePuzzle,
   });
 
-  /// „NEU“-Badge nur so lange sichtbar (Sync setzt das Datum).
-  static const newBadgeDuration = Duration(days: 7);
+  /// „NEW“-Badge verschwindet nach zwei Wochen.
+  static const newBadgeDuration = Duration(days: 14);
 
   final List<ContentEvent> events;
   final Set<String> halloweenColoring;

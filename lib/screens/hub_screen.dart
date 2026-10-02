@@ -152,6 +152,7 @@ class _HubScreenState extends State<HubScreen>
           ...tags.halloweenColoring,
           ...tags.halloweenPuzzle,
         },
+        tags: tags,
       ),
       world: 'event',
     );

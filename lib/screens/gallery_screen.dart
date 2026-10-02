@@ -180,6 +180,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                               catalog: catalog,
                               tags: tags,
                               coloring: true,
+                              categoryTitle: 'Color',
                               onOpenPage: _openSimplePage,
                               gridScroll: _gridScroll,
                               rowScroll: _rowScroll,

@@ -146,6 +146,11 @@ def main() -> int:
     tags["halloween_puzzle"] = halloween_puzzle
     tags["featured_puzzle"] = featured_puzzle
 
+    # Event-Hub: gleiche Halloween-Puzzle-IDs in events[0].
+    events = tags.get("events")
+    if isinstance(events, list) and events and isinstance(events[0], dict):
+        events[0]["puzzle_ids"] = list(halloween_puzzle)
+
     from datetime import date, datetime, timedelta
 
     today = date.today().isoformat()

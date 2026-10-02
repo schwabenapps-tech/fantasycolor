@@ -8,11 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Ruhige Hintergrundmusik + kurze Erfolgs-Sounds.
 ///
 /// Wichtig für iOS/audioplayers: Play/Stop/Source-Wechsel strikt serialisieren.
+///
+/// Musik ist beim App-Start immer an. Mute gilt nur für die aktuelle Session
+/// und wird nicht über Neustarts hinweg gespeichert.
 class AudioService extends ChangeNotifier {
   AudioService._();
 
   static final AudioService instance = AudioService._();
 
+  /// Legacy-Key — wird beim Start gelöscht, damit alte Mute-Prefs verschwinden.
   static const _prefsMutedKey = 'audio_muted';
 
   static const calmTracks = <String>[
@@ -31,9 +35,12 @@ class AudioService extends ChangeNotifier {
   bool _ready = false;
   bool _muted = false;
   bool _musicWanted = false;
-  int _trackIndex = 0;
   String? _currentAsset;
   Future<void>? _initFuture;
+
+  /// Zufällige Reihenfolge: jedes Lied einmal, dann neu mischen.
+  final List<String> _shuffleBag = <String>[];
+  final _rng = Random();
 
   Future<void> _musicGate = Future<void>.value();
   Timer? _ambientDebounce;
@@ -48,8 +55,16 @@ class AudioService extends ChangeNotifier {
   }
 
   Future<void> _initializeOnce() async {
-    final prefs = await SharedPreferences.getInstance();
-    _muted = prefs.getBool(_prefsMutedKey) ?? false;
+    // Immer mit Musik starten — alten Mute-Stand verwerfen.
+    _muted = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey(_prefsMutedKey)) {
+        await prefs.remove(_prefsMutedKey);
+      }
+    } catch (e, st) {
+      debugPrint('AudioService prefs cleanup failed: $e\n$st');
+    }
 
     final ctx = AudioContextConfig(
       route: AudioContextConfigRoute.system,
@@ -95,9 +110,8 @@ class AudioService extends ChangeNotifier {
 
   Future<void> setMuted(bool value) async {
     if (_muted == value) return;
+    // Nur Session — kein Persistieren über App-Neustart.
     _muted = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_prefsMutedKey, value);
     notifyListeners();
     await _enqueueMusic(() async {
       final player = _music;
@@ -133,9 +147,7 @@ class AudioService extends ChangeNotifier {
       return;
     }
 
-    if (calmTracks.isNotEmpty) {
-      _trackIndex = Random().nextInt(calmTracks.length);
-    }
+    _refillShuffleBag(avoid: null);
     _currentAsset = null;
     if (_muted) return;
     await _ensurePlayingUnlocked(force: true);
@@ -193,15 +205,45 @@ class AudioService extends ChangeNotifier {
     await _playNextTrackUnlocked();
   }
 
+  /// Mischt alle Tracks neu. Vermeidet denselben Track wie zuletzt zuerst.
+  void _refillShuffleBag({required String? avoid}) {
+    _shuffleBag
+      ..clear()
+      ..addAll(calmTracks);
+    _shuffleBag.shuffle(_rng);
+    if (_shuffleBag.length > 1 &&
+        avoid != null &&
+        _shuffleBag.first == avoid) {
+      final swap = 1 + _rng.nextInt(_shuffleBag.length - 1);
+      final tmp = _shuffleBag[0];
+      _shuffleBag[0] = _shuffleBag[swap];
+      _shuffleBag[swap] = tmp;
+    }
+  }
+
+  /// Nächstes Lied aus dem Zufallsbeutel; Beutel neu mischen wenn leer.
+  String? _takeNextShuffledTrack() {
+    if (calmTracks.isEmpty) return null;
+    if (_shuffleBag.isEmpty) {
+      _refillShuffleBag(avoid: _currentAsset);
+    }
+    if (_shuffleBag.isEmpty) return null;
+    // Zusätzlich: zufälligen Slot aus dem Rest wählen (stärkerer Zufall).
+    final idx = _rng.nextInt(_shuffleBag.length);
+    return _shuffleBag.removeAt(idx);
+  }
+
   Future<void> _playNextTrackUnlocked() async {
     if (_muted || !_musicWanted) return;
     if (calmTracks.isEmpty) return;
 
     for (var attempt = 0; attempt < calmTracks.length; attempt++) {
-      _trackIndex = _trackIndex % calmTracks.length;
-      final asset = calmTracks[_trackIndex];
-      _trackIndex = (_trackIndex + 1) % calmTracks.length;
-
+      final asset = _takeNextShuffledTrack();
+      if (asset == null) return;
+      // Nie dasselbe Lied direkt nochmal, falls nur 1 übrig war und Beutel neu.
+      if (asset == _currentAsset && calmTracks.length > 1) {
+        continue;
+      }
       final ok = await _playAssetUnlocked(asset);
       if (ok) return;
     }
@@ -209,9 +251,10 @@ class AudioService extends ChangeNotifier {
     debugPrint('AudioService: all tracks failed — recreating player');
     await _recreateMusicPlayer();
     if (_muted || !_musicWanted) return;
-    final asset = calmTracks[_trackIndex % calmTracks.length];
-    _trackIndex = (_trackIndex + 1) % calmTracks.length;
-    await _playAssetUnlocked(asset);
+    final asset = _takeNextShuffledTrack();
+    if (asset != null) {
+      await _playAssetUnlocked(asset);
+    }
   }
 
   Future<bool> _playAssetUnlocked(String asset) async {

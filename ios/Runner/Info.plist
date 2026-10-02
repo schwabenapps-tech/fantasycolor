@@ -70,6 +70,13 @@
 	<!-- Vollbild: stabilere Rotation auf iPad. -->
 	<key>UIRequiresFullScreen</key>
 	<true/>
+	<!-- Flutter Debug/Hot-Reload: Dart VM Service über lokales Netzwerk. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Fairy Fantasy Color uses the local network so Flutter can debug and hot-reload while developing.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Fantasy Color saves your colored pictures and print templates to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -176,6 +176,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                               catalog: catalog,
                               tags: tags,
                               coloring: false,
+                              categoryTitle: 'Puzzle',
                               showDownloadButton: true,
                               onOpenPage: _openPuzzle,
                             );

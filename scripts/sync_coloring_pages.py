@@ -205,10 +205,12 @@ def _merge_event_tags(
         data = json.loads(path.read_text(encoding="utf-8"))
     if halloween_coloring is not None:
         data["halloween_coloring"] = halloween_coloring
+        _sync_event_ids(data, coloring_ids=halloween_coloring)
     if featured_coloring is not None:
         data["featured_coloring"] = featured_coloring
     if halloween_puzzle is not None:
         data["halloween_puzzle"] = halloween_puzzle
+        _sync_event_ids(data, puzzle_ids=halloween_puzzle)
     if featured_puzzle is not None:
         data["featured_puzzle"] = featured_puzzle
 
@@ -239,6 +241,25 @@ def _merge_event_tags(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def _sync_event_ids(
+    data: dict[str, object],
+    *,
+    coloring_ids: list[str] | None = None,
+    puzzle_ids: list[str] | None = None,
+) -> None:
+    """Schreibt Halloween-IDs auch in events[0] (Event-Hub-Katalog)."""
+    events = data.get("events")
+    if not isinstance(events, list) or not events:
+        return
+    first = events[0]
+    if not isinstance(first, dict):
+        return
+    if coloring_ids is not None:
+        first["coloring_ids"] = list(coloring_ids)
+    if puzzle_ids is not None:
+        first["puzzle_ids"] = list(puzzle_ids)
 
 
 if __name__ == "__main__":

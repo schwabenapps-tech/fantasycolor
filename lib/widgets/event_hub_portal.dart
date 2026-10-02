@@ -109,9 +109,9 @@ class _EventHubPortalState extends State<EventHubPortal> {
     if (!widget.brightenImage) return image;
     return ColorFiltered(
       colorFilter: const ColorFilter.matrix(<double>[
-        1.18, 0, 0, 0, 22,
-        0, 1.18, 0, 0, 22,
-        0, 0, 1.18, 0, 22,
+        1.22, 0, 0, 0, 28,
+        0, 1.22, 0, 0, 28,
+        0, 0, 1.22, 0, 28,
         0, 0, 0, 1, 0,
       ]),
       child: image,
@@ -179,7 +179,7 @@ class _EventHubPortalState extends State<EventHubPortal> {
                           alpha: widget.brightenImage ? 0.0 : 0.05,
                         ),
                         Colors.black.withValues(
-                          alpha: widget.brightenImage ? 0.32 : 0.58,
+                          alpha: widget.brightenImage ? 0.24 : 0.58,
                         ),
                       ],
                     ),

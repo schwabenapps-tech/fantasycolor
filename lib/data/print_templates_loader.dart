@@ -23,12 +23,23 @@ Future<List<ColoringPage>> loadPrintTemplates({
       .toList()
     ..sort();
 
-  final pages = paths.map(dimensions.pageFromPath).toList(growable: false);
+  // Nutzerfreundliche Titel — keine Roh-Dateinamen (z. B. chatgpt_…).
+  final pages = <ColoringPage>[];
+  for (var i = 0; i < paths.length; i++) {
+    final base = dimensions.pageFromPath(paths[i]);
+    pages.add(
+      ColoringPage(
+        id: base.id,
+        title: 'Fairy Fantasy Color ${i + 1}',
+        assetPath: base.assetPath,
+        width: base.width,
+        height: base.height,
+      ),
+    );
+  }
 
   if (shuffle) {
-    final list = List<ColoringPage>.from(pages);
-    list.shuffle(random ?? Random());
-    return List<ColoringPage>.unmodifiable(list);
+    pages.shuffle(random ?? Random());
   }
-  return pages;
+  return List<ColoringPage>.unmodifiable(pages);
 }

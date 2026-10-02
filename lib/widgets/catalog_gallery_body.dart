@@ -9,6 +9,7 @@ import '../screens/event_pack_gallery_screen.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/event_hub_portal.dart';
+import '../widgets/gallery_category_title.dart';
 
 /// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Gallery → abgelaufene Hubs hinten.
 class CatalogGalleryBody extends StatelessWidget {
@@ -21,6 +22,7 @@ class CatalogGalleryBody extends StatelessWidget {
     this.gridScroll,
     this.rowScroll,
     this.showDownloadButton = false,
+    this.categoryTitle,
   });
 
   final GalleryCatalog catalog;
@@ -30,6 +32,8 @@ class CatalogGalleryBody extends StatelessWidget {
   final ScrollController? gridScroll;
   final ScrollController? rowScroll;
   final bool showDownloadButton;
+  /// z. B. „Color“ / „Puzzle“ — immer sichtbar oben in der Ansicht.
+  final String? categoryTitle;
 
   List<_Entry> _entries() {
     return [
@@ -44,7 +48,6 @@ class CatalogGalleryBody extends StatelessWidget {
       : tags.isHalloweenPuzzle(id);
 
   bool _isNew(String id) {
-    if (_isHalloween(id)) return false;
     return coloring ? tags.isNewColoring(id) : tags.isNewPuzzle(id);
   }
 
@@ -58,6 +61,7 @@ class CatalogGalleryBody extends StatelessWidget {
               section: section,
               coloring: coloring,
               halloweenIds: halloweenIds,
+              tags: tags,
             ),
       ),
     );
@@ -84,6 +88,7 @@ class CatalogGalleryBody extends StatelessWidget {
       ],
       accent: _accentFor(hub),
       isHalloween: _isHalloweenHub(hub),
+      brightenImage: true,
       slideOffset: Duration(milliseconds: 400 * index),
       onTap: () => _openEvent(context, hub),
     );
@@ -94,105 +99,120 @@ class CatalogGalleryBody extends StatelessWidget {
     final layout = AppLayout.of(context);
     final size = MediaQuery.sizeOf(context);
     final entries = _entries();
+    final title = (categoryTitle ?? (coloring ? 'Color' : 'Puzzle')).trim();
     if (entries.isEmpty) {
-      return Center(
-        child: Text(
-          coloring
-              ? 'No coloring pages found'
-              : 'No puzzle images found',
-          style: const TextStyle(color: Colors.white70, fontSize: 16),
-        ),
-      );
-    }
-
-    if (layout.isPortrait) {
-      return GridView.builder(
-        key: PageStorageKey<String>(
-          coloring ? 'gallery_grid' : 'puzzle_grid',
-        ),
-        controller: gridScroll,
-        scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
-        padding: layout.galleryGridPadding(size).copyWith(top: 56),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: layout.galleryGridCrossAxisCount,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: layout.galleryGridChildAspectRatio,
-        ),
-        itemCount: entries.length,
-        itemBuilder: (context, index) {
-          final entry = entries[index];
-          if (entry.hub != null) {
-            return _hubTile(context, entry.hub!);
-          }
-          final page = entry.page!;
-          return GalleryPageTile(
-            page: page,
-            isHalloween: _isHalloween(page.id),
-            isNew: _isNew(page.id),
-            compact: true,
-            showDownloadButton: showDownloadButton,
-            favoriteKind:
-                coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
-            onTap: () => onOpenPage(page),
-          );
-        },
-      );
-    }
-
-    final tileHeight = layout.galleryTileHeight;
-    return Align(
-      alignment: const Alignment(0, 0.25),
-      child: SizedBox(
-        height: tileHeight,
-        child: ListView.separated(
-          key: PageStorageKey<String>(
-            coloring ? 'gallery_row' : 'puzzle_row',
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GalleryCategoryTitle(title: title),
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No images found',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+            ),
           ),
-          controller: rowScroll,
-          scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
-          itemCount: entries.length,
-          separatorBuilder: (_, _) => SizedBox(width: size.width * 0.03),
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            if (entry.hub != null) {
-              final hub = entry.hub!;
-              // Hub etwas breiter/quadratisch wie Start-Portal.
-              final hubWidth = (tileHeight * 0.92).clamp(
-                tileHeight * 0.75,
-                tileHeight * 1.15,
-              );
-              return SizedBox(
-                width: hubWidth,
-                height: tileHeight,
-                child: _hubTile(context, hub, index: index),
-              );
-            }
+        ],
+      );
+    }
 
-            final page = entry.page!;
-            final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
-            final pageTileWidth = (tileHeight * ratio).clamp(
-              tileHeight * 0.55,
-              tileHeight * 1.75,
-            );
-            return SizedBox(
-              width: pageTileWidth,
-              height: tileHeight,
-              child: GalleryPageTile(
+    final gallery = layout.isPortrait
+        ? GridView.builder(
+            key: PageStorageKey<String>(
+              coloring ? 'gallery_grid' : 'puzzle_grid',
+            ),
+            controller: gridScroll,
+            scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
+            padding: layout.galleryGridPadding(size).copyWith(top: 8),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: layout.galleryGridCrossAxisCount,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: layout.galleryGridChildAspectRatio,
+            ),
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              if (entry.hub != null) {
+                return _hubTile(context, entry.hub!);
+              }
+              final page = entry.page!;
+              return GalleryPageTile(
                 page: page,
                 isHalloween: _isHalloween(page.id),
                 isNew: _isNew(page.id),
+                compact: true,
                 showDownloadButton: showDownloadButton,
                 favoriteKind:
                     coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
                 onTap: () => onOpenPage(page),
+              );
+            },
+          )
+        : Align(
+            alignment: const Alignment(0, 0.2),
+            child: SizedBox(
+              height: layout.galleryTileHeight,
+              child: ListView.separated(
+                key: PageStorageKey<String>(
+                  coloring ? 'gallery_row' : 'puzzle_row',
+                ),
+                controller: rowScroll,
+                scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+                itemCount: entries.length,
+                separatorBuilder: (_, _) => SizedBox(width: size.width * 0.03),
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  if (entry.hub != null) {
+                    final hub = entry.hub!;
+                    final tileHeight = layout.galleryTileHeight;
+                    final hubWidth = (tileHeight * 0.92).clamp(
+                      tileHeight * 0.75,
+                      tileHeight * 1.15,
+                    );
+                    return SizedBox(
+                      width: hubWidth,
+                      height: tileHeight,
+                      child: _hubTile(context, hub, index: index),
+                    );
+                  }
+
+                  final page = entry.page!;
+                  final tileHeight = layout.galleryTileHeight;
+                  final ratio =
+                      page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
+                  final pageTileWidth = (tileHeight * ratio).clamp(
+                    tileHeight * 0.55,
+                    tileHeight * 1.75,
+                  );
+                  return SizedBox(
+                    width: pageTileWidth,
+                    height: tileHeight,
+                    child: GalleryPageTile(
+                      page: page,
+                      isHalloween: _isHalloween(page.id),
+                      isNew: _isNew(page.id),
+                      showDownloadButton: showDownloadButton,
+                      favoriteKind: coloring
+                          ? FavoriteKind.coloring
+                          : FavoriteKind.puzzle,
+                      onTap: () => onOpenPage(page),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GalleryCategoryTitle(title: title),
+        Expanded(child: gallery),
+      ],
     );
   }
 }

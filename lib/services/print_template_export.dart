@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' show Rect;
 
 import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +12,13 @@ import '../utils/image_source.dart';
 /// Exportiert Ausmal-Vorlagen zum Speichern (Fotos) oder Teilen/Drucken.
 class PrintTemplateExport {
   PrintTemplateExport._();
+
+  /// Dateiname ohne Erweiterung, z. B. `Fairy Fantasy Color 3`.
+  static String exportBaseName(ColoringPage page) {
+    final title = page.title.trim();
+    if (title.isNotEmpty) return title;
+    return 'Fairy Fantasy Color';
+  }
 
   static Future<Uint8List> loadAssetBytes(ColoringPage page) async {
     return loadImageBytes(page.assetPath);
@@ -28,15 +36,22 @@ class PrintTemplateExport {
     final bytes = await loadAssetBytes(page);
     await Gal.putImageBytes(
       bytes,
-      name: 'fantasy_color_${page.id}',
+      name: exportBaseName(page),
     );
   }
 
   /// Öffnet das Teilen-Menü (Druck, AirDrop, Dateien, …).
-  static Future<void> shareOrPrint(ColoringPage page) async {
+  ///
+  /// [sharePositionOrigin] ist auf iPad nötig (Popover-Anker).
+  static Future<void> shareOrPrint(
+    ColoringPage page, {
+    Rect? sharePositionOrigin,
+  }) async {
     final bytes = await loadAssetBytes(page);
+    final baseName = exportBaseName(page);
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/fantasy_color_${page.id}.png');
+    final safeFileStem = baseName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final file = File('${dir.path}/$safeFileStem.png');
     await file.writeAsBytes(bytes, flush: true);
 
     await SharePlus.instance.share(
@@ -45,11 +60,12 @@ class PrintTemplateExport {
           XFile(
             file.path,
             mimeType: 'image/png',
-            name: '${page.title}.png',
+            name: '$baseName.png',
           ),
         ],
-        subject: 'Print template: ${page.title}',
-        text: 'Fantasy Color – Printable coloring page',
+        subject: baseName,
+        text: 'Fairy Fantasy Color – printable coloring page',
+        sharePositionOrigin: sharePositionOrigin,
       ),
     );
   }

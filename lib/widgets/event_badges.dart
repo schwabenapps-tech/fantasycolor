@@ -131,7 +131,7 @@ class _PumpkinBadge extends StatelessWidget {
   }
 }
 
-/// Kleines „NEU“-Badge für frische (nicht-Halloween) Gallery.
+/// Small „NEW“ badge for recently added gallery images.
 class NewBadge extends StatelessWidget {
   const NewBadge({super.key});
 
@@ -153,7 +153,7 @@ class NewBadge extends StatelessWidget {
       child: const Padding(
         padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Text(
-          'NEU',
+          'NEW',
           style: TextStyle(
             color: Color(0xFF2A2410),
             fontSize: 11,

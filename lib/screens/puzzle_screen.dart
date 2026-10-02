@@ -35,17 +35,12 @@ class PuzzleScreen extends StatefulWidget {
 
 class _PuzzleScreenState extends State<PuzzleScreen>
     with TickerProviderStateMixin {
-  static const _trayHeightPhone = 108.0;
-
-  double get _trayHeight => mounted
-      ? AppLayout.of(context).puzzleTrayHeight
-      : _trayHeightPhone;
   /// Snap zum Einrasten — großzügig für Kinderfinger.
   static const _magnetFactor = 0.62;
   /// Goldenes Aufleuchten erst dicht am Ziel (verräts nicht von weitem).
   static const _hintFactor = 0.32;
   /// Ghost dezent — hilft beim Erkennen, ohne einzelne Slots zu verraten.
-  static const _ghostOpacity = 0.14;
+  static const _ghostOpacity = 0.26;
 
   late final ImageProvider _imageProvider;
   bool _imagePrecached = false;
@@ -647,8 +642,23 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     return Size(boardW, boardH);
   }
 
-  Widget _buildBoard(Size maxSize) {
-    final boardSize = _fitBoard(maxSize);
+  /// Board-Größe aus dem verfügbaren Platz; Tray hat eigene, lesbare Höhe.
+  ({Size boardSize, double trayHeight}) _layoutBoardAndTray(Size area) {
+    final layout = AppLayout.of(context);
+    // Tray groß genug für erkennbare Teile, aber nicht dominant.
+    // clamp-Grenzen müssen lower ≤ upper sein (Landscape: niedrige Höhe).
+    final preferred = layout.isTablet ? 160.0 : 142.0;
+    final maxTray = math.max(72.0, area.height * 0.27);
+    final trayHeight = preferred.clamp(72.0, maxTray);
+    final boardMax = Size(
+      math.max(0, area.width - 24),
+      math.max(80, area.height - trayHeight - 8),
+    );
+    final boardSize = _fitBoard(boardMax);
+    return (boardSize: boardSize, trayHeight: trayHeight);
+  }
+
+  Widget _buildBoard(Size maxSize, {required Size boardSize}) {
     final pad = math.max(boardSize.width, boardSize.height) *
         _JigsawBoard.padFraction;
     final framed = Size(
@@ -706,30 +716,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
   }
 
-  Widget _buildTray() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final boardSize = _fitBoard(
-          Size(
-            MediaQuery.sizeOf(context).width - 24,
-            math.max(
-              80,
-              MediaQuery.sizeOf(context).height - _trayHeight - 70,
-            ),
-          ),
-        );
-        return _JigsawTray(
-          tray: _tray,
-          layout: _layout,
-          imageProvider: _imageProvider,
-          rotatePortrait: _rotatePortrait,
-          boardSize: boardSize,
-          onDragRejected: _rejectDrop,
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -779,33 +765,57 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                   ),
                 ),
                 Expanded(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return _buildBoard(
-                                Size(
-                                  constraints.maxWidth,
-                                  constraints.maxHeight,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final area = Size(
+                        constraints.maxWidth,
+                        constraints.maxHeight,
+                      );
+                      final layout = _layoutBoardAndTray(area);
+                      final boardSize = layout.boardSize;
+                      final trayHeight = layout.trayHeight;
+                      final boardMax = Size(
+                        math.max(0, area.width - 24),
+                        math.max(
+                          80,
+                          area.height - (_solved ? 0 : trayHeight) - 8,
+                        ),
+                      );
+
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                              child: boardSize == Size.zero
+                                  ? const SizedBox.shrink()
+                                  : _buildBoard(
+                                      boardMax,
+                                      boardSize: _solved
+                                          ? _fitBoard(boardMax)
+                                          : boardSize,
+                                    ),
+                            ),
+                          ),
+                          if (!_solved)
+                            SizedBox(
+                              height: trayHeight,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                                child: _JigsawTray(
+                                  tray: _tray,
+                                  layout: _layout,
+                                  imageProvider: _imageProvider,
+                                  rotatePortrait: _rotatePortrait,
+                                  boardSize: boardSize,
+                                  onDragRejected: _rejectDrop,
                                 ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      if (!_solved)
-                        SizedBox(
-                          height: _trayHeight,
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                            child: _buildTray(),
-                          ),
-                        ),
-                    ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1443,54 +1453,62 @@ class _JigsawTray extends StatelessWidget {
       row: 0,
       boardSize: boardSize,
     );
-    // Etwas kleiner → mehr Teile sichtbar, Tray besser durchscrollbar.
-    const maxH = 78.0;
-    const maxW = 86.0;
-    var pieceH = maxH;
-    var pieceW = pieceH * (sampleBounds.width / sampleBounds.height);
-    if (pieceW > maxW) {
-      pieceW = maxW;
-      pieceH = pieceW * (sampleBounds.height / sampleBounds.width);
-    }
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.black.withValues(alpha: 0.3),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: tray.isEmpty
-          ? Center(
-              child: Icon(
-                Icons.extension_rounded,
-                color: Colors.white.withValues(alpha: 0.35),
-                size: 28,
-              ),
-            )
-          : ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              itemCount: tray.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final pieceId = tray[index];
-                return Center(
-                  child: _TrayJigsawPiece(
-                    pieceId: pieceId,
-                    layout: layout,
-                    imageProvider: imageProvider,
-                    rotatePortrait: rotatePortrait,
-                    boardSize: boardSize,
-                    width: pieceW,
-                    height: pieceH,
-                    onDragRejected: onDragRejected,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Tray-Teile ~68 % der Tray-Höhe — erkennbar, nicht zu groß.
+        final maxH = math.max(78.0, (constraints.maxHeight - 14) * 0.68);
+        final aspect = sampleBounds.width / math.max(sampleBounds.height, 1);
+        var pieceH = maxH;
+        var pieceW = pieceH * aspect;
+        // Sehr breite Teile etwas begrenzen, Tray bleibt horizontal scrollbar.
+        final maxW = constraints.maxWidth * 0.34;
+        if (pieceW > maxW && maxW > 80) {
+          pieceW = maxW;
+          pieceH = pieceW / aspect;
+        }
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.black.withValues(alpha: 0.3),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: tray.isEmpty
+              ? Center(
+                  child: Icon(
+                    Icons.extension_rounded,
+                    color: Colors.white.withValues(alpha: 0.35),
+                    size: 28,
                   ),
-                );
-              },
-            ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  itemCount: tray.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final pieceId = tray[index];
+                    return Center(
+                      child: _TrayJigsawPiece(
+                        pieceId: pieceId,
+                        layout: layout,
+                        imageProvider: imageProvider,
+                        rotatePortrait: rotatePortrait,
+                        boardSize: boardSize,
+                        width: pieceW,
+                        height: pieceH,
+                        onDragRejected: onDragRejected,
+                      ),
+                    );
+                  },
+                ),
+        );
+      },
     );
   }
 }
@@ -1518,14 +1536,6 @@ class _TrayJigsawPiece extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final col = pieceId % layout.columns;
-    final row = pieceId ~/ layout.columns;
-    final boardBounds = layout.pieceBounds(
-      col: col,
-      row: row,
-      boardSize: boardSize,
-    );
-
     final trayVisual = SizedBox(
       width: width,
       height: height,
@@ -1542,20 +1552,24 @@ class _TrayJigsawPiece extends StatelessWidget {
       ),
     );
 
+    // Gleiche Größe wie im Tray — kein Sprung klein → groß beim Anheben.
     final dragVisual = Material(
       color: Colors.transparent,
       elevation: 12,
       shadowColor: Colors.black54,
       child: SizedBox(
-        width: boardBounds.width,
-        height: boardBounds.height,
-        child: _JigsawPieceVisual(
-          pieceIndex: pieceId,
-          layout: layout,
-          imageProvider: imageProvider,
-          rotatePortrait: rotatePortrait,
-          boardSize: boardSize,
-          withShadow: true,
+        width: width,
+        height: height,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: _JigsawPieceVisual(
+            pieceIndex: pieceId,
+            layout: layout,
+            imageProvider: imageProvider,
+            rotatePortrait: rotatePortrait,
+            boardSize: boardSize,
+            withShadow: true,
+          ),
         ),
       ),
     );
@@ -1566,7 +1580,7 @@ class _TrayJigsawPiece extends StatelessWidget {
       delay: const Duration(milliseconds: 160),
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
-        offset: Offset(-boardBounds.width / 2, -boardBounds.height / 2),
+        offset: Offset(-width / 2, -height / 2),
         child: dragVisual,
       ),
       childWhenDragging: Opacity(opacity: 0.22, child: trayVisual),

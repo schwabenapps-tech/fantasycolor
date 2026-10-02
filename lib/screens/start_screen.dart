@@ -40,6 +40,8 @@ class _StartScreenState extends State<StartScreen>
   void initState() {
     super.initState();
     unawaited(SystemChrome.setPreferredOrientations(_startOrientations));
+    // Musik schon auf dem Startscreen — Signal, dass die App bereit ist.
+    unawaited(AudioService.instance.startAmbient());
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -74,8 +76,7 @@ class _StartScreenState extends State<StartScreen>
         builder: (_) => const HubScreen(),
       ),
     );
-    // Back zum Start: wieder nur Landscape, Musik aus.
-    await AudioService.instance.stopAmbient();
+    // Back zum Start: wieder nur Landscape; Musik läuft weiter.
     await SystemChrome.setPreferredOrientations(_startOrientations);
   }
 

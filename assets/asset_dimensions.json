@@ -189,6 +189,31 @@
       "path": "assets/coloring_pages/fee_clean_38.png",
       "width": 1254,
       "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_39.png",
+      "width": 1371,
+      "height": 1147
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_40.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_41.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_42.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_43.png",
+      "width": 1310,
+      "height": 1201
     }
   ],
   "print_templates": [
@@ -214,6 +239,26 @@
     },
     {
       "path": "assets/print_templates/chatgpt-bild_28_sept_2026_22_16_32.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_30_sept_2026_22_20_30.png",
+      "width": 1371,
+      "height": 1147
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_30_sept_2026_22_41_59.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_30_sept_2026_23_00_17.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_30_sept_2026_23_48_21.png",
       "width": 1312,
       "height": 1199
     },
@@ -373,6 +418,11 @@
       "height": 1254
     },
     {
+      "path": "assets/print_templates/da68d204-2d9d-411f-b112-5f03f1961b2b.png",
+      "width": 1310,
+      "height": 1201
+    },
+    {
       "path": "assets/print_templates/vereinfacht.png",
       "width": 1122,
       "height": 1402
@@ -395,6 +445,11 @@
       "height": 1147
     },
     {
+      "path": "assets/puzzle_images/23907050-b1b0-48dd-a31b-c88fd66dd0ac.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
       "path": "assets/puzzle_images/2bc41579-5cad-4e43-b584-585e93f4c5a2.png",
       "width": 1122,
       "height": 1402
@@ -415,6 +470,11 @@
       "height": 1402
     },
     {
+      "path": "assets/puzzle_images/37ecd5ea-2050-4526-8288-d25a712b3591.png",
+      "width": 1371,
+      "height": 1148
+    },
+    {
       "path": "assets/puzzle_images/5750fa33-e2de-4f1f-825b-bb4210e45989.png",
       "width": 1122,
       "height": 1402
@@ -423,6 +483,11 @@
       "path": "assets/puzzle_images/5edc5c99-68a0-4b6c-984f-89aa7631abb0.png",
       "width": 1122,
       "height": 1402
+    },
+    {
+      "path": "assets/puzzle_images/648c4d0d-70a0-4521-a930-59c802a34da0.png",
+      "width": 1312,
+      "height": 1199
     },
     {
       "path": "assets/puzzle_images/7015e787-cf6c-4ce9-85b6-d11fb335b7dc.png",
@@ -435,7 +500,17 @@
       "height": 1402
     },
     {
+      "path": "assets/puzzle_images/75cb9b01-b259-4b3d-8d65-fd8cab2c98da.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
       "path": "assets/puzzle_images/7a8e54bf-337c-46c4-a1a1-f0b236b83cc3.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/puzzle_images/7c33e133-ce4f-4bb0-bcd3-1257cdd23ce6.png",
       "width": 1312,
       "height": 1199
     },
@@ -480,6 +555,11 @@
       "height": 1402
     },
     {
+      "path": "assets/puzzle_images/aee92dff-fb5b-4081-b1b5-48f13cd231b0.png",
+      "width": 1370,
+      "height": 1148
+    },
+    {
       "path": "assets/puzzle_images/b1e1615e-2e37-4b34-9d21-b86757c3ca10.png",
       "width": 1024,
       "height": 1536
@@ -503,6 +583,11 @@
       "path": "assets/puzzle_images/chatgpt-bild_27_sept_2026_12_50_43.png",
       "width": 1370,
       "height": 1148
+    },
+    {
+      "path": "assets/puzzle_images/chatgpt-bild_30_sept_2026_23_03_37.png",
+      "width": 1312,
+      "height": 1199
     },
     {
       "path": "assets/puzzle_images/chatgpt_image_11_sept_2026_23_09_14.png",

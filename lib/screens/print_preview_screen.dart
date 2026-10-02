@@ -18,6 +18,7 @@ class PrintPreviewScreen extends StatefulWidget {
 
 class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
   bool _busy = false;
+  final GlobalKey _shareButtonKey = GlobalKey();
 
   Future<void> _saveToPhotos() async {
     if (_busy) return;
@@ -37,11 +38,21 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
     }
   }
 
+  Rect? _originFromKey(GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    final origin = box.localToGlobal(Offset.zero);
+    return origin & box.size;
+  }
+
   Future<void> _shareOrPrint() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await PrintTemplateExport.shareOrPrint(widget.page);
+      await PrintTemplateExport.shareOrPrint(
+        widget.page,
+        sharePositionOrigin: _originFromKey(_shareButtonKey),
+      );
     } catch (_) {
       if (!mounted) return;
       _toast('Sharing failed');
@@ -86,7 +97,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          page.title,
+                          'Print template',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -149,6 +160,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _PreviewActionButton(
+                          key: _shareButtonKey,
                           icon: Icons.print_rounded,
                           label: 'Share & Print',
                           color: const Color(0xFF9EC8FF),
@@ -186,6 +198,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
 
 class _PreviewActionButton extends StatelessWidget {
   const _PreviewActionButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,

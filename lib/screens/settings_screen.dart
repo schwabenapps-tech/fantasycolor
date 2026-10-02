@@ -226,6 +226,10 @@ class SettingsScreen extends StatelessWidget {
     required String subject,
     required String body,
   }) async {
+    final box = context.findRenderObject() as RenderBox?;
+    final shareOrigin = (box != null && box.hasSize)
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
     final uri = Uri(
       scheme: 'mailto',
       path: supportEmail,
@@ -246,7 +250,11 @@ class SettingsScreen extends StatelessWidget {
 
     try {
       await SharePlus.instance.share(
-        ShareParams(subject: subject, text: body),
+        ShareParams(
+          subject: subject,
+          text: body,
+          sharePositionOrigin: shareOrigin,
+        ),
       );
       return;
     } catch (e, st) {
