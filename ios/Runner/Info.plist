@@ -81,6 +81,20 @@
 	<string>Fantasy Color saves your colored pictures and print templates to Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Fantasy Color saves your colored pictures and print templates to Photos.</string>
+	<!-- Custom URL für App-Store In-App-Events u. a.: fantasycolor://hub -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.schwabenapps.mkz.fantasyColor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fantasycolor</string>
+			</array>
+		</dict>
+	</array>
 	<!-- AdMob App-ID (Fairy Fantasy Color iOS). -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-5511264969083689~7192521859</string>

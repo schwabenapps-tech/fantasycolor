@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'hub_screen.dart';
 import '../services/audio_service.dart';
+import '../services/deep_link_service.dart';
 import '../utils/app_page_route.dart';
 
 class StartScreen extends StatefulWidget {
@@ -58,6 +59,14 @@ class _StartScreenState extends State<StartScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _fadeController.forward();
+    // App-Store-Event / Custom-URL: direkt in den Hub.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(precacheImage(const AssetImage(_backgroundAsset), context));
+      if (DeepLinkService.instance.consumePendingOpenHub()) {
+        unawaited(_enterHub());
+      }
+    });
   }
 
   @override
@@ -67,7 +76,7 @@ class _StartScreenState extends State<StartScreen>
     super.dispose();
   }
 
-  Future<void> _onPlay() async {
+  Future<void> _enterHub() async {
     await SystemChrome.setPreferredOrientations(_appOrientations);
     unawaited(AudioService.instance.startAmbient());
     if (!mounted) return;
@@ -84,31 +93,34 @@ class _StartScreenState extends State<StartScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
 
+    // Hintergrund sofort voll sichtbar — kein Fade von 0 (sonst schwarzer Flash).
     return Scaffold(
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(
-              _backgroundAsset,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-            ),
-            SafeArea(
+      backgroundColor: const Color(0xFF12263F),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            _backgroundAsset,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            gaplessPlayback: true,
+          ),
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: SafeArea(
               child: Align(
                 alignment: const Alignment(0, 0.78),
                 child: ScaleTransition(
                   scale: _pulseAnimation,
                   child: FantasyPlayButton(
                     size: size.shortestSide * 0.22,
-                    onPressed: _onPlay,
+                    onPressed: () => unawaited(_enterHub()),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

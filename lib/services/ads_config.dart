@@ -2,15 +2,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-/// AdMob-IDs für Fantasy Color.
+/// AdMob-IDs für Fairy Fantasy Color.
 ///
-/// Solange die App in AdMob noch nicht verknüpft ist, laufen **Google-Test-IDs**.
-/// Later echte App-/Unit-IDs hier eintragen und [useTestAds] auf false setzen.
+/// Release/Profile: echte IDs. Debug: Google-Testanzeigen.
 class AdsConfig {
   AdsConfig._();
 
-  /// true = offizielle Google-Testwerbung (sicher für Entwicklung).
-  static const bool useTestAds = true;
+  /// false = echte AdMob-IDs in Release/Profile.
+  /// Debug-Builds nutzen weiterhin Google-Testanzeigen (siehe Getter).
+  static const bool useTestAds = false;
 
   // --- Echte IDs ---
   static const String androidAppId = 'ca-app-pub-5511264969083689~6262583566';
@@ -30,18 +30,16 @@ class AdsConfig {
       'ca-app-pub-3940256099942544/4411468910';
 
   static String get appId {
-    if (useTestAds || kDebugMode && _looksPlaceholder(androidAppId)) {
+    if (useTestAds || kDebugMode) {
       return Platform.isIOS ? _testIosAppId : _testAndroidAppId;
     }
     return Platform.isIOS ? iosAppId : androidAppId;
   }
 
   static String get interstitialAdUnitId {
-    if (useTestAds || kDebugMode && _looksPlaceholder(androidInterstitialUnitId)) {
+    if (useTestAds || kDebugMode) {
       return Platform.isIOS ? _testIosInterstitial : _testAndroidInterstitial;
     }
     return Platform.isIOS ? iosInterstitialUnitId : androidInterstitialUnitId;
   }
-
-  static bool _looksPlaceholder(String id) => id.contains('XXXXXXXX');
 }

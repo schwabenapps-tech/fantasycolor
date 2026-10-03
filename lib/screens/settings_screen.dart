@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/consent_service.dart';
+import '../services/store_config.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -125,6 +127,13 @@ class SettingsScreen extends StatelessWidget {
                                   title: 'Send feedback',
                                   subtitle: 'Share ideas or report a problem',
                                   onTap: () => _openFeedbackDialog(context),
+                                ),
+                                const Divider(height: 8),
+                                _SettingsTile(
+                                  icon: Icons.star_rate_rounded,
+                                  title: 'Rate Fairy Fantasy Color',
+                                  subtitle: 'Open the store page',
+                                  onTap: () => _openStorePage(context),
                                 ),
                               ],
                             ),
@@ -294,6 +303,35 @@ class SettingsScreen extends StatelessWidget {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Could not open link:\n$url')),
+    );
+  }
+
+  static Future<void> _openStorePage(BuildContext context) async {
+    final primary = Platform.isIOS
+        ? StoreConfig.appStoreUri
+        : StoreConfig.playStoreUri;
+    try {
+      if (await launchUrl(primary, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (e, st) {
+      debugPrint('openStorePage primary failed: $e\n$st');
+    }
+    if (Platform.isIOS) {
+      try {
+        if (await launchUrl(
+          StoreConfig.appStoreReviewUri,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return;
+        }
+      } catch (e, st) {
+        debugPrint('openStorePage review failed: $e\n$st');
+      }
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not open store:\n$primary')),
     );
   }
 

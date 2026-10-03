@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../data/event_catalog.dart';
@@ -12,6 +13,7 @@ import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/event_hub_portal.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/welcome_portal_overlay.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
 import 'gallery_screen.dart';
@@ -59,9 +61,12 @@ class HubScreen extends StatefulWidget {
 
 class _HubScreenState extends State<HubScreen>
     with SingleTickerProviderStateMixin {
+  static const _welcomeSeenKey = 'welcome_portal_seen_v1';
+
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
   bool _slideshowPrecached = false;
+  bool _showWelcome = false;
   Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>?
       _eventFuture;
 
@@ -79,6 +84,28 @@ class _HubScreenState extends State<HubScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+    // Nach Play-Button / Hub-Einstieg — nicht auf dem Startscreen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeShowWelcome());
+    });
+  }
+
+  Future<void> _maybeShowWelcome() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_welcomeSeenKey) == true) return;
+      if (!mounted) return;
+      setState(() => _showWelcome = true);
+    } catch (_) {}
+  }
+
+  Future<void> _dismissWelcome() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_welcomeSeenKey, true);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _showWelcome = false);
   }
 
   Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>
@@ -349,6 +376,10 @@ class _HubScreenState extends State<HubScreen>
               ),
             ),
           ),
+          if (_showWelcome)
+            WelcomePortalOverlay(
+              onFinished: () => unawaited(_dismissWelcome()),
+            ),
         ],
       ),
     );
