@@ -70,6 +70,25 @@ class JigsawLayout {
     return _verticalOut[row][col] ? JigsawEdge.tab : JigsawEdge.blank;
   }
 
+  /// Größte Teil-Bounding-Box (für einheitliche Tray-Skalierung).
+  Size maxPieceSize({required Size boardSize, double tabSize = 0.24}) {
+    var maxW = 0.0;
+    var maxH = 0.0;
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < columns; col++) {
+        final b = pieceBounds(
+          col: col,
+          row: row,
+          boardSize: boardSize,
+          tabSize: tabSize,
+        );
+        maxW = math.max(maxW, b.width);
+        maxH = math.max(maxH, b.height);
+      }
+    }
+    return Size(maxW, maxH);
+  }
+
   /// Bounding-Box eines Teils inkl. herausstehender Zapfen/Wellen.
   Rect pieceBounds({
     required int col,

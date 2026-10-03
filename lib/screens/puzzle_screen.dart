@@ -1448,25 +1448,15 @@ class _JigsawTray extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sampleBounds = layout.pieceBounds(
-      col: 0,
-      row: 0,
-      boardSize: boardSize,
-    );
+    // Einheitliche Skalierung: alle Teile passen in denselben Max-Slot
+    // (sonst wirken Teile mit mehr Zapfen kleiner — und der Tray „ändert“ Größe).
+    final maxPiece = layout.maxPieceSize(boardSize: boardSize);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Tray-Teile ~68 % der Tray-Höhe — erkennbar, nicht zu groß.
-        final maxH = math.max(78.0, (constraints.maxHeight - 14) * 0.68);
-        final aspect = sampleBounds.width / math.max(sampleBounds.height, 1);
-        var pieceH = maxH;
-        var pieceW = pieceH * aspect;
-        // Sehr breite Teile etwas begrenzen, Tray bleibt horizontal scrollbar.
-        final maxW = constraints.maxWidth * 0.34;
-        if (pieceW > maxW && maxW > 80) {
-          pieceW = maxW;
-          pieceH = pieceW / aspect;
-        }
+        final slotH = math.max(78.0, (constraints.maxHeight - 14) * 0.68);
+        final aspect = maxPiece.width / math.max(maxPiece.height, 1);
+        final slotW = slotH * aspect;
 
         return DecoratedBox(
           decoration: BoxDecoration(
@@ -1500,8 +1490,9 @@ class _JigsawTray extends StatelessWidget {
                         imageProvider: imageProvider,
                         rotatePortrait: rotatePortrait,
                         boardSize: boardSize,
-                        width: pieceW,
-                        height: pieceH,
+                        slotWidth: slotW,
+                        slotHeight: slotH,
+                        maxPieceSize: maxPiece,
                         onDragRejected: onDragRejected,
                       ),
                     );
@@ -1520,8 +1511,9 @@ class _TrayJigsawPiece extends StatelessWidget {
     required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
-    required this.width,
-    required this.height,
+    required this.slotWidth,
+    required this.slotHeight,
+    required this.maxPieceSize,
     required this.onDragRejected,
   });
 
@@ -1530,48 +1522,45 @@ class _TrayJigsawPiece extends StatelessWidget {
   final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
-  final double width;
-  final double height;
+  final double slotWidth;
+  final double slotHeight;
+  final Size maxPieceSize;
   final void Function(int nearSlot) onDragRejected;
 
-  @override
-  Widget build(BuildContext context) {
-    final trayVisual = SizedBox(
-      width: width,
-      height: height,
+  /// Gleiche Skala für jedes Teil: Visual in Max-Box, dann in Slot fitten.
+  Widget _scaledPiece({required bool withShadow}) {
+    return SizedBox(
+      width: slotWidth,
+      height: slotHeight,
       child: FittedBox(
         fit: BoxFit.contain,
-        child: _JigsawPieceVisual(
-          pieceIndex: pieceId,
-          layout: layout,
-          imageProvider: imageProvider,
-          rotatePortrait: rotatePortrait,
-          boardSize: boardSize,
-          withShadow: true,
+        child: SizedBox(
+          width: maxPieceSize.width,
+          height: maxPieceSize.height,
+          child: Center(
+            child: _JigsawPieceVisual(
+              pieceIndex: pieceId,
+              layout: layout,
+              imageProvider: imageProvider,
+              rotatePortrait: rotatePortrait,
+              boardSize: boardSize,
+              withShadow: withShadow,
+            ),
+          ),
         ),
       ),
     );
+  }
 
-    // Gleiche Größe wie im Tray — kein Sprung klein → groß beim Anheben.
+  @override
+  Widget build(BuildContext context) {
+    final trayVisual = _scaledPiece(withShadow: true);
+
     final dragVisual = Material(
       color: Colors.transparent,
       elevation: 12,
       shadowColor: Colors.black54,
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: _JigsawPieceVisual(
-            pieceIndex: pieceId,
-            layout: layout,
-            imageProvider: imageProvider,
-            rotatePortrait: rotatePortrait,
-            boardSize: boardSize,
-            withShadow: true,
-          ),
-        ),
-      ),
+      child: _scaledPiece(withShadow: true),
     );
 
     return LongPressDraggable<int>(
@@ -1580,7 +1569,7 @@ class _TrayJigsawPiece extends StatelessWidget {
       delay: const Duration(milliseconds: 160),
       dragAnchorStrategy: pointerDragAnchorStrategy,
       feedback: Transform.translate(
-        offset: Offset(-width / 2, -height / 2),
+        offset: Offset(-slotWidth / 2, -slotHeight / 2),
         child: dragVisual,
       ),
       childWhenDragging: Opacity(opacity: 0.22, child: trayVisual),
