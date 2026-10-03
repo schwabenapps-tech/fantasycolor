@@ -164,6 +164,23 @@ class AudioService extends ChangeNotifier {
     });
   }
 
+  /// App im Hintergrund / Display aus → Musik pausieren.
+  Future<void> pauseForBackground() async {
+    _ambientDebounce?.cancel();
+    await _enqueueMusic(() async {
+      try {
+        await _music?.pause();
+      } catch (_) {}
+    });
+  }
+
+  /// App wieder aktiv → Ambient fortsetzen (wenn gewünscht und nicht stumm).
+  Future<void> resumeFromBackground() async {
+    if (!_musicWanted || _muted) return;
+    await initialize();
+    await _enqueueMusic(() => _ensurePlayingUnlocked(force: false));
+  }
+
   Future<void> playLevelComplete() async {
     await initialize();
     if (_muted) return;

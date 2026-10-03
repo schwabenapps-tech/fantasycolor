@@ -93,21 +93,37 @@ class FantasyColorApp extends StatefulWidget {
   State<FantasyColorApp> createState() => _FantasyColorAppState();
 }
 
-class _FantasyColorAppState extends State<FantasyColorApp> {
+class _FantasyColorAppState extends State<FantasyColorApp>
+    with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     DeepLinkService.instance.onOpenHub = _openHubFromDeepLink;
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (identical(DeepLinkService.instance.onOpenHub, _openHubFromDeepLink)) {
       DeepLinkService.instance.onOpenHub = null;
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        unawaited(AudioService.instance.pauseForBackground());
+      case AppLifecycleState.resumed:
+        unawaited(AudioService.instance.resumeFromBackground());
+    }
   }
 
   void _openHubFromDeepLink() {
