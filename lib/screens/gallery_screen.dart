@@ -179,7 +179,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                             return CatalogGalleryBody(
                               catalog: catalog,
                               tags: tags,
-                              coloring: true,
+                              kind: CatalogGalleryKind.coloring,
                               categoryTitle: 'Color',
                               onOpenPage: _openSimplePage,
                               gridScroll: _gridScroll,

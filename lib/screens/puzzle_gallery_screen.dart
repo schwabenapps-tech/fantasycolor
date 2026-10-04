@@ -175,7 +175,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                             return CatalogGalleryBody(
                               catalog: catalog,
                               tags: tags,
-                              coloring: false,
+                              kind: CatalogGalleryKind.puzzle,
                               categoryTitle: 'Puzzle',
                               showDownloadButton: true,
                               onOpenPage: _openPuzzle,

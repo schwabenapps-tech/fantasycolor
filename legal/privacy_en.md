@@ -1,19 +1,19 @@
-# Privacy Policy — Fantasy Color
+# Privacy Policy — Fairy Fantasy Color
 
 **Last updated:** 29 September 2026  
 **Operator:** Schwaben Apps  
 **Contact:** fantasycolor@schwabenapps.com  
-**App:** Fantasy Color (package / bundle ID: `com.schwabenapps.mkz.fantasyColor`)
+**App:** Fairy Fantasy Color (package / bundle ID: `com.schwabenapps.mkz.fantasyColor`)
 
-This Privacy Policy explains how Schwaben Apps (“we”, “us”) handles information when you use Fantasy Color on iOS or Android.
+This Privacy Policy explains how Schwaben Apps (“we”, “us”) handles information when you use Fairy Fantasy Color on iOS or Android.
 
-Fantasy Color is designed for children and families. We aim to collect as little data as possible.
+Fairy Fantasy Color is designed for children and families. We aim to collect as little data as possible.
 
 ---
 
 ## 1. Who we are
 
-Schwaben Apps operates Fantasy Color.  
+Schwaben Apps operates Fairy Fantasy Color.  
 For privacy questions, contact us at **fantasycolor@schwabenapps.com**.
 
 ---
@@ -27,7 +27,7 @@ The following stays **on your device** and is not uploaded to Schwaben Apps as p
 - App settings (for example music on/off)
 - Locally saved or exported images you create (when you choose to save/share)
 
-We do **not** require an account to use Fantasy Color.
+We do **not** require an account to use Fairy Fantasy Color.
 
 ---
 
@@ -35,7 +35,7 @@ We do **not** require an account to use Fantasy Color.
 
 ### 3.1 Anonymous analytics (Firebase Analytics)
 
-We use Google Firebase Analytics to understand how the app is used (for example which screens are opened). This helps us improve Fantasy Color.
+We use Google Firebase Analytics to understand how the app is used (for example which screens are opened). This helps us improve Fairy Fantasy Color.
 
 Analytics are configured without collecting names, email addresses, or personal profiles of children. Events are used in aggregate form.
 
@@ -45,9 +45,9 @@ If the app crashes, we may receive technical crash diagnostics (for example devi
 
 ### 3.3 Advertising (Google AdMob)
 
-Fantasy Color may show ads. Ads are configured for **child-directed / age-restricted treatment** and **G-rated** ad content where supported by the ad SDK and platform rules. We also request **non-personalized** ads where supported.
+Fairy Fantasy Color may show ads. Ads are configured for **child-directed / age-restricted treatment** and **G-rated** ad content where supported by the ad SDK and platform rules. We also request **non-personalized** ads where supported.
 
-Where European privacy rules require it, we use Google’s **User Messaging Platform (UMP)** before ads load. Because Fantasy Color is directed to children and families, we treat users as **under the age of consent** for UMP (consent is not collected from children). Where required, privacy choices are available in **Settings → Ad privacy choices**.
+Where European privacy rules require it, we use Google’s **User Messaging Platform (UMP)** before ads load. Because Fairy Fantasy Color is directed to children and families, we treat users as **under the age of consent** for UMP (consent is not collected from children). Where required, privacy choices are available in **Settings → Ad privacy choices**.
 
 Ad providers may process device and advertising identifiers according to their own policies and applicable law (including parental/guardian consent requirements where required).
 
@@ -71,7 +71,7 @@ If you contact us by email or send feedback through your mail app, we receive th
 
 ## 5. Children / kids-directed use
 
-Fantasy Color is intended for children and families. We design data practices with child privacy in mind (COPPA-oriented / child-directed ad settings where applicable).
+Fairy Fantasy Color is intended for children and families. We design data practices with child privacy in mind (COPPA-oriented / child-directed ad settings where applicable).
 
 Parents and guardians are responsible for supervising device use and reviewing platform privacy settings (Apple / Google).
 

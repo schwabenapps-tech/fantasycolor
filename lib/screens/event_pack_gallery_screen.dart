@@ -13,12 +13,14 @@ import '../screens/favorites_screen.dart';
 import '../services/analytics_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
+import '../widgets/catalog_gallery_body.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
 import '../widgets/gallery_category_title.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
+import 'print_preview_screen.dart';
 import 'puzzle_screen.dart';
 import '../utils/app_page_route.dart';
 
@@ -27,39 +29,49 @@ class EventPackGalleryScreen extends StatelessWidget {
   const EventPackGalleryScreen({
     super.key,
     required this.section,
-    required this.coloring,
+    required this.kind,
     this.halloweenIds = const {},
     this.tags,
   });
 
   final GallerySection section;
-  final bool coloring;
+  final CatalogGalleryKind kind;
   final Set<String> halloweenIds;
   final EventTags? tags;
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
 
+  bool get _coloring => kind == CatalogGalleryKind.coloring;
+  bool get _print => kind == CatalogGalleryKind.print;
+
   bool _isNew(String id) {
     final t = tags;
-    if (t == null) return false;
-    return coloring ? t.isNewColoring(id) : t.isNewPuzzle(id);
+    if (t == null || _print) return false;
+    return _coloring ? t.isNewColoring(id) : t.isNewPuzzle(id);
   }
 
   void _open(BuildContext context, ColoringPage page) {
-    if (coloring) {
-      AnalyticsService.instance.logStartColoring(page.id);
-      Navigator.of(context).push(
-        AppPageRoute<void>(
-        builder: (_) => ColoringPreviewScreen(page: page),
-      ),
-      );
-    } else {
-      AnalyticsService.instance.logStartPuzzle(page.id);
-      Navigator.of(context).push(
-        AppPageRoute<void>(
-        builder: (_) => PuzzleScreen(puzzle: page),
-      ),
-      );
+    switch (kind) {
+      case CatalogGalleryKind.coloring:
+        AnalyticsService.instance.logStartColoring(page.id);
+        Navigator.of(context).push(
+          AppPageRoute<void>(
+            builder: (_) => ColoringPreviewScreen(page: page),
+          ),
+        );
+      case CatalogGalleryKind.puzzle:
+        AnalyticsService.instance.logStartPuzzle(page.id);
+        Navigator.of(context).push(
+          AppPageRoute<void>(
+            builder: (_) => PuzzleScreen(puzzle: page),
+          ),
+        );
+      case CatalogGalleryKind.print:
+        Navigator.of(context).push(
+          AppPageRoute<void>(
+            builder: (_) => PrintPreviewScreen(page: page),
+          ),
+        );
     }
   }
 
@@ -85,7 +97,11 @@ class EventPackGalleryScreen extends StatelessWidget {
                 Column(
                   children: [
                     GalleryCategoryTitle(
-                      title: coloring ? 'Color' : 'Puzzle',
+                      title: switch (kind) {
+                        CatalogGalleryKind.coloring => 'Color',
+                        CatalogGalleryKind.puzzle => 'Puzzle',
+                        CatalogGalleryKind.print => 'Print',
+                      },
                       subtitle: section.title,
                       accentColor: section.isPastEvent
                           ? const Color(0xFFB8C0D4)
@@ -122,8 +138,10 @@ class EventPackGalleryScreen extends StatelessWidget {
                                           halloweenIds.contains(page.id),
                                       isNew: _isNew(page.id),
                                       compact: true,
-                                      showDownloadButton: !coloring,
-                                      favoriteKind: coloring
+                                      showDownloadButton:
+                                          kind == CatalogGalleryKind.puzzle,
+                                      showFavoriteButton: !_print,
+                                      favoriteKind: _coloring
                                           ? FavoriteKind.coloring
                                           : FavoriteKind.puzzle,
                                       onTap: () => _open(context, page),
@@ -159,8 +177,10 @@ class EventPackGalleryScreen extends StatelessWidget {
                                             isHalloween: halloweenIds
                                                 .contains(page.id),
                                             isNew: _isNew(page.id),
-                                            showDownloadButton: !coloring,
-                                            favoriteKind: coloring
+                                            showDownloadButton: kind ==
+                                                CatalogGalleryKind.puzzle,
+                                            showFavoriteButton: !_print,
+                                            favoriteKind: _coloring
                                                 ? FavoriteKind.coloring
                                                 : FavoriteKind.puzzle,
                                             onTap: () =>

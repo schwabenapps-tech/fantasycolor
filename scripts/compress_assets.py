@@ -11,6 +11,7 @@ from PIL import Image
 
 FOLDERS = [
     "assets/coloring_pages",
+    "assets/print_templates",
     "assets/puzzle_images",
     "assets/images",
 ]

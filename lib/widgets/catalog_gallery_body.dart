@@ -11,29 +11,34 @@ import '../utils/app_page_route.dart';
 import '../widgets/event_hub_portal.dart';
 import '../widgets/gallery_category_title.dart';
 
+enum CatalogGalleryKind { coloring, puzzle, print }
+
 /// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Gallery → abgelaufene Hubs hinten.
 class CatalogGalleryBody extends StatelessWidget {
   const CatalogGalleryBody({
     super.key,
     required this.catalog,
     required this.tags,
-    required this.coloring,
+    required this.kind,
     required this.onOpenPage,
     this.gridScroll,
     this.rowScroll,
     this.showDownloadButton = false,
     this.categoryTitle,
+    this.halloweenIds = const {},
   });
 
   final GalleryCatalog catalog;
   final EventTags tags;
-  final bool coloring;
+  final CatalogGalleryKind kind;
   final ValueChanged<ColoringPage> onOpenPage;
   final ScrollController? gridScroll;
   final ScrollController? rowScroll;
   final bool showDownloadButton;
-  /// z. B. „Color“ / „Puzzle“ — immer sichtbar oben in der Ansicht.
+  /// z. B. „Color“ / „Puzzle“ / „Print“ — immer sichtbar oben in der Ansicht.
   final String? categoryTitle;
+  /// Für Print: Halloween-Druckvorlagen-IDs. Sonst aus [tags] abgeleitet.
+  final Set<String> halloweenIds;
 
   List<_Entry> _entries() {
     return [
@@ -43,26 +48,34 @@ class CatalogGalleryBody extends StatelessWidget {
     ];
   }
 
-  bool _isHalloween(String id) => coloring
-      ? tags.isHalloweenColoring(id)
-      : tags.isHalloweenPuzzle(id);
+  Set<String> get _halloweenIds {
+    if (halloweenIds.isNotEmpty) return halloweenIds;
+    return switch (kind) {
+      CatalogGalleryKind.coloring => tags.halloweenColoring,
+      CatalogGalleryKind.puzzle => tags.halloweenPuzzle,
+      CatalogGalleryKind.print => const {},
+    };
+  }
+
+  bool _isHalloween(String id) => _halloweenIds.contains(id);
 
   bool _isNew(String id) {
-    return coloring ? tags.isNewColoring(id) : tags.isNewPuzzle(id);
+    return switch (kind) {
+      CatalogGalleryKind.coloring => tags.isNewColoring(id),
+      CatalogGalleryKind.puzzle => tags.isNewPuzzle(id),
+      CatalogGalleryKind.print => false,
+    };
   }
 
   void _openEvent(BuildContext context, GallerySection section) {
-    final halloweenIds = coloring
-        ? tags.halloweenColoring
-        : tags.halloweenPuzzle;
     Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => EventPackGalleryScreen(
-              section: section,
-              coloring: coloring,
-              halloweenIds: halloweenIds,
-              tags: tags,
-            ),
+          section: section,
+          kind: kind,
+          halloweenIds: _halloweenIds,
+          tags: tags,
+        ),
       ),
     );
   }
@@ -94,12 +107,32 @@ class CatalogGalleryBody extends StatelessWidget {
     );
   }
 
+  String get _storageKey => switch (kind) {
+        CatalogGalleryKind.coloring => 'gallery',
+        CatalogGalleryKind.puzzle => 'puzzle',
+        CatalogGalleryKind.print => 'print',
+      };
+
+  FavoriteKind get _favoriteKind => switch (kind) {
+        CatalogGalleryKind.coloring => FavoriteKind.coloring,
+        CatalogGalleryKind.puzzle => FavoriteKind.puzzle,
+        CatalogGalleryKind.print => FavoriteKind.coloring,
+      };
+
+  bool get _showFavoriteButton => kind != CatalogGalleryKind.print;
+
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final size = MediaQuery.sizeOf(context);
     final entries = _entries();
-    final title = (categoryTitle ?? (coloring ? 'Color' : 'Puzzle')).trim();
+    final title = (categoryTitle ??
+            switch (kind) {
+              CatalogGalleryKind.coloring => 'Color',
+              CatalogGalleryKind.puzzle => 'Puzzle',
+              CatalogGalleryKind.print => 'Print',
+            })
+        .trim();
     if (entries.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,9 +152,7 @@ class CatalogGalleryBody extends StatelessWidget {
 
     final gallery = layout.isPortrait
         ? GridView.builder(
-            key: PageStorageKey<String>(
-              coloring ? 'gallery_grid' : 'puzzle_grid',
-            ),
+            key: PageStorageKey<String>('${_storageKey}_grid'),
             controller: gridScroll,
             scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
             padding: layout.galleryGridPadding(size).copyWith(top: 8),
@@ -144,8 +175,8 @@ class CatalogGalleryBody extends StatelessWidget {
                 isNew: _isNew(page.id),
                 compact: true,
                 showDownloadButton: showDownloadButton,
-                favoriteKind:
-                    coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
+                showFavoriteButton: _showFavoriteButton,
+                favoriteKind: _favoriteKind,
                 onTap: () => onOpenPage(page),
               );
             },
@@ -155,9 +186,7 @@ class CatalogGalleryBody extends StatelessWidget {
             child: SizedBox(
               height: layout.galleryTileHeight,
               child: ListView.separated(
-                key: PageStorageKey<String>(
-                  coloring ? 'gallery_row' : 'puzzle_row',
-                ),
+                key: PageStorageKey<String>('${_storageKey}_row'),
                 controller: rowScroll,
                 scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
                 scrollDirection: Axis.horizontal,
@@ -196,9 +225,8 @@ class CatalogGalleryBody extends StatelessWidget {
                       isHalloween: _isHalloween(page.id),
                       isNew: _isNew(page.id),
                       showDownloadButton: showDownloadButton,
-                      favoriteKind: coloring
-                          ? FavoriteKind.coloring
-                          : FavoriteKind.puzzle,
+                      showFavoriteButton: _showFavoriteButton,
+                      favoriteKind: _favoriteKind,
                       onTap: () => onOpenPage(page),
                     ),
                   );

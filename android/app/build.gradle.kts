@@ -69,3 +69,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // AdMob/GMA zieht work-runtime 2.7.0 → StartupException / WorkDatabase-Crash
+    // in Release (Android 16 / AGP 9). Bekannter Fix: neuere WorkManager-Version erzwingen.
+    // https://github.com/googleads/googleads-mobile-flutter/issues/1444
+    implementation("androidx.work:work-runtime:2.11.2")
+}

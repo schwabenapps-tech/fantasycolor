@@ -1,19 +1,19 @@
-# Datenschutzerklärung — Fantasy Color
+# Datenschutzerklärung — Fairy Fantasy Color
 
 **Stand:** 29. September 2026  
 **Anbieter:** Schwaben Apps  
 **Kontakt:** fantasycolor@schwabenapps.com  
-**App:** Fantasy Color (Paket- / Bundle-ID: `com.schwabenapps.mkz.fantasyColor`)
+**App:** Fairy Fantasy Color (Paket- / Bundle-ID: `com.schwabenapps.mkz.fantasyColor`)
 
-Diese Datenschutzerklärung erläutert, wie Schwaben Apps („wir“) Informationen verarbeitet, wenn Sie Fantasy Color unter iOS oder Android nutzen.
+Diese Datenschutzerklärung erläutert, wie Schwaben Apps („wir“) Informationen verarbeitet, wenn Sie Fairy Fantasy Color unter iOS oder Android nutzen.
 
-Fantasy Color ist für Kinder und Familien gedacht. Wir erheben so wenig Daten wie möglich.
+Fairy Fantasy Color ist für Kinder und Familien gedacht. Wir erheben so wenig Daten wie möglich.
 
 ---
 
 ## 1. Verantwortlicher
 
-Verantwortlich für Fantasy Color ist Schwaben Apps.  
+Verantwortlich für Fairy Fantasy Color ist Schwaben Apps.  
 Bei Fragen zum Datenschutz: **fantasycolor@schwabenapps.com**.
 
 ---
@@ -27,7 +27,7 @@ Folgende Inhalte verbleiben **auf Ihrem Gerät** und werden nicht als persönlic
 - App-Einstellungen (z. B. Musik an/aus)
 - Lokal gespeicherte oder exportierte Bilder, die Sie selbst erstellen (wenn Sie speichern/teilen)
 
-Für die Nutzung von Fantasy Color ist **kein Benutzerkonto** erforderlich.
+Für die Nutzung von Fairy Fantasy Color ist **kein Benutzerkonto** erforderlich.
 
 ---
 
@@ -35,7 +35,7 @@ Für die Nutzung von Fantasy Color ist **kein Benutzerkonto** erforderlich.
 
 ### 3.1 Anonyme Nutzungsanalyse (Firebase Analytics)
 
-Wir nutzen Google Firebase Analytics, um zu verstehen, wie die App genutzt wird (z. B. welche Bildschirme geöffnet werden). Das hilft uns, Fantasy Color zu verbessern.
+Wir nutzen Google Firebase Analytics, um zu verstehen, wie die App genutzt wird (z. B. welche Bildschirme geöffnet werden). Das hilft uns, Fairy Fantasy Color zu verbessern.
 
 Die Analyse ist so konfiguriert, dass keine Namen, E-Mail-Adressen oder persönlichen Kinderprofile erhoben werden. Ereignisse werden in zusammengefasster Form genutzt.
 
@@ -45,9 +45,9 @@ Bei Abstürzen können technische Diagnoseinformationen (z. B. Gerätemodell, Be
 
 ### 3.3 Werbung (Google AdMob)
 
-Fantasy Color kann Werbung anzeigen. Die Anzeigen sind – soweit vom SDK und den Plattformregeln unterstützt – für **kindgerichtete / altersbeschränkte Behandlung** und **G-Content** konfiguriert. Soweit unterstützt, fordern wir **nicht personalisierte** Anzeigen an.
+Fairy Fantasy Color kann Werbung anzeigen. Die Anzeigen sind – soweit vom SDK und den Plattformregeln unterstützt – für **kindgerichtete / altersbeschränkte Behandlung** und **G-Content** konfiguriert. Soweit unterstützt, fordern wir **nicht personalisierte** Anzeigen an.
 
-Soweit europäische Datenschutzregeln es verlangen, nutzen wir Googles **User Messaging Platform (UMP)** vor dem Laden von Werbung. Da Fantasy Color an Kinder und Familien gerichtet ist, behandeln wir Nutzer für UMP als **unter dem Einwilligungsalter** (keine Einwilligung von Kindern). Falls erforderlich, finden Sie Datenschutzoptionen unter **Settings → Ad privacy choices**.
+Soweit europäische Datenschutzregeln es verlangen, nutzen wir Googles **User Messaging Platform (UMP)** vor dem Laden von Werbung. Da Fairy Fantasy Color an Kinder und Familien gerichtet ist, behandeln wir Nutzer für UMP als **unter dem Einwilligungsalter** (keine Einwilligung von Kindern). Falls erforderlich, finden Sie Datenschutzoptionen unter **Settings → Ad privacy choices**.
 
 Werbeanbieter können Geräte- und Werbekennungen gemäß eigener Richtlinien und geltendem Recht verarbeiten (einschließlich ggf. erforderlicher Einwilligungen von Eltern/Erziehungsberechtigten).
 
@@ -71,7 +71,7 @@ Wenn Sie uns per E-Mail kontaktieren oder Feedback über Ihre Mail-App senden, e
 
 ## 5. Kinder / kindgerichtete Nutzung
 
-Fantasy Color richtet sich an Kinder und Familien. Wir gestalten die Datenpraxis mit Blick auf den Schutz der Privatsphäre von Kindern (u. a. kindgerichtete Werbeeinstellungen, soweit anwendbar).
+Fairy Fantasy Color richtet sich an Kinder und Familien. Wir gestalten die Datenpraxis mit Blick auf den Schutz der Privatsphäre von Kindern (u. a. kindgerichtete Werbeeinstellungen, soweit anwendbar).
 
 Eltern und Erziehungsberechtigte sind für die Aufsicht über die Gerätenutzung und die Prüfung der Plattform-Datenschutzeinstellungen (Apple / Google) verantwortlich.
 

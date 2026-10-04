@@ -148,7 +148,7 @@ class SettingsScreen extends StatelessWidget {
                                   icon: Icons.palette_outlined,
                                   title: 'Original artwork',
                                   subtitle:
-                                      'All images in Fantasy Color are '
+                                      'All images in Fairy Fantasy Color are '
                                       'original creations made for this app.',
                                   onTap: () => _showArtworkInfo(context),
                                 ),
@@ -157,7 +157,7 @@ class SettingsScreen extends StatelessWidget {
                                   icon: Icons.privacy_tip_outlined,
                                   title: 'Privacy',
                                   subtitle:
-                                      'How Fantasy Color handles your data',
+                                      'How Fairy Fantasy Color handles your data',
                                   onTap: () => _openUrl(context, privacyUrl),
                                 ),
                                 const Divider(height: 8),
@@ -174,13 +174,13 @@ class SettingsScreen extends StatelessWidget {
                                 _SettingsTile(
                                   icon: Icons.description_outlined,
                                   title: 'Terms of Use',
-                                  subtitle: 'Rules for using Fantasy Color',
+                                  subtitle: 'Rules for using Fairy Fantasy Color',
                                   onTap: () => _openUrl(context, termsUrl),
                                 ),
                                 const Divider(height: 8),
                                 const _SettingsTile(
                                   icon: Icons.info_outline_rounded,
-                                  title: 'Fantasy Color',
+                                  title: 'Fairy Fantasy Color',
                                   subtitle: 'Version $appVersion\nSchwaben Apps',
                                 ),
                               ],
@@ -209,7 +209,7 @@ class SettingsScreen extends StatelessWidget {
   static Future<void> _openSupportMail(BuildContext context) async {
     await _sendMail(
       context,
-      subject: 'Fantasy Color Support',
+      subject: 'Fairy Fantasy Color Support',
       body: 'App version: $appVersion\n\n'
           'Issue:\n\n'
           'Message:\n',
@@ -225,7 +225,7 @@ class SettingsScreen extends StatelessWidget {
     if (!context.mounted) return;
     await _sendMail(
       context,
-      subject: 'Fantasy Color Feedback',
+      subject: 'Fairy Fantasy Color Feedback',
       body: 'App version: $appVersion\n\n${message.trim()}',
     );
   }
@@ -342,7 +342,7 @@ class SettingsScreen extends StatelessWidget {
         title: const Text('Original artwork'),
         content: const Text(
           'Every coloring page, puzzle image, and print template in '
-          'Fantasy Color is an original creation made for this app. '
+          'Fairy Fantasy Color is an original creation made for this app. '
           'Thank you for coloring with us!',
         ),
         actions: [

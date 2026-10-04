@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -29,16 +30,16 @@ const _bootBackground = Color(0xFF12263F);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
-  unawaited(AnalyticsService.instance.initialize());
-  unawaited(FirebaseAnalytics.instance.logAppOpen());
+  final firebaseReady = await _initFirebaseBestEffort();
+  if (firebaseReady) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+    unawaited(AnalyticsService.instance.initialize());
+    unawaited(_logAppOpenBestEffort());
+  }
 
   // Start-Screen Landscape — parallel zu UI-Mode, damit Splash kürzer wirkt.
   await Future.wait([
@@ -55,14 +56,16 @@ Future<void> main() async {
   final pixelUnlock = PixelModeUnlockStore();
   final pixelProgress = PixelProgressStore();
 
-  // Stores / Ads / Audio nach erstem Frame laden — schneller sichtbarer Start.
-  unawaited(AdsService.initialize());
-  unawaited(AudioService.instance.initialize());
-  unawaited(RemotePackService.instance.sync());
-  unawaited(favorites.load());
-  unawaited(progress.load());
-  unawaited(pixelUnlock.load());
-  unawaited(pixelProgress.load());
+  // Schwere Init erst nach dem ersten Frame — UI darf nie am Boot hängen.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(AdsService.initialize());
+    unawaited(AudioService.instance.initialize());
+    unawaited(RemotePackService.instance.sync());
+    unawaited(favorites.load());
+    unawaited(progress.load());
+    unawaited(pixelUnlock.load());
+    unawaited(pixelProgress.load());
+  });
 
   runApp(
     FantasyColorApp(
@@ -72,6 +75,26 @@ Future<void> main() async {
       pixelProgress: pixelProgress,
     ),
   );
+}
+
+Future<bool> _initFirebaseBestEffort() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    return true;
+  } catch (e, st) {
+    debugPrint('Firebase.initializeApp failed: $e\n$st');
+    return false;
+  }
+}
+
+Future<void> _logAppOpenBestEffort() async {
+  try {
+    await FirebaseAnalytics.instance.logAppOpen();
+  } catch (e, st) {
+    debugPrint('FirebaseAnalytics.logAppOpen failed: $e\n$st');
+  }
 }
 
 class FantasyColorApp extends StatefulWidget {
@@ -178,7 +201,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         debugShowCheckedModeBanner: false,
         navigatorKey: _navigatorKey,
         navigatorObservers: [
-          AnalyticsService.instance.observer,
+          if (Firebase.apps.isNotEmpty) AnalyticsService.instance.observer,
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

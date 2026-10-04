@@ -1,4 +1,4 @@
-# Legal texts (Fantasy Color)
+# Legal texts (Fairy Fantasy Color)
 
 Hosted live on Cloudflare R2 / CDN:
 
@@ -35,7 +35,7 @@ App code already runs UMP before ads. You still need a message in AdMob:
 
 1. AdMob → **Privacy & messaging**
 2. Create a **European regulations (GDPR)** message
-3. Publish and **assign it to Fantasy Color** (Android + iOS apps)
+3. Publish and **assign it to Fairy Fantasy Color** (Android + iOS apps)
 4. Keep ads **child-directed / G-rated**; the app already sets TFUA + non-personalized requests
 
 Until the message is published and the app has real AdMob IDs, UMP may do little in production outside test setups.

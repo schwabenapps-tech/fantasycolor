@@ -6,6 +6,7 @@ import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
+import '../widgets/catalog_gallery_body.dart';
 import '../widgets/event_hub_portal.dart';
 import '../widgets/silver_back_button.dart';
 import 'event_pack_gallery_screen.dart';
@@ -83,7 +84,9 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
       AppPageRoute<void>(
         builder: (_) => EventPackGalleryScreen(
               section: section,
-              coloring: coloring,
+              kind: coloring
+                  ? CatalogGalleryKind.coloring
+                  : CatalogGalleryKind.puzzle,
               halloweenIds: widget.halloweenIds,
               tags: widget.tags,
             ),

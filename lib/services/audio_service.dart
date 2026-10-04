@@ -58,25 +58,44 @@ class AudioService extends ChangeNotifier {
     // Immer mit Musik starten — alten Mute-Stand verwerfen.
     _muted = false;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.containsKey(_prefsMutedKey)) {
-        await prefs.remove(_prefsMutedKey);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (prefs.containsKey(_prefsMutedKey)) {
+          await prefs.remove(_prefsMutedKey);
+        }
+      } catch (e, st) {
+        debugPrint('AudioService prefs cleanup failed: $e\n$st');
       }
+
+      final ctx = AudioContextConfig(
+        route: AudioContextConfigRoute.system,
+        focus: AudioContextConfigFocus.gain,
+        respectSilence: false,
+        stayAwake: false,
+      ).build();
+      await AudioPlayer.global.setAudioContext(ctx);
+
+      await _createPlayers(ctx);
+      _ready = true;
+      notifyListeners();
     } catch (e, st) {
-      debugPrint('AudioService prefs cleanup failed: $e\n$st');
+      // Fail-soft: stille App statt Start-Crash (Play-Reviewer / Audio-Gerätebugs).
+      debugPrint('AudioService.initialize failed: $e\n$st');
+      _ready = false;
+      _initFuture = null;
+      try {
+        await _musicCompleteSub?.cancel();
+      } catch (_) {}
+      _musicCompleteSub = null;
+      try {
+        await _music?.dispose();
+      } catch (_) {}
+      try {
+        await _sfx?.dispose();
+      } catch (_) {}
+      _music = null;
+      _sfx = null;
     }
-
-    final ctx = AudioContextConfig(
-      route: AudioContextConfigRoute.system,
-      focus: AudioContextConfigFocus.gain,
-      respectSilence: false,
-      stayAwake: false,
-    ).build();
-    await AudioPlayer.global.setAudioContext(ctx);
-
-    await _createPlayers(ctx);
-    _ready = true;
-    notifyListeners();
   }
 
   Future<void> _createPlayers(AudioContext ctx) async {
@@ -130,7 +149,13 @@ class AudioService extends ChangeNotifier {
 
   /// Startet die Fantasy-Loop-Musik (debounced).
   Future<void> startAmbient() async {
-    await initialize();
+    try {
+      await initialize();
+    } catch (e, st) {
+      debugPrint('AudioService.startAmbient init failed: $e\n$st');
+      return;
+    }
+    if (!_ready) return;
     _ambientDebounce?.cancel();
     _ambientDebounce = Timer(const Duration(milliseconds: 200), () {
       unawaited(_enqueueMusic(_startAmbientUnlocked));
@@ -177,7 +202,13 @@ class AudioService extends ChangeNotifier {
   /// App wieder aktiv → Ambient fortsetzen (wenn gewünscht und nicht stumm).
   Future<void> resumeFromBackground() async {
     if (!_musicWanted || _muted) return;
-    await initialize();
+    try {
+      await initialize();
+    } catch (e, st) {
+      debugPrint('AudioService.resumeFromBackground init failed: $e\n$st');
+      return;
+    }
+    if (!_ready) return;
     await _enqueueMusic(() => _ensurePlayingUnlocked(force: false));
   }
 

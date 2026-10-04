@@ -18,6 +18,7 @@ compress_dir() {
 }
 
 compress_dir "$ROOT/assets/coloring_pages"
+compress_dir "$ROOT/assets/print_templates"
 compress_dir "$ROOT/assets/puzzle_images"
 compress_dir "$ROOT/assets/images"
 
