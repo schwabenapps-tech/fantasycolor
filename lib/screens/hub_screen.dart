@@ -304,7 +304,6 @@ class _HubScreenState extends State<HubScreen>
                                     imagePaths: const [HubScreen.eventHubImage],
                                     accent: const Color(0xFFFF8C42),
                                     isHalloween: true,
-                                    brightenImage: true,
                                     onTap: () => _openEventHub(
                                       coloring: data.coloring!,
                                       puzzle: data.puzzle!,
