@@ -85,6 +85,28 @@ class ColoringBitmap {
   Uint8List encodeWorkingPng() =>
       Uint8List.fromList(img.encodePng(working));
 
+  /// Anteil der ausgemalten Flächen (0..1), Linien zählen nicht.
+  ///
+  /// Samplet für Performance; ausreichend für die Sticker-70%-Anzeige.
+  double paintedCoverageRatio({int step = 3}) {
+    final s = step < 1 ? 1 : step;
+    var fillable = 0;
+    var painted = 0;
+    for (var y = 0; y < height; y += s) {
+      for (var x = 0; x < width; x += s) {
+        if (isLinePixel(original, x, y)) continue;
+        fillable++;
+        final o = original.getPixel(x, y);
+        final w = working.getPixel(x, y);
+        if (o.r != w.r || o.g != w.g || o.b != w.b) {
+          painted++;
+        }
+      }
+    }
+    if (fillable == 0) return 0;
+    return painted / fillable;
+  }
+
   bool isLinePixel(img.Image source, int x, int y) {
     final p = source.getPixel(x, y);
     final lum = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;

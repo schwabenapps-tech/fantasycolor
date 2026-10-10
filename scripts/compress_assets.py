@@ -13,6 +13,7 @@ FOLDERS = [
     "assets/coloring_pages",
     "assets/print_templates",
     "assets/puzzle_images",
+    "assets/stickers",
     "assets/images",
 ]
 

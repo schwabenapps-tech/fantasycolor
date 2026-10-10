@@ -14,6 +14,7 @@ import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
+import 'providers/sticker_collection_store.dart';
 import 'screens/hub_screen.dart';
 import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
@@ -55,6 +56,7 @@ Future<void> main() async {
   final progress = ColoringProgressStore();
   final pixelUnlock = PixelModeUnlockStore();
   final pixelProgress = PixelProgressStore();
+  final stickers = StickerCollectionStore();
 
   // Schwere Init erst nach dem ersten Frame — UI darf nie am Boot hängen.
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -65,6 +67,7 @@ Future<void> main() async {
     unawaited(progress.load());
     unawaited(pixelUnlock.load());
     unawaited(pixelProgress.load());
+    unawaited(stickers.load());
   });
 
   runApp(
@@ -73,6 +76,7 @@ Future<void> main() async {
       progress: progress,
       pixelUnlock: pixelUnlock,
       pixelProgress: pixelProgress,
+      stickers: stickers,
     ),
   );
 }
@@ -104,6 +108,7 @@ class FantasyColorApp extends StatefulWidget {
     this.progress,
     this.pixelUnlock,
     this.pixelProgress,
+    this.stickers,
   });
 
   /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
@@ -111,6 +116,7 @@ class FantasyColorApp extends StatefulWidget {
   final ColoringProgressStore? progress;
   final PixelModeUnlockStore? pixelUnlock;
   final PixelProgressStore? pixelProgress;
+  final StickerCollectionStore? stickers;
 
   @override
   State<FantasyColorApp> createState() => _FantasyColorAppState();
@@ -185,6 +191,9 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ),
         ChangeNotifierProvider.value(
           value: widget.pixelProgress ?? PixelProgressStore(),
+        ),
+        ChangeNotifierProvider.value(
+          value: widget.stickers ?? StickerCollectionStore(),
         ),
         ChangeNotifierProvider.value(
           value: AudioService.instance,

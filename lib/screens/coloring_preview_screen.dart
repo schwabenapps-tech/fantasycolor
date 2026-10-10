@@ -4,20 +4,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
+import '../utils/app_page_route.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_coverage_bar.dart';
+import '../widgets/sticker_reveal_overlay.dart';
 import 'puzzle_screen.dart';
-import '../utils/app_page_route.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
 class ColoringPreviewScreen extends StatefulWidget {
@@ -43,6 +47,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Timer? _autoSaveTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
   Uint8List? _finishedPng;
+  StickerEntry? _earnedSticker;
 
   @override
   void initState() {
@@ -146,6 +151,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
 
   Future<void> _finish() async {
     if (_celebrating) return;
+    // Sticker/Complete nur ab ~70 % Ausmal-Anteil.
+    if (!_session.meetsStickerCoverage) return;
 
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: true);
@@ -157,10 +164,21 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     _finishedPng = saved ?? await _session.renderColoredPng();
 
     if (!mounted) return;
-    // Bild kurz in Ruhe zeigen, dann Level-Complete einblenden.
+    final earned = await context
+        .read<StickerCollectionStore>()
+        .unlockForColoring(widget.page.id);
+    if (earned != null) {
+      AnalyticsService.instance.logStickerUnlock(earned.id, source: 'coloring');
+    }
+
+    if (!mounted) return;
+    // Bild kurz in Ruhe zeigen, dann Level-Complete / Sticker einblenden.
     await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-    setState(() => _celebrating = true);
+    setState(() {
+      _celebrating = true;
+      _earnedSticker = earned;
+    });
     unawaited(AudioService.instance.playLevelComplete());
     AnalyticsService.instance.logCompleteColoring(widget.page.id);
   }
@@ -285,10 +303,16 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                 SilverBackButton(
                                   onPressed: () => unawaited(_leaveScreen()),
                                 ),
+                                const SizedBox(width: 10),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: StickerCoverageBar(session: _session),
+                                ),
                                 const Spacer(),
                                 AnimatedBuilder(
                                   animation: _session,
                                   builder: (context, _) {
+                                    final ready = _session.meetsStickerCoverage;
                                     return Row(
                                       children: [
                                         _MagicToolButton(
@@ -332,7 +356,10 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                             Color(0xFF1FA855),
                                           ],
                                           iconColor: const Color(0xFF0E3B22),
-                                          onPressed: _finish,
+                                          onPressed: ready
+                                              ? () => unawaited(_finish())
+                                              : null,
+                                          dimmed: !ready,
                                         ),
                                       ],
                                     );
@@ -349,7 +376,14 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                 PaintBottomBar(session: _session),
               ],
             ),
-            if (_celebrating)
+            if (_celebrating && _earnedSticker != null)
+              StickerRevealOverlay(
+                sticker: _earnedSticker!,
+                onDismiss: () {
+                  setState(() => _earnedSticker = null);
+                },
+              ),
+            if (_celebrating && _earnedSticker == null)
               LevelCompleteOverlay(
                 key: _levelKey,
                 title: 'Wonderful!',

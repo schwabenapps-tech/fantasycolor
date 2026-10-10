@@ -3,10 +3,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
+import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../painting/zoom_viewport_clamp.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -15,6 +19,7 @@ import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_reveal_overlay.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -57,11 +62,16 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _solved = false;
   bool _revealing = false;
   bool _celebrating = false;
+  StickerEntry? _earnedSticker;
   bool _exitAdShown = false;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
   bool _boardZoomed = false;
+  bool _boardZoomInteracting = false;
+  Size _boardViewportSize = Size.zero;
+  Size _boardContentSize = Size.zero;
+  Timer? _boardClampTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
 
   late final AnimationController _revealController;
@@ -130,6 +140,15 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   void _onBoardTransformChanged() {
+    // Kein setState während Pinch — Rebuild von InteractiveViewer setzt Zoom zurück.
+    if (_boardZoomInteracting) return;
+    final zoomed = _boardTransform.value.getMaxScaleOnAxis() > 1.05;
+    if (zoomed != _boardZoomed && mounted) {
+      setState(() => _boardZoomed = zoomed);
+    }
+  }
+
+  void _syncBoardZoomChip() {
     final zoomed = _boardTransform.value.getMaxScaleOnAxis() > 1.05;
     if (zoomed != _boardZoomed && mounted) {
       setState(() => _boardZoomed = zoomed);
@@ -137,10 +156,48 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   void _resetBoardZoom() {
+    _boardClampTimer?.cancel();
     _boardTransform.value = Matrix4.identity();
     if (_boardZoomed) {
       setState(() => _boardZoomed = false);
     }
+  }
+
+  void _applyBoardZoomClamp() {
+    if (_boardViewportSize.isEmpty || _boardContentSize.isEmpty) return;
+    final scale = _boardTransform.value.getMaxScaleOnAxis();
+    // Nur bei fast komplett rausgezoomt zurücksetzen — nicht nach normalem Zoom.
+    if (scale <= 1.02) {
+      _resetBoardZoom();
+      return;
+    }
+    final clamped = clampCenteredZoomMatrix(
+      input: _boardTransform.value,
+      viewport: _boardViewportSize,
+      content: _boardContentSize,
+      resetBelowScale: 1.02,
+    );
+    if (clamped != _boardTransform.value) {
+      _boardTransform.value = clamped;
+    }
+    _syncBoardZoomChip();
+  }
+
+  void _onBoardZoomInteractionEnd() {
+    _boardZoomInteracting = false;
+    _syncBoardZoomChip();
+    final scale = _boardTransform.value.getMaxScaleOnAxis();
+    if (scale <= 1.02) {
+      _boardClampTimer?.cancel();
+      _resetBoardZoom();
+      return;
+    }
+    // Nur Translation einfangen, Zoom-Level behalten.
+    _boardClampTimer?.cancel();
+    _boardClampTimer = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted || _boardZoomInteracting) return;
+      _applyBoardZoomClamp();
+    });
   }
 
   @override
@@ -154,6 +211,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   @override
   void dispose() {
+    _boardClampTimer?.cancel();
     _boardTransform.removeListener(_onBoardTransformChanged);
     _boardTransform.dispose();
     _revealController.dispose();
@@ -521,10 +579,19 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
+    final earned = await context
+        .read<StickerCollectionStore>()
+        .unlockForPuzzle(widget.puzzle.id);
+    if (earned != null) {
+      AnalyticsService.instance.logStickerUnlock(earned.id, source: 'puzzle');
+    }
     // Donees Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
     if (!mounted) return;
-    setState(() => _celebrating = true);
+    setState(() {
+      _celebrating = true;
+      _earnedSticker = earned;
+    });
     unawaited(AudioService.instance.playLevelComplete());
     AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
   }
@@ -691,6 +758,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       return Center(child: board);
     }
 
+    _boardViewportSize = maxSize;
+    _boardContentSize = framed;
+
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -698,12 +768,20 @@ class _PuzzleScreenState extends State<PuzzleScreen>
           transformationController: _boardTransform,
           minScale: 1,
           maxScale: 3.8,
-          boundaryMargin: const EdgeInsets.all(120),
-          clipBehavior: Clip.none,
-          child: SizedBox(
-            width: math.max(maxSize.width, framed.width),
-            height: math.max(maxSize.height, framed.height),
-            child: Center(child: board),
+          constrained: true,
+          alignment: Alignment.center,
+          // Während Pinch keine Boundary — sonst fühlt sich Zoom „zäh“ an.
+          // Nach der Geste: clampCenteredZoomMatrix hälts im Screen.
+          boundaryMargin: const EdgeInsets.all(double.infinity),
+          clipBehavior: Clip.hardEdge,
+          onInteractionStart: (_) => _boardZoomInteracting = true,
+          onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
+          child: Center(
+            child: SizedBox(
+              width: framed.width,
+              height: framed.height,
+              child: board,
+            ),
           ),
         ),
         if (_boardZoomed)
@@ -821,7 +899,14 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
           ),
-          if (_celebrating)
+          if (_celebrating && _earnedSticker != null)
+            StickerRevealOverlay(
+              sticker: _earnedSticker!,
+              onDismiss: () {
+                setState(() => _earnedSticker = null);
+              },
+            ),
+          if (_celebrating && _earnedSticker == null)
             LevelCompleteOverlay(
               key: _levelKey,
               title: 'Wonderful!',

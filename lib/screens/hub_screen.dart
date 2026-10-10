@@ -1,18 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/coloring_pages_loader.dart';
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../utils/app_layout.dart';
+import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/event_hub_portal.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_album_overlay.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 import '../widgets/welcome_portal_overlay.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
@@ -20,7 +25,6 @@ import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
 import 'puzzle_gallery_screen.dart';
 import 'settings_screen.dart';
-import '../utils/app_page_route.dart';
 
 /// Zentraler Einstieg: Malen / Puzzle + Druck/Favorites + Event-Hub.
 class HubScreen extends StatefulWidget {
@@ -67,6 +71,9 @@ class _HubScreenState extends State<HubScreen>
   late final Animation<double> _fadeAnimation;
   bool _slideshowPrecached = false;
   bool _showWelcome = false;
+  bool _showAlbum = false;
+  bool _showDaily = false;
+  bool _dailyChecked = false;
   Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>?
       _eventFuture;
 
@@ -93,10 +100,15 @@ class _HubScreenState extends State<HubScreen>
   Future<void> _maybeShowWelcome() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_welcomeSeenKey) == true) return;
+      if (prefs.getBool(_welcomeSeenKey) == true) {
+        await _maybeShowDailyGift();
+        return;
+      }
       if (!mounted) return;
       setState(() => _showWelcome = true);
-    } catch (_) {}
+    } catch (_) {
+      await _maybeShowDailyGift();
+    }
   }
 
   Future<void> _dismissWelcome() async {
@@ -106,6 +118,28 @@ class _HubScreenState extends State<HubScreen>
     } catch (_) {}
     if (!mounted) return;
     setState(() => _showWelcome = false);
+    await _maybeShowDailyGift();
+  }
+
+  Future<void> _maybeShowDailyGift() async {
+    if (_dailyChecked || !mounted) return;
+    _dailyChecked = true;
+    // Store kann noch laden — kurz warten.
+    var ready = false;
+    for (var i = 0; i < 20; i++) {
+      final store = context.read<StickerCollectionStore>();
+      if (store.isReady) {
+        ready = store.canClaimDaily;
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+    if (!ready || !mounted) return;
+    // Hub kurz sehen lassen, dann Geschenk einblenden (nicht sofort im Gesicht).
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
+    if (!mounted) return;
+    setState(() => _showDaily = true);
   }
 
   Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>
@@ -371,6 +405,16 @@ class _HubScreenState extends State<HubScreen>
                     right: 12,
                     child: _SettingsButton(),
                   ),
+                  Positioned(
+                    top: 4,
+                    left: 8,
+                    child: _StickerBookButton(
+                      onPressed: () {
+                        AnalyticsService.instance.logScreen('sticker_album');
+                        setState(() => _showAlbum = true);
+                      },
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -379,7 +423,49 @@ class _HubScreenState extends State<HubScreen>
             WelcomePortalOverlay(
               onFinished: () => unawaited(_dismissWelcome()),
             ),
+          if (_showDaily)
+            StickerDailyGiftOverlay(
+              onClosed: () {
+                if (mounted) setState(() => _showDaily = false);
+              },
+            ),
+          if (_showAlbum)
+            StickerAlbumOverlay(
+              onClose: () {
+                if (mounted) setState(() => _showAlbum = false);
+              },
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _StickerBookButton extends StatelessWidget {
+  const _StickerBookButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  static const asset = 'assets/images/buch_icon.png';
+
+  @override
+  Widget build(BuildContext context) {
+    final side = MediaQuery.sizeOf(context).shortestSide;
+    final size = side >= 600 ? 52.0 : 42.0;
+    return Semantics(
+      button: true,
+      label: 'Sticker album',
+      child: GestureDetector(
+        onTap: onPressed,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Image.asset(
+            asset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+          ),
+        ),
       ),
     );
   }

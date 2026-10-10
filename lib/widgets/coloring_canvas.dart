@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:perfect_freehand/perfect_freehand.dart';
 
 import '../data/paint_catalog.dart';
 import '../painting/coloring_bitmap.dart';
+import '../painting/zoom_viewport_clamp.dart';
 import '../providers/coloring_session.dart';
 import 'freehand_stroke_painter.dart';
 
@@ -33,6 +35,10 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   int _frameGeneration = -1;
   bool _encoding = false;
   bool _wasZoomed = false;
+  bool _zoomInteracting = false;
+  Size _viewportSize = Size.zero;
+  Size _sheetSize = Size.zero;
+  Timer? _clampTimer;
   late final AnimationController _zoomController;
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
@@ -70,6 +76,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
+    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.dispose();
     _transform.dispose();
@@ -129,6 +136,8 @@ class _ColoringCanvasState extends State<ColoringCanvas>
       builder: (context, constraints) {
         final viewport = constraints.biggest;
         final sheetSize = _sheetSizeFor(viewport);
+        _viewportSize = viewport;
+        _sheetSize = sheetSize;
         widget.session.sheetSize = sheetSize;
 
         return Stack(
@@ -139,6 +148,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 transform: _transform,
                 panEnabled: _panEnabled,
                 onDoubleTapAt: _onSoftZoom,
+                onInteractionStart: () => _zoomInteracting = true,
                 onInteractionUpdate: _onZoomInteractionUpdate,
                 onInteractionEnd: _onZoomInteractionEnd,
                 child: _PaintSurface(
@@ -164,11 +174,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
 
   void _onZoomInteractionUpdate() {
-    final zoomed = _isZoomed;
-    if (zoomed != _wasZoomed) {
-      _wasZoomed = zoomed;
-      if (mounted) setState(() {});
-    }
+    // Kein setState während Pinch — sonst Rebuild + Zoom springt zurück.
   }
 
   /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Pen-Zug nötig ist.
@@ -202,6 +208,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   /// Sofort zentrieren — ohne Animation, sonst „gleitet“ das Bild weg.
   void _snapToIdentity() {
+    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.stop();
     _transform.value = Matrix4.identity();
@@ -209,17 +216,48 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     if (mounted) setState(() {});
   }
 
-  void _onZoomInteractionEnd() {
-    final matrix = _transform.value;
-    final scale = matrix.getMaxScaleOnAxis();
-    // Pinch-Rauszoomen hält oft noch Translation (Fokuspunkt) → Bild hängt schief.
-    // Bei ~1× sofort identity, nicht animieren (sonst sichtbares Wegglitschen).
-    if (scale <= 1.08) {
+  void _applyZoomClamp() {
+    if (_viewportSize.isEmpty || _sheetSize.isEmpty) return;
+    final scale = _transform.value.getMaxScaleOnAxis();
+    if (scale <= 1.02) {
       _snapToIdentity();
       return;
     }
-    _wasZoomed = true;
-    if (mounted) setState(() {});
+    final clamped = clampCenteredZoomMatrix(
+      input: _transform.value,
+      viewport: _viewportSize,
+      content: _sheetSize,
+      resetBelowScale: 1.02,
+    );
+    if (clamped != _transform.value) {
+      _transform.value = clamped;
+    }
+    final zoomed = _isZoomed;
+    if (zoomed != _wasZoomed) {
+      _wasZoomed = zoomed;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _onZoomInteractionEnd() {
+    _zoomInteracting = false;
+    // Chip / panEnabled erst NACH der Geste updaten (kein Mid-Pinch-Rebuild).
+    final scale = _transform.value.getMaxScaleOnAxis();
+    if (scale <= 1.02) {
+      _clampTimer?.cancel();
+      _snapToIdentity();
+      return;
+    }
+    final zoomed = _isZoomed;
+    if (zoomed != _wasZoomed) {
+      _wasZoomed = zoomed;
+      if (mounted) setState(() {});
+    }
+    _clampTimer?.cancel();
+    _clampTimer = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted || _zoomInteracting) return;
+      _applyZoomClamp();
+    });
   }
 
   void _animateTo(Matrix4 target) {
@@ -233,11 +271,15 @@ class _ColoringCanvasState extends State<ColoringCanvas>
       CurvedAnimation(parent: _zoomController, curve: Curves.easeOutCubic),
     );
     _matrixListener = () {
+      // Nur Matrix updaten — kein setState (sonst ruckelt der Zoom-Reset).
       _transform.value = _matrixAnimation!.value;
-      if (mounted) setState(() {});
     };
     _matrixAnimation!.addListener(_matrixListener!);
-    _zoomController.forward(from: 0).whenComplete(_clearMatrixAnimation);
+    _zoomController.forward(from: 0).whenComplete(() {
+      _clearMatrixAnimation();
+      _wasZoomed = _isZoomed;
+      if (mounted) setState(() {});
+    });
   }
 
   Size _sheetSizeFor(Size max) {
@@ -259,6 +301,7 @@ class _FullscreenZoomViewport extends StatelessWidget {
     required this.transform,
     required this.panEnabled,
     required this.onDoubleTapAt,
+    required this.onInteractionStart,
     required this.onInteractionUpdate,
     required this.onInteractionEnd,
     required this.child,
@@ -268,6 +311,7 @@ class _FullscreenZoomViewport extends StatelessWidget {
   final TransformationController transform;
   final bool panEnabled;
   final ValueChanged<Offset> onDoubleTapAt;
+  final VoidCallback onInteractionStart;
   final VoidCallback onInteractionUpdate;
   final VoidCallback onInteractionEnd;
   final Widget child;
@@ -284,11 +328,13 @@ class _FullscreenZoomViewport extends StatelessWidget {
         maxScale: 8,
         panEnabled: panEnabled,
         scaleEnabled: true,
+        // constrained:true + Center = Blatt bleibt mittig (auch Landscape).
+        // boundary infinity = Pinch nicht zäh; Clamp danach hälts im Screen.
         constrained: true,
+        alignment: Alignment.center,
         clipBehavior: Clip.hardEdge,
-        // Nur leichter Spielraum beim Zoomen — 600px ließ das Blatt weit
-        // abdriften; beim Rauszoomen blieb die Translation hängen.
-        boundaryMargin: const EdgeInsets.all(120),
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        onInteractionStart: (_) => onInteractionStart(),
         onInteractionUpdate: (_) => onInteractionUpdate(),
         onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(

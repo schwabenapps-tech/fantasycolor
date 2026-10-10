@@ -1,0 +1,223 @@
+{
+  "stickers": [
+    {
+      "id": "sticker_01",
+      "asset": "assets/stickers/0648ea33-5b12-4466-9a61-09f6a464ec58.png",
+      "coloringId": "fee_clean_01"
+    },
+    {
+      "id": "sticker_02",
+      "asset": "assets/stickers/278793ce-7b75-4cac-a3c3-d3bccbed4d9f.png",
+      "coloringId": "fee_clean_02"
+    },
+    {
+      "id": "sticker_03",
+      "asset": "assets/stickers/34a5747b-58e5-4625-bfa7-4aab62104693.png",
+      "coloringId": "fee_clean_03"
+    },
+    {
+      "id": "sticker_04",
+      "asset": "assets/stickers/38f4e450-f849-4c93-afa6-5e0b0af6c1e4.png",
+      "coloringId": "fee_clean_04"
+    },
+    {
+      "id": "sticker_05",
+      "asset": "assets/stickers/3c078ec5-3174-458f-a419-398e66fc5df0.png",
+      "coloringId": "fee_clean_05"
+    },
+    {
+      "id": "sticker_06",
+      "asset": "assets/stickers/53731718-9f79-4958-a0f9-6bd6f89047fe.png",
+      "coloringId": "fee_clean_06"
+    },
+    {
+      "id": "sticker_07",
+      "asset": "assets/stickers/55f8bb74-c700-4508-9a6f-646c80ba2f69.png",
+      "coloringId": "fee_clean_07"
+    },
+    {
+      "id": "sticker_08",
+      "asset": "assets/stickers/823ac3f1-7913-4da3-9c61-a08e76bb4ea4.png",
+      "coloringId": "fee_clean_08"
+    },
+    {
+      "id": "sticker_09",
+      "asset": "assets/stickers/8b275cde-4147-441f-bc3d-1c7e4fd298d9.png",
+      "coloringId": "fee_clean_09"
+    },
+    {
+      "id": "sticker_10",
+      "asset": "assets/stickers/a543b6d7-b531-40f2-8d66-6966d7b475f1.png",
+      "coloringId": "fee_clean_10"
+    },
+    {
+      "id": "sticker_11",
+      "asset": "assets/stickers/b1849549-4df4-4037-a347-8dde834b8bc0.png",
+      "coloringId": "fee_clean_11"
+    },
+    {
+      "id": "sticker_12",
+      "asset": "assets/stickers/b934bf3f-4294-4736-8f4c-b54bf247c373.png",
+      "coloringId": "fee_clean_12"
+    },
+    {
+      "id": "sticker_13",
+      "asset": "assets/stickers/c5dec353-c2c5-4d17-992f-90c6e48dc0d3.png",
+      "coloringId": "fee_clean_13"
+    },
+    {
+      "id": "sticker_14",
+      "asset": "assets/stickers/chatgpt-bild_10_okt_2026_00_07_24.png",
+      "coloringId": "fee_clean_14"
+    },
+    {
+      "id": "sticker_15",
+      "asset": "assets/stickers/chatgpt-bild_10_okt_2026_08_23_15.png",
+      "coloringId": "fee_clean_15"
+    },
+    {
+      "id": "sticker_16",
+      "asset": "assets/stickers/chatgpt-bild_10_okt_2026_08_47_27.png",
+      "coloringId": "fee_clean_16"
+    },
+    {
+      "id": "sticker_17",
+      "asset": "assets/stickers/chatgpt-bild_10_okt_2026_12_19_36.png",
+      "coloringId": "fee_clean_17"
+    },
+    {
+      "id": "sticker_18",
+      "asset": "assets/stickers/chatgpt-bild_10_okt_2026_12_31_21.png",
+      "coloringId": "fee_clean_18"
+    },
+    {
+      "id": "sticker_19",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_10_43_15.png",
+      "coloringId": "fee_clean_19"
+    },
+    {
+      "id": "sticker_20",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_10_47_00.png",
+      "coloringId": "fee_clean_20"
+    },
+    {
+      "id": "sticker_21",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_10_51_13.png",
+      "coloringId": "fee_clean_21"
+    },
+    {
+      "id": "sticker_22",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_11_07_35.png",
+      "coloringId": "fee_clean_22"
+    },
+    {
+      "id": "sticker_23",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_12_02_20.png",
+      "coloringId": "fee_clean_23"
+    },
+    {
+      "id": "sticker_24",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_12_06_44.png",
+      "coloringId": "fee_clean_24"
+    },
+    {
+      "id": "sticker_25",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_12_12_56.png",
+      "coloringId": "fee_clean_25"
+    },
+    {
+      "id": "sticker_26",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_12_15_58.png",
+      "coloringId": "fee_clean_26"
+    },
+    {
+      "id": "sticker_27",
+      "asset": "assets/stickers/chatgpt-bild_5_okt_2026_19_44_13.png",
+      "coloringId": "fee_clean_27"
+    },
+    {
+      "id": "sticker_28",
+      "asset": "assets/stickers/chatgpt-bild_6_okt_2026_21_44_45.png",
+      "coloringId": "fee_clean_28"
+    },
+    {
+      "id": "sticker_29",
+      "asset": "assets/stickers/chatgpt-bild_6_okt_2026_21_47_56.png",
+      "coloringId": "fee_clean_29"
+    },
+    {
+      "id": "sticker_30",
+      "asset": "assets/stickers/chatgpt-bild_8_okt_2026_21_17_13.png",
+      "coloringId": "fee_clean_30"
+    },
+    {
+      "id": "sticker_31",
+      "asset": "assets/stickers/chatgpt-bild_8_okt_2026_21_27_50.png",
+      "coloringId": "fee_clean_31"
+    },
+    {
+      "id": "sticker_32",
+      "asset": "assets/stickers/chatgpt-bild_8_okt_2026_21_45_14.png",
+      "coloringId": "fee_clean_32"
+    },
+    {
+      "id": "sticker_33",
+      "asset": "assets/stickers/chatgpt-bild_8_okt_2026_22_01_55.png",
+      "coloringId": "fee_clean_33"
+    },
+    {
+      "id": "sticker_34",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_22_47_20.png",
+      "coloringId": "fee_clean_34"
+    },
+    {
+      "id": "sticker_35",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_22_51_57.png",
+      "coloringId": "fee_clean_35"
+    },
+    {
+      "id": "sticker_36",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_22_58_43.png",
+      "coloringId": "fee_clean_36"
+    },
+    {
+      "id": "sticker_37",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_13_36.png",
+      "coloringId": "fee_clean_37"
+    },
+    {
+      "id": "sticker_38",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_16_57.png",
+      "coloringId": "fee_clean_38"
+    },
+    {
+      "id": "sticker_39",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_22_50.png",
+      "coloringId": "fee_clean_39"
+    },
+    {
+      "id": "sticker_40",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_30_15.png",
+      "coloringId": "fee_clean_40"
+    },
+    {
+      "id": "sticker_41",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_30_30.png",
+      "coloringId": "fee_clean_41"
+    },
+    {
+      "id": "sticker_42",
+      "asset": "assets/stickers/chatgpt-bild_9_okt_2026_23_55_47.png",
+      "coloringId": "fee_clean_42"
+    },
+    {
+      "id": "sticker_43",
+      "asset": "assets/stickers/dcd6f724-4d11-4270-b206-39caf0763124.png",
+      "coloringId": "fee_clean_43"
+    },
+    {
+      "id": "sticker_44",
+      "asset": "assets/stickers/ebf2093b-dc64-4c8e-b221-0dfbebf6a8d5.jpg"
+    }
+  ]
+}

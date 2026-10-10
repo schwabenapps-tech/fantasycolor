@@ -92,6 +92,42 @@ class AnalyticsService {
     );
   }
 
+  void logStickerUnlock(String stickerId, {required String source}) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'sticker_unlock',
+          parameters: {
+            'sticker_id': stickerId,
+            'source': source,
+          },
+        ),
+      ),
+    );
+  }
+
+  void logDailyBoxClaim(String stickerId) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'daily_box_claim',
+          parameters: {'sticker_id': stickerId},
+        ),
+      ),
+    );
+  }
+
+  void logStickerPackExport(int count) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'sticker_pack_export',
+          parameters: {'count': count},
+        ),
+      ),
+    );
+  }
+
   Future<void> _safe(Future<void> Function() op) async {
     try {
       await op();

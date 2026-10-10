@@ -91,6 +91,7 @@ flutter:
     - assets/coloring_pages/
     - assets/print_templates/
     - assets/puzzle_images/
+    - assets/stickers/
     - assets/sounds/  # ambient bgm + sfx
     - assets/asset_dimensions.json
     - assets/coloring_asset_hashes.json
@@ -98,6 +99,7 @@ flutter:
     - assets/coloring_source_map.json
     - assets/event_tags.json
     - assets/puzzle_invalidate_ids.json
+    - assets/sticker_catalog.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

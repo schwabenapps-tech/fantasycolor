@@ -104,6 +104,32 @@ class ColoringSession extends ChangeNotifier {
     _dirty = true;
   }
 
+  double? _cachedCoverage;
+  int _cachedCoverageGen = -1;
+
+  /// Ausmal-Anteil 0..1 für Sticker-Fortschritt (Linien ausgeschlossen).
+  double paintedCoverageRatio() {
+    final bmp = _bitmap;
+    if (bmp == null) return 0;
+    final gen = generation;
+    if (_cachedCoverage != null && _cachedCoverageGen == gen) {
+      return _cachedCoverage!;
+    }
+    // Offene Pen-Striche zählen grob mit (noch nicht eingefroren).
+    final base = bmp.paintedCoverageRatio(step: 4);
+    final strokeBoost =
+        _strokes.isEmpty ? 0.0 : (_strokes.length * 0.01).clamp(0.0, 0.08);
+    final value = (base + strokeBoost).clamp(0.0, 1.0);
+    _cachedCoverage = value;
+    _cachedCoverageGen = gen;
+    return value;
+  }
+
+  static const stickerUnlockCoverage = 0.70;
+
+  bool get meetsStickerCoverage =>
+      paintedCoverageRatio() >= stickerUnlockCoverage;
+
   void selectCategory(PaintCategory category) {
     _category = category;
     final swatches = PaintCatalog.swatchesFor(category);
