@@ -11,6 +11,7 @@ Schwierige Root-Motive aus bilder_fantasycolor werden nicht übernommen.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -23,6 +24,7 @@ SRC_DIRS = [
     Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
 ]
 DEST = ROOT / "assets/print_templates"
+HASH_PATH = ROOT / "assets/print_source_hashes.json"
 EXTS = {".png", ".jpg", ".jpeg"}
 
 
@@ -65,15 +67,35 @@ def main() -> int:
             return 1
         wanted[name] = src
 
+    prev_hashes: dict[str, str] = {}
+    if HASH_PATH.exists():
+        try:
+            raw = json.loads(HASH_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                prev_hashes = {str(k): str(v) for k, v in raw.items()}
+        except json.JSONDecodeError:
+            prev_hashes = {}
+
+    hashes: dict[str, str] = {}
+    changed = 0
     for name, src in sorted(wanted.items()):
         out = DEST / name
         new_h = md5(src)
-        old_h = md5(out) if out.exists() else None
-        if old_h != new_h:
-            shutil.copy2(src, out)
-            print(f"UPDATED {name} <- {src.name}")
-        else:
+        old_h = prev_hashes.get(name)
+        if old_h == new_h and out.exists():
             print(f"same    {name}")
+        elif (
+            old_h is not None
+            and out.exists()
+            and old_h == md5(out)
+            and src.stat().st_mtime <= out.stat().st_mtime + 1
+        ):
+            print(f"same    {name} (hash migrate)")
+        else:
+            shutil.copy2(src, out)
+            changed += 1
+            print(f"UPDATED {name} <- {src.name}")
+        hashes[name] = new_h
 
     for p in list(DEST.iterdir()):
         if not p.is_file() or p.suffix.lower() not in EXTS:
@@ -82,7 +104,10 @@ def main() -> int:
             print(f"DELETE  {p.name}")
             p.unlink()
 
-    print(f"Total print templates: {len(wanted)}")
+    HASH_PATH.write_text(
+        json.dumps(hashes, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(f"Total print templates: {len(wanted)} (updated {changed})")
     subprocess.check_call([sys.executable, str(ROOT / "scripts/generate_asset_manifest.py")])
     return 0
 

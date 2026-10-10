@@ -25,6 +25,7 @@ SRC_DIRS = [
     Path.home() / "Desktop/fantasycolor_event_halloween",
 ]
 DEST = ROOT / "assets/puzzle_images"
+HASH_PATH = ROOT / "assets/puzzle_source_hashes.json"
 EXTS = {".png", ".jpg", ".jpeg"}
 
 
@@ -50,8 +51,17 @@ def page_id(filename: str) -> str:
     return filename
 
 
+_MAC_COPY_RE = re.compile(r" \d+\.[^.]+$", re.IGNORECASE)
+
+
+def _is_macos_duplicate_name(name: str) -> bool:
+    """Finder-Kopien wie „foo 2.png“ / „foo 3.jpg“ überspringen."""
+    return _MAC_COPY_RE.search(name) is not None
+
+
 def collect_sources() -> list[Path]:
     sources: list[Path] = []
+    seen_hash: dict[str, Path] = {}
     for folder in SRC_DIRS:
         if not folder.is_dir():
             print(f"Missing source folder: {folder}", file=sys.stderr)
@@ -63,6 +73,14 @@ def collect_sources() -> list[Path]:
                 continue
             if p.name.startswith("."):
                 continue
+            if _is_macos_duplicate_name(p.name):
+                print(f"skip mac-dupe name: {p.name}")
+                continue
+            h = md5(p)
+            if h in seen_hash:
+                print(f"skip content-dupe: {p.name} == {seen_hash[h].name}")
+                continue
+            seen_hash[h] = p
             sources.append(p)
     return sources
 
@@ -86,17 +104,35 @@ def main() -> int:
         wanted[name] = src
 
     changed_ids: list[str] = []
+    hashes: dict[str, str] = {}
+
+    prev_hashes: dict[str, str] = {}
+    if HASH_PATH.exists():
+        try:
+            raw = json.loads(HASH_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                prev_hashes = {str(k): str(v) for k, v in raw.items()}
+        except json.JSONDecodeError:
+            prev_hashes = {}
 
     for name, src in sorted(wanted.items()):
         out = DEST / name
         new_h = md5(src)
-        old_h = md5(out) if out.exists() else None
-        if old_h != new_h:
+        old_h = prev_hashes.get(name)
+        if old_h == new_h and out.exists():
+            print(f"same    {name}")
+        elif (
+            old_h is not None
+            and out.exists()
+            and old_h == md5(out)
+            and src.stat().st_mtime <= out.stat().st_mtime + 1
+        ):
+            print(f"same    {name} (hash migrate)")
+        else:
             shutil.copy2(src, out)
             changed_ids.append(page_id(name))
             print(f"UPDATED {name} <- {src.name}")
-        else:
-            print(f"same    {name}")
+        hashes[name] = new_h
 
     for p in list(DEST.iterdir()):
         if not p.is_file() or p.suffix.lower() not in EXTS:
@@ -105,6 +141,10 @@ def main() -> int:
             changed_ids.append(page_id(p.name))
             print(f"DELETE  {p.name}")
             p.unlink()
+
+    HASH_PATH.write_text(
+        json.dumps(hashes, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
     uniq = sorted(dict.fromkeys(changed_ids))
     (ROOT / "assets/puzzle_invalidate_ids.json").write_text(

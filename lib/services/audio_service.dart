@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Musik ist beim App-Start immer an. Mute gilt nur für die aktuelle Session
 /// und wird nicht über Neustarts hinweg gespeichert.
+///
+/// Playlist: Zufallsbeutel → wenn leer, neu mischen (Dauerschleife).
 class AudioService extends ChangeNotifier {
   AudioService._();
 
@@ -24,6 +26,7 @@ class AudioService extends ChangeNotifier {
     'sounds/ambient_02_moon.mp3',
     'sounds/ambient_03_voyage.mp3',
     'sounds/ambient_04_cinematic.mp3',
+    'sounds/ambient_05_castle.mp3',
   ];
 
   static const levelCompleteSfx = 'sounds/sfx_complete.mp3';
@@ -31,12 +34,16 @@ class AudioService extends ChangeNotifier {
   AudioPlayer? _music;
   AudioPlayer? _sfx;
   StreamSubscription<void>? _musicCompleteSub;
+  StreamSubscription<PlayerState>? _musicStateSub;
 
   bool _ready = false;
   bool _muted = false;
   bool _musicWanted = false;
   String? _currentAsset;
   Future<void>? _initFuture;
+
+  /// Verhindert Doppel-Advance (complete + state-change).
+  bool _advancing = false;
 
   /// Zufällige Reihenfolge: jedes Lied einmal, dann neu mischen.
   final List<String> _shuffleBag = <String>[];
@@ -83,30 +90,31 @@ class AudioService extends ChangeNotifier {
       debugPrint('AudioService.initialize failed: $e\n$st');
       _ready = false;
       _initFuture = null;
-      try {
-        await _musicCompleteSub?.cancel();
-      } catch (_) {}
-      _musicCompleteSub = null;
-      try {
-        await _music?.dispose();
-      } catch (_) {}
-      try {
-        await _sfx?.dispose();
-      } catch (_) {}
-      _music = null;
-      _sfx = null;
+      await _tearDownPlayers();
     }
   }
 
-  Future<void> _createPlayers(AudioContext ctx) async {
-    await _musicCompleteSub?.cancel();
+  Future<void> _tearDownPlayers() async {
+    try {
+      await _musicCompleteSub?.cancel();
+    } catch (_) {}
     _musicCompleteSub = null;
+    try {
+      await _musicStateSub?.cancel();
+    } catch (_) {}
+    _musicStateSub = null;
     try {
       await _music?.dispose();
     } catch (_) {}
     try {
       await _sfx?.dispose();
     } catch (_) {}
+    _music = null;
+    _sfx = null;
+  }
+
+  Future<void> _createPlayers(AudioContext ctx) async {
+    await _tearDownPlayers();
 
     _music = AudioPlayer();
     _sfx = AudioPlayer();
@@ -119,11 +127,39 @@ class AudioService extends ChangeNotifier {
     await _sfx!.setVolume(0.7);
     await _sfx!.setPlayerMode(PlayerMode.lowLatency);
 
-    _musicCompleteSub = _music!.onPlayerComplete.listen((_) {
+    _attachMusicCompleteHandlers(_music!);
+  }
+
+  void _attachMusicCompleteHandlers(AudioPlayer player) {
+    _musicCompleteSub?.cancel();
+    _musicStateSub?.cancel();
+
+    void onEnded() {
       _enqueueMusic(() async {
-        _currentAsset = null;
-        await _playNextTrackUnlocked();
+        if (_advancing) return;
+        if (!_musicWanted || _muted) return;
+        // complete + state=completed können beide feuern — nur einmal wechseln.
+        final player = _music;
+        if (player != null &&
+            player.state == PlayerState.playing &&
+            _currentAsset != null) {
+          return;
+        }
+        _advancing = true;
+        try {
+          final finished = _currentAsset;
+          _currentAsset = null;
+          await _playNextTrackUnlocked(avoidRepeat: finished);
+        } finally {
+          _advancing = false;
+        }
       });
+    }
+
+    _musicCompleteSub = player.onPlayerComplete.listen((_) => onEnded());
+    // Backup: manche iOS-Builds feuern complete unzuverlässig, state aber schon.
+    _musicStateSub = player.onPlayerStateChanged.listen((state) {
+      if (state == PlayerState.completed) onEnded();
     });
   }
 
@@ -250,7 +286,7 @@ class AudioService extends ChangeNotifier {
         }
       }
     }
-    await _playNextTrackUnlocked();
+    await _playNextTrackUnlocked(avoidRepeat: _currentAsset);
   }
 
   /// Mischt alle Tracks neu. Vermeidet denselben Track wie zuletzt zuerst.
@@ -270,36 +306,46 @@ class AudioService extends ChangeNotifier {
   }
 
   /// Nächstes Lied aus dem Zufallsbeutel; Beutel neu mischen wenn leer.
-  String? _takeNextShuffledTrack() {
+  String? _takeNextShuffledTrack({String? avoidRepeat}) {
     if (calmTracks.isEmpty) return null;
     if (_shuffleBag.isEmpty) {
-      _refillShuffleBag(avoid: _currentAsset);
+      _refillShuffleBag(avoid: avoidRepeat ?? _currentAsset);
     }
     if (_shuffleBag.isEmpty) return null;
-    // Zusätzlich: zufälligen Slot aus dem Rest wählen (stärkerer Zufall).
     final idx = _rng.nextInt(_shuffleBag.length);
     return _shuffleBag.removeAt(idx);
   }
 
-  Future<void> _playNextTrackUnlocked() async {
+  Future<void> _playNextTrackUnlocked({String? avoidRepeat}) async {
     if (_muted || !_musicWanted) return;
     if (calmTracks.isEmpty) return;
 
-    for (var attempt = 0; attempt < calmTracks.length; attempt++) {
-      final asset = _takeNextShuffledTrack();
+    String? skipped;
+    for (var attempt = 0; attempt < calmTracks.length + 1; attempt++) {
+      final asset = _takeNextShuffledTrack(avoidRepeat: avoidRepeat);
       if (asset == null) return;
-      // Nie dasselbe Lied direkt nochmal, falls nur 1 übrig war und Beutel neu.
-      if (asset == _currentAsset && calmTracks.length > 1) {
+      // Nie dasselbe Lied direkt nochmal — zurück in den Beutel legen.
+      if (asset == avoidRepeat && calmTracks.length > 1) {
+        skipped = asset;
         continue;
       }
       final ok = await _playAssetUnlocked(asset);
-      if (ok) return;
+      if (ok) {
+        if (skipped != null && !_shuffleBag.contains(skipped)) {
+          _shuffleBag.add(skipped);
+        }
+        return;
+      }
+    }
+
+    if (skipped != null && !_shuffleBag.contains(skipped)) {
+      _shuffleBag.add(skipped);
     }
 
     debugPrint('AudioService: all tracks failed — recreating player');
     await _recreateMusicPlayer();
     if (_muted || !_musicWanted) return;
-    final asset = _takeNextShuffledTrack();
+    final asset = _takeNextShuffledTrack(avoidRepeat: avoidRepeat);
     if (asset != null) {
       await _playAssetUnlocked(asset);
     }
@@ -310,6 +356,10 @@ class AudioService extends ChangeNotifier {
     if (player == null) return false;
     try {
       debugPrint('AudioService: playing $asset');
+      // Nach completed braucht iOS oft stop(), sonst startet play nicht.
+      try {
+        await player.stop();
+      } catch (_) {}
       await player.play(AssetSource(asset));
       _currentAsset = asset;
       return true;
@@ -329,6 +379,8 @@ class AudioService extends ChangeNotifier {
     ).build();
     await _musicCompleteSub?.cancel();
     _musicCompleteSub = null;
+    await _musicStateSub?.cancel();
+    _musicStateSub = null;
     try {
       await _music?.dispose();
     } catch (_) {}
@@ -337,18 +389,14 @@ class AudioService extends ChangeNotifier {
     await _music!.setReleaseMode(ReleaseMode.stop);
     await _music!.setVolume(0.28);
     await _music!.setPlayerMode(PlayerMode.mediaPlayer);
-    _musicCompleteSub = _music!.onPlayerComplete.listen((_) {
-      _enqueueMusic(() async {
-        _currentAsset = null;
-        await _playNextTrackUnlocked();
-      });
-    });
+    _attachMusicCompleteHandlers(_music!);
   }
 
   @override
   void dispose() {
     _ambientDebounce?.cancel();
     unawaited(_musicCompleteSub?.cancel());
+    unawaited(_musicStateSub?.cancel());
     unawaited(_music?.dispose());
     unawaited(_sfx?.dispose());
     super.dispose();

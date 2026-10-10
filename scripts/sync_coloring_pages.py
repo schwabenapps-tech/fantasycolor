@@ -27,6 +27,7 @@ SRC_DIRS = [
 ]
 DEST = ROOT / "assets/coloring_pages"
 MAP_PATH = ROOT / "assets/coloring_source_map.json"
+HASH_PATH = ROOT / "assets/coloring_asset_hashes.json"
 
 # Reihenfolge = fee_clean_01 … (nicht nach mtime neu nummerieren!)
 # Neue Desktop-Dateien werden unten angehängt; entfernte fliegen raus.
@@ -71,6 +72,11 @@ ORDER = [
     "ChatGPT-Bild 27. Sept. 2026, 00_51_02.png",
     "ChatGPT-Bild 28. Sept. 2026, 22_16_32.png",
     "ChatGPT-Bild 28. Sept. 2026, 11_35_41.png",
+    "ChatGPT-Bild 30. Sept. 2026, 22_20_30.png",
+    "ChatGPT-Bild 30. Sept. 2026, 22_41_59.png",
+    "ChatGPT-Bild 30. Sept. 2026, 23_00_17.png",
+    "ChatGPT-Bild 30. Sept. 2026, 23_48_21.png",
+    "DA68D204-2D9D-411F-B112-5F03F1961B2B.png",
 ]
 
 
@@ -124,17 +130,39 @@ def main() -> int:
     hashes: dict[str, str] = {}
     source_map: dict[str, str] = {}
 
+    # Quell-Hashes (vor Kompression). Asset-Bytes weichen nach compress ab —
+    # deshalb nicht md5(out) vergleichen.
+    prev_hashes: dict[str, str] = {}
+    if HASH_PATH.exists():
+        try:
+            raw = json.loads(HASH_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                prev_hashes = {str(k): str(v) for k, v in raw.items()}
+        except json.JSONDecodeError:
+            prev_hashes = {}
+
     for i, name in enumerate(order, 1):
         out = DEST / f"fee_clean_{i:02d}.png"
         src_f = desk[name]
         new_h = md5(src_f)
-        old_h = md5(out) if out.exists() else None
-        if old_h != new_h:
+        old_h = prev_hashes.get(out.stem)
+        # Migration: alte Dateien speicherten oft den komprimierten Asset-Hash.
+        # Dann Quell-Hash ≠ Asset-Hash → einmalig neu kopieren nur wenn Quelle
+        # wirklich neuer ist als das Asset (mtime), sonst nur Hash migrieren.
+        if old_h == new_h and out.exists():
+            print(f"same    {out.name} <- {name}")
+        elif (
+            old_h is not None
+            and out.exists()
+            and old_h == md5(out)
+            and src_f.stat().st_mtime <= out.stat().st_mtime + 1
+        ):
+            # Gespeicherter Hash = komprimiertes Asset, Quelle nicht neuer.
+            print(f"same    {out.name} <- {name} (hash migrate)")
+        else:
             shutil.copy2(src_f, out)
             changed.append(out.stem)
             print(f"UPDATED {out.name} <- {name}")
-        else:
-            print(f"same    {out.name} <- {name}")
         hashes[out.stem] = new_h
         source_map[out.stem] = name
 
@@ -145,7 +173,7 @@ def main() -> int:
             changed.append(p.stem)
             p.unlink()
 
-    (ROOT / "assets/coloring_asset_hashes.json").write_text(
+    HASH_PATH.write_text(
         json.dumps(hashes, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     (ROOT / "assets/coloring_invalidate_ids.json").write_text(
