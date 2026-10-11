@@ -7,19 +7,38 @@ enum PaintCategory {
 }
 
 extension PaintCategoryX on PaintCategory {
+  /// Kurzes Label (Accessibility / kleine Unterschrift).
   String get label => switch (this) {
-        PaintCategory.solid => 'Paint colors',
-        PaintCategory.pastel => 'Pastel colors',
+        PaintCategory.solid => 'Bright',
+        PaintCategory.pastel => 'Soft',
       };
 
   IconData get icon => switch (this) {
         PaintCategory.solid => Icons.palette_rounded,
-        PaintCategory.pastel => Icons.gradient_rounded,
+        PaintCategory.pastel => Icons.blur_on_rounded,
       };
 
   Color get accent => switch (this) {
         PaintCategory.solid => const Color(0xFF5B6FBF),
         PaintCategory.pastel => const Color(0xFFE8A0BF),
+      };
+
+  /// Typische Preview-Farben für den Paletten-Kreis (wie in Kids-Apps).
+  List<Color> get previewColors => switch (this) {
+        PaintCategory.solid => const [
+            Color(0xFFFF2D55),
+            Color(0xFFFFC857),
+            Color(0xFF2DC653),
+            Color(0xFF4CC9F0),
+            Color(0xFF7B2CBF),
+          ],
+        PaintCategory.pastel => const [
+            Color(0xFFFFB3C1),
+            Color(0xFFFFD6A5),
+            Color(0xFFBDE0FE),
+            Color(0xFFCDB4DB),
+            Color(0xFFA8E6CF),
+          ],
       };
 }
 

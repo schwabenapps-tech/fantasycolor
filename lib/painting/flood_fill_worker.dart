@@ -115,16 +115,39 @@ FloodFillResult floodFillWorker(FloodFillRequest request) {
     order: img.ChannelOrder.rgba,
   );
 
-  final x = request.x;
-  final y = request.y;
   final width = request.width;
   final height = request.height;
+  final minLum = tuning.fillRegionLuminanceMin;
 
-  if (x < 0 || y < 0 || x >= width || y >= height) {
-    return FloodFillResult(changed: 0, workingBytes: request.workingBytes);
+  bool fillable(int px, int py) {
+    if (px < 0 || py < 0 || px >= width || py >= height) return false;
+    return _luminance(original.getPixel(px, py)) >= minLum;
   }
-  if (_luminance(original.getPixel(x, y)) < tuning.fillRegionLuminanceMin) {
-    return FloodFillResult(changed: 0, workingBytes: request.workingBytes);
+
+  // Tip auf Linie/AA → nächstgelegenen füllbaren Seed suchen.
+  var x = request.x;
+  var y = request.y;
+  if (!fillable(x, y)) {
+    final radius = width >= 1200 ? 24 : 18;
+    var found = false;
+    for (var r = 1; r <= radius && !found; r++) {
+      for (var dy = -r; dy <= r && !found; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          if (dx.abs() != r && dy.abs() != r) continue;
+          final nx = request.x + dx;
+          final ny = request.y + dy;
+          if (fillable(nx, ny)) {
+            x = nx;
+            y = ny;
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!found) {
+      return FloodFillResult(changed: 0, workingBytes: request.workingBytes);
+    }
   }
 
   final category = PaintCategory.values[request.categoryIndex];

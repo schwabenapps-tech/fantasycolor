@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/painting.dart' show Color;
 import 'package:image/image.dart' as img;
 
 import '../data/paint_catalog.dart';
@@ -113,6 +114,58 @@ class ColoringBitmap {
     return lum <= tuning.hardLineLuminanceMax;
   }
 
+  bool _isFillableSeed(int x, int y) {
+    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    final p = original.getPixel(x, y);
+    final lum = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+    return lum >= tuning.fillRegionLuminanceMin;
+  }
+
+  /// Tip oft auf Linie/AA — nächsten füllbaren Pixel in der Nähe suchen.
+  (int, int)? resolveFillSeed(int x, int y, {int? maxRadius}) {
+    final radius = maxRadius ?? (width >= 1200 ? 24 : 18);
+    if (_isFillableSeed(x, y)) return (x, y);
+    for (var r = 1; r <= radius; r++) {
+      for (var dy = -r; dy <= r; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          if (dx.abs() != r && dy.abs() != r) continue;
+          final nx = x + dx;
+          final ny = y + dy;
+          if (_isFillableSeed(nx, ny)) return (nx, ny);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Schneller Skip: schon Ziel-Farbe / schon radiert (nach Seed-Resolve).
+  bool shouldSkipFillAt(
+    int x,
+    int y, {
+    required Color color,
+    required PaintCategory category,
+    required bool erase,
+  }) {
+    if (x < 0 || y < 0 || x >= width || y >= height) return true;
+    if (!_isFillableSeed(x, y)) return true;
+
+    final orig = original.getPixel(x, y);
+    final w = working.getPixel(x, y);
+    if (erase) {
+      return w.r == orig.r && w.g == orig.g && w.b == orig.b;
+    }
+
+    final (tr, tg, tb) = _fillColorFor(
+      category: category,
+      baseR: color.r * 255.0,
+      baseG: color.g * 255.0,
+      baseB: color.b * 255.0,
+    );
+    return (w.r.toInt() - tr).abs() <= 3 &&
+        (w.g.toInt() - tg).abs() <= 3 &&
+        (w.b.toInt() - tb).abs() <= 3;
+  }
+
   /// Füllt die zusammenhängende helle Region um (x,y) im Hintergrund-Isolate.
   Future<int> floodFillAsync(
     int x,
@@ -149,10 +202,10 @@ class ColoringBitmap {
     bool erase = false,
   }) {
     final t = tuning;
-    if (x < 0 || y < 0 || x >= width || y >= height) return 0;
-    final seed = original.getPixel(x, y);
-    final seedLum = 0.299 * seed.r + 0.587 * seed.g + 0.114 * seed.b;
-    if (seedLum < t.fillRegionLuminanceMin) return 0;
+    final resolved = resolveFillSeed(x, y);
+    if (resolved == null) return 0;
+    x = resolved.$1;
+    y = resolved.$2;
 
     final targetR = color.r * 255.0;
     final targetG = color.g * 255.0;

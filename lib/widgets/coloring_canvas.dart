@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -8,10 +9,11 @@ import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_session.dart';
 import 'freehand_stroke_painter.dart';
 
-/// Zoombares PNG-Ausmalblatt mit Flood-Fill und Pen.
+/// Zoombares PNG-Ausmalblatt mit Flood-Fill.
 ///
-/// Pinch = Zoomen (im Viewport geclippt), bei Zoom verschieben
-/// (Fill: 1 Finger, Pen: 2 Finger). Doppeltipp / Rauszoomen → weich zurück.
+/// Pinch = Zoomen. Bei Zoom: 1 Finger = Pan, Tip = Fill,
+/// kurz halten dann ziehen = Drag-Fill (Viewport dabei eingefroren).
+/// Ungezoomt: Tip + Drag-über-Flächen füllt.
 class ColoringCanvas extends StatefulWidget {
   const ColoringCanvas({
     super.key,
@@ -33,8 +35,10 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   int _frameGeneration = -1;
   bool _encoding = false;
   bool _wasZoomed = false;
-  /// Pan erst nach Zoom-Geste freischalten — kein Rebuild mitten im Pinch.
   bool _panLatched = false;
+  bool _fillCapturing = false;
+  Matrix4? _lockedTransform;
+  bool _lockingTransform = false;
   late final AnimationController _zoomController;
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
@@ -46,6 +50,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
+    _transform.addListener(_onTransformChanged);
     widget.session.addListener(_onSessionChanged);
     widget.session.attachBitmap(widget.bitmap, notify: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,6 +74,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
+    _transform.removeListener(_onTransformChanged);
     _clearMatrixAnimation();
     _zoomController.dispose();
     _transform.dispose();
@@ -84,9 +90,29 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     _matrixAnimation = null;
   }
 
+  void _onTransformChanged() {
+    // Während Zoom-Drag-Fill Viewport einfrieren — sonst beißt sich Pan mit Fill.
+    final locked = _lockedTransform;
+    if (locked == null || _lockingTransform) return;
+    if (_transform.value == locked) return;
+    _lockingTransform = true;
+    _transform.value = locked.clone();
+    _lockingTransform = false;
+  }
+
+  void _onFillCaptureChanged(bool capturing) {
+    if (_fillCapturing == capturing) return;
+    if (capturing) {
+      _lockedTransform = _transform.value.clone();
+    } else {
+      _lockedTransform = null;
+    }
+    if (!mounted) return;
+    setState(() => _fillCapturing = capturing);
+  }
+
   void _onSessionChanged() {
     if (!mounted) return;
-    // Nur Bitmap-Frame neu — kein setState bei jedem Stroke (sonst Zoom-Ruckler).
     if (widget.session.bitmapGeneration != _frameGeneration) {
       _rebuildFrame();
     }
@@ -102,6 +128,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
         image.dispose();
         return;
       }
+      // Alten Frame erst nach Swap disposen — verhindert Weißblitz.
       final previous = _frame;
       setState(() {
         _frame = image;
@@ -135,14 +162,23 @@ class _ColoringCanvasState extends State<ColoringCanvas>
                 child: _ZoomViewport(
                   sheetSize: sheetSize,
                   transform: _transform,
-                  panEnabled: _panLatched && _panAllowedForTool,
+                  panEnabled:
+                      _panLatched && _panAllowedForTool && !_fillCapturing,
                   onDoubleTapAt: _onSoftZoom,
                   onInteractionEnd: _onZoomInteractionEnd,
-                  child: _PaintSurface(
-                    bitmap: widget.bitmap,
-                    session: widget.session,
-                    sheetSize: sheetSize,
-                    frame: _frame,
+                  child: ListenableBuilder(
+                    listenable: _transform,
+                    builder: (context, _) {
+                      final scale = _transform.value.getMaxScaleOnAxis();
+                      return _PaintSurface(
+                        bitmap: widget.bitmap,
+                        session: widget.session,
+                        sheetSize: sheetSize,
+                        frame: _frame,
+                        zoomed: scale > 1.08,
+                        onFillCaptureChanged: _onFillCaptureChanged,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -197,16 +233,13 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   void _onZoomInteractionEnd() {
     final scale = _transform.value.getMaxScaleOnAxis();
-    // Weich zurück zur Normalposition — kein harter Snap, kein nachträglicher Clamp.
     if (scale <= 1.08) {
       _animateTo(Matrix4.identity());
       return;
     }
-    // Matrix unverändert lassen (= genau dort bleiben, wo die Geste endete).
-    final zoomed = true;
     final pan = _panAllowedForTool;
-    if (zoomed != _wasZoomed || pan != _panLatched) {
-      _wasZoomed = zoomed;
+    if (!_wasZoomed || pan != _panLatched) {
+      _wasZoomed = true;
       _panLatched = pan;
       if (mounted) setState(() {});
     }
@@ -253,7 +286,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   }
 }
 
-/// Geclipptes Zoom-Fenster: natives Boundary, kein Post-Clamp (kein Springen).
+/// Geclipptes Zoom-Fenster mit engem Boundary (kein starkes Seitwärtsschieben).
 class _ZoomViewport extends StatelessWidget {
   const _ZoomViewport({
     required this.sheetSize,
@@ -280,14 +313,14 @@ class _ZoomViewport extends StatelessWidget {
       child: InteractiveViewer(
         transformationController: transform,
         minScale: 1,
-        maxScale: 8,
+        maxScale: 5,
         panEnabled: panEnabled,
         scaleEnabled: true,
         constrained: true,
         alignment: Alignment.center,
         clipBehavior: Clip.hardEdge,
-        // Endliches Margin: Flutter begrenzt selbst (flüssig), Blatt bleibt im Fenster.
-        boundaryMargin: const EdgeInsets.all(48),
+        // Kein Extra-Margin — kein Wegziehen in leeren Raum.
+        boundaryMargin: EdgeInsets.zero,
         onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(
           child: SizedBox(
@@ -307,29 +340,48 @@ class _PaintSurface extends StatefulWidget {
     required this.session,
     required this.sheetSize,
     required this.frame,
+    required this.zoomed,
+    required this.onFillCaptureChanged,
   });
 
   final ColoringBitmap bitmap;
   final ColoringSession session;
   final Size sheetSize;
   final ui.Image? frame;
+  final bool zoomed;
+  final ValueChanged<bool> onFillCaptureChanged;
 
   @override
   State<_PaintSurface> createState() => _PaintSurfaceState();
 }
 
 class _PaintSurfaceState extends State<_PaintSurface> {
-  static const _tapSlop = 12.0;
+  /// Abstand zwischen Drag-Samples (Blatt-Koordinaten, ungezoomt).
+  static const _dragSamplePx = 12.0;
+  /// Zoom: Sample in Bildschirm-px — sonst wirkt 12 Blatt-px viel zu empfindlich.
+  static const _dragSampleGlobalZoomed = 36.0;
+  /// Nur bei Zoom: erst ab hier Pan statt Tip (Finger wackelt leicht).
+  static const _panSlopGlobal = 42.0;
+  /// Zoom: halten, dann Drag-Fill; sofort ziehen = Pan.
+  static const _zoomDragFillHold = Duration(milliseconds: 380);
 
   FreehandStroke? _localStroke;
   final Set<int> _pointers = <int>{};
-  Offset? _pendingTapLocal;
-  bool _tapExceededSlop = false;
+  bool _fillGesture = false;
+  bool _armedTapFill = false;
+  bool _zoomPanCommitted = false;
+  Offset? _downGlobal;
+  Offset? _downLocal;
+  Offset? _lastFillSampleLocal;
+  Offset? _lastFillSampleGlobal;
   int? _paintPointer;
+  int _lastStrokeGen = -1;
+  Timer? _zoomHoldTimer;
 
   @override
   void initState() {
     super.initState();
+    _lastStrokeGen = widget.session.strokeGeneration;
     widget.session.addListener(_onSession);
   }
 
@@ -339,17 +391,26 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     if (oldWidget.session != widget.session) {
       oldWidget.session.removeListener(_onSession);
       widget.session.addListener(_onSession);
+      _lastStrokeGen = widget.session.strokeGeneration;
     }
   }
 
   @override
   void dispose() {
+    _zoomHoldTimer?.cancel();
+    if (_fillGesture) {
+      widget.onFillCaptureChanged(false);
+    }
     widget.session.removeListener(_onSession);
     super.dispose();
   }
 
   void _onSession() {
-    if (mounted) setState(() {});
+    // Nur bei Strich-Overlay neu bauen — nicht bei jedem Fill-Flag.
+    if (widget.session.strokeGeneration != _lastStrokeGen) {
+      _lastStrokeGen = widget.session.strokeGeneration;
+      if (mounted) setState(() {});
+    }
   }
 
   Offset _toImage(Offset local) {
@@ -400,10 +461,19 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     );
   }
 
+  bool get _isFillTool {
+    final session = widget.session;
+    final tool = session.tool;
+    return tool == PaintTool.brush ||
+        (tool == PaintTool.eraser && session.eraserClearsFills);
+  }
+
   void _onPointerDown(PointerDownEvent event) {
     _pointers.add(event.pointer);
     if (_isMultiTouch) {
-      _cancelPendingTap();
+      _cancelZoomHold();
+      _cancelFillArm();
+      _endFillGesture();
       _cancelLocalStroke();
       return;
     }
@@ -413,10 +483,38 @@ class _PaintSurfaceState extends State<_PaintSurface> {
     final tool = session.tool;
     final local = event.localPosition;
 
-    if (tool == PaintTool.brush ||
-        (tool == PaintTool.eraser && session.eraserClearsFills)) {
-      _pendingTapLocal = local;
-      _tapExceededSlop = false;
+    if (_isFillTool) {
+      _downGlobal = event.position;
+      _downLocal = local;
+      _zoomPanCommitted = false;
+      _lastFillSampleLocal = local;
+
+      if (widget.zoomed) {
+        // Zoom: sofort ziehen = Pan; halten = Drag-Fill; Tip = eine Fläche.
+        _armedTapFill = true;
+        _fillGesture = false;
+        _zoomHoldTimer?.cancel();
+        _zoomHoldTimer = Timer(_zoomDragFillHold, () {
+          if (!mounted || _paintPointer != event.pointer) return;
+          if (_zoomPanCommitted || _isMultiTouch) return;
+          // Long-Press → Drag-Fill; Pan/Zoom dabei eingefroren.
+          _armedTapFill = false;
+          _fillGesture = true;
+          final start = _downLocal ?? local;
+          _lastFillSampleLocal = start;
+          _lastFillSampleGlobal = _downGlobal ?? event.position;
+          widget.onFillCaptureChanged(true);
+          session.beginFillGesture();
+          unawaited(session.applyFillAt(_toImage(start)));
+        });
+        return;
+      }
+
+      // Ungezoomt: sofort Drag-Fill.
+      _armedTapFill = false;
+      _fillGesture = true;
+      session.beginFillGesture();
+      unawaited(session.applyFillAt(_toImage(local)));
       return;
     }
 
@@ -440,50 +538,110 @@ class _PaintSurfaceState extends State<_PaintSurface> {
   void _onPointerMove(PointerMoveEvent event) {
     if (!_pointers.contains(event.pointer)) return;
     if (_isMultiTouch) {
-      _cancelPendingTap();
+      _cancelZoomHold();
+      _cancelFillArm();
+      _endFillGesture();
       _cancelLocalStroke();
       return;
     }
+    if (event.pointer != _paintPointer) return;
 
-    if (_pendingTapLocal != null && event.pointer == _paintPointer) {
-      if ((event.localPosition - _pendingTapLocal!).distance > _tapSlop) {
-        _tapExceededSlop = true;
+    // Zoom + Bewegung vor Long-Press → Pan, kein Fill.
+    if (widget.zoomed &&
+        !_fillGesture &&
+        !_zoomPanCommitted &&
+        _downGlobal != null &&
+        (event.position - _downGlobal!).distance >= _panSlopGlobal) {
+      _zoomPanCommitted = true;
+      _cancelZoomHold();
+      _cancelFillArm();
+      return;
+    }
+
+    if (_fillGesture) {
+      final local = event.localPosition;
+      if (widget.zoomed) {
+        final lastG = _lastFillSampleGlobal;
+        if (lastG == null ||
+            (event.position - lastG).distance >= _dragSampleGlobalZoomed) {
+          _lastFillSampleGlobal = event.position;
+          _lastFillSampleLocal = local;
+          unawaited(widget.session.applyFillAt(_toImage(local)));
+        }
+      } else {
+        final last = _lastFillSampleLocal;
+        if (last == null || (local - last).distance >= _dragSamplePx) {
+          _lastFillSampleLocal = local;
+          unawaited(widget.session.applyFillAt(_toImage(local)));
+        }
       }
       return;
     }
 
+    if (_armedTapFill || _zoomPanCommitted) return;
+
     final stroke = _localStroke;
-    if (stroke == null || event.pointer != _paintPointer) return;
+    if (stroke == null) return;
     stroke.points.add(
       PointVector(event.localPosition.dx, event.localPosition.dy),
     );
     setState(() {});
   }
 
-  void _onPointerUp(PointerUpEvent event) async {
+  void _onPointerUp(PointerUpEvent event) {
     _pointers.remove(event.pointer);
-    if (event.pointer == _paintPointer) {
-      if (_pendingTapLocal != null && !_tapExceededSlop && !_isMultiTouch) {
-        await widget.session.applyFillAt(_toImage(_pendingTapLocal!));
-      }
-      _cancelPendingTap();
-      _endLocalStroke();
-      _paintPointer = null;
+    if (event.pointer != _paintPointer) return;
+
+    _cancelZoomHold();
+
+    if (_armedTapFill && !_zoomPanCommitted && !_isMultiTouch) {
+      // Immer Down-Position — nicht die letzte Move-Sample (genauer).
+      final local = _downLocal ?? event.localPosition;
+      unawaited(widget.session.applyFillAt(_toImage(local)));
+    } else if (_fillGesture) {
+      _endFillGesture();
     }
+
+    _cancelFillArm();
+    _endLocalStroke();
+    _paintPointer = null;
+    _downGlobal = null;
+    _downLocal = null;
+    _zoomPanCommitted = false;
+    _lastFillSampleLocal = null;
+    _lastFillSampleGlobal = null;
   }
 
   void _onPointerCancel(PointerCancelEvent event) {
     _pointers.remove(event.pointer);
     if (event.pointer == _paintPointer) {
-      _cancelPendingTap();
+      _cancelZoomHold();
+      _cancelFillArm();
+      _endFillGesture();
       _cancelLocalStroke();
       _paintPointer = null;
+      _downGlobal = null;
+      _downLocal = null;
+      _zoomPanCommitted = false;
+      _lastFillSampleLocal = null;
+      _lastFillSampleGlobal = null;
     }
   }
 
-  void _cancelPendingTap() {
-    _pendingTapLocal = null;
-    _tapExceededSlop = false;
+  void _cancelZoomHold() {
+    _zoomHoldTimer?.cancel();
+    _zoomHoldTimer = null;
+  }
+
+  void _cancelFillArm() {
+    _armedTapFill = false;
+  }
+
+  void _endFillGesture() {
+    if (!_fillGesture) return;
+    _fillGesture = false;
+    widget.onFillCaptureChanged(false);
+    widget.session.endFillGesture();
   }
 
   void _cancelLocalStroke() {
