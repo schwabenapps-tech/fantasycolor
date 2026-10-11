@@ -160,6 +160,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
             Positioned.fill(
               child: ClipRect(
                 child: _ZoomViewport(
+                  viewportSize: viewport,
                   sheetSize: sheetSize,
                   transform: _transform,
                   panEnabled:
@@ -286,9 +287,11 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   }
 }
 
-/// Geclipptes Zoom-Fenster mit engem Boundary (kein starkes Seitwärtsschieben).
+/// Zoom-Fenster: Blatt zentriert; Boundary-Slack damit Hochformat beim
+/// Zoomen nicht sofort am Rand festklemmt (Pan erst ab Zoom aktiv).
 class _ZoomViewport extends StatelessWidget {
   const _ZoomViewport({
+    required this.viewportSize,
     required this.sheetSize,
     required this.transform,
     required this.panEnabled,
@@ -297,6 +300,7 @@ class _ZoomViewport extends StatelessWidget {
     required this.child,
   });
 
+  final Size viewportSize;
   final Size sheetSize;
   final TransformationController transform;
   final bool panEnabled;
@@ -306,6 +310,8 @@ class _ZoomViewport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final slack = (viewportSize.shortestSide * 0.22).clamp(72.0, 160.0);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onDoubleTapDown: (details) => onDoubleTapAt(details.localPosition),
@@ -313,14 +319,13 @@ class _ZoomViewport extends StatelessWidget {
       child: InteractiveViewer(
         transformationController: transform,
         minScale: 1,
-        maxScale: 5,
+        maxScale: 6,
         panEnabled: panEnabled,
         scaleEnabled: true,
         constrained: true,
         alignment: Alignment.center,
         clipBehavior: Clip.hardEdge,
-        // Kein Extra-Margin — kein Wegziehen in leeren Raum.
-        boundaryMargin: EdgeInsets.zero,
+        boundaryMargin: EdgeInsets.all(slack),
         onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(
           child: SizedBox(
