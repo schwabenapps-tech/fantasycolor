@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../data/sticker_catalog.dart';
+import '../utils/image_source.dart';
 
 /// Zeigt einen neu erhaltenen Sticker groß + Konfetti (ohne Box-Hintergrund).
 class StickerRevealOverlay extends StatefulWidget {
@@ -95,8 +96,10 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                 SizedBox(
                                   width: stickerSide,
                                   height: stickerSide,
-                                  child: Image.asset(
-                                    widget.sticker.assetPath,
+                                  child: Image(
+                                    image: imageProviderFor(
+                                      widget.sticker.assetPath,
+                                    ),
                                     fit: BoxFit.contain,
                                     filterQuality: FilterQuality.high,
                                   ),
@@ -152,8 +155,10 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                 SizedBox(
                                   width: stickerSide,
                                   height: stickerSide,
-                                  child: Image.asset(
-                                    widget.sticker.assetPath,
+                                  child: Image(
+                                    image: imageProviderFor(
+                                      widget.sticker.assetPath,
+                                    ),
                                     fit: BoxFit.contain,
                                     filterQuality: FilterQuality.high,
                                   ),

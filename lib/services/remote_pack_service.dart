@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/event_catalog.dart';
+import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../utils/image_source.dart';
 
@@ -117,6 +118,76 @@ class RemotePackService extends ChangeNotifier {
       section: 'puzzle',
       bundleSourceKeys: bundleSourceKeys,
     );
+  }
+
+  /// Stickers aus gecachten Packs (`packs/{id}/stickers/` + optional `catalog.json`).
+  Future<List<StickerEntry>> remoteStickerEntries() async {
+    await _ensureIndexLoaded();
+    final root = await _packsRoot();
+    final out = <StickerEntry>[];
+    final seenIds = <String>{};
+    for (final pack in _packs) {
+      final stickerDir = Directory('${root.path}/${pack.id}/stickers');
+      if (!await stickerDir.exists()) continue;
+
+      final catalogFile = File('${stickerDir.path}/catalog.json');
+      if (await catalogFile.exists()) {
+        try {
+          final json = jsonDecode(await catalogFile.readAsString());
+          if (json is Map<String, dynamic>) {
+            final list = json['stickers'];
+            if (list is List) {
+              for (final item in list) {
+                if (item is! Map) continue;
+                final map = Map<String, dynamic>.from(item);
+                final id = map['id']?.toString();
+                final assetName = map['asset']?.toString();
+                if (id == null || id.isEmpty || assetName == null) continue;
+                final fileName = assetName.split('/').last;
+                final file = File('${stickerDir.path}/$fileName');
+                if (!await file.exists()) continue;
+                if (!seenIds.add(id)) continue;
+                out.add(
+                  StickerEntry(
+                    id: id,
+                    assetPath: file.path,
+                    coloringId: map['coloringId'] as String?,
+                    puzzleId: map['puzzleId'] as String?,
+                  ),
+                );
+              }
+              continue;
+            }
+          }
+        } catch (e) {
+          debugPrint('RemotePackService: sticker catalog ${pack.id}: $e');
+        }
+      }
+
+      // Fallback: jede Bilddatei ohne catalog.json.
+      final images = stickerDir
+          .listSync()
+          .whereType<File>()
+          .where((f) {
+            final n = f.path.toLowerCase();
+            return n.endsWith('.png') ||
+                n.endsWith('.jpg') ||
+                n.endsWith('.jpeg') ||
+                n.endsWith('.webp');
+          })
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+      for (final file in images) {
+        final stem = file.uri.pathSegments.last.replaceAll(
+          RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false),
+          '',
+        );
+        final id = 'remote_${pack.id}_$stem';
+        if (!seenIds.add(id)) continue;
+        out.add(StickerEntry(id: id, assetPath: file.path));
+      }
+    }
+    return out;
   }
 
   List<ContentEvent> remoteEvents() {

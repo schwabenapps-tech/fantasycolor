@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/sticker_catalog.dart';
+import '../services/remote_pack_service.dart';
 
 /// Persistierter Sticker-Besitz + Daily-Claim.
 class StickerCollectionStore extends ChangeNotifier {
@@ -21,27 +22,61 @@ class StickerCollectionStore extends ChangeNotifier {
 
   bool get isReady => _ready;
   StickerCatalog? get catalog => _catalog;
-  int get ownedCount => _owned.length;
+
+  /// Nur Stickers, die im aktuellen (gemergten) Katalog stehen.
+  int get ownedCount {
+    final cat = _catalog;
+    if (cat == null) return 0;
+    var n = 0;
+    for (final s in cat.stickers) {
+      if (_owned.contains(s.id)) n++;
+    }
+    return n;
+  }
+
   int get totalCount => _catalog?.count ?? 0;
   bool get isComplete =>
-      _catalog != null && _catalog!.count > 0 && _owned.length >= _catalog!.count;
+      _catalog != null && _catalog!.count > 0 && ownedCount >= _catalog!.count;
 
   Set<String> get ownedIds => Set<String>.unmodifiable(_owned);
 
   bool owns(String id) => _owned.contains(id);
 
   Future<void> load() async {
-    _catalog = await StickerCatalog.load();
+    await _loadCatalogMerged();
     final prefs = await SharedPreferences.getInstance();
     _owned
       ..clear()
       ..addAll(prefs.getStringList(_ownedKey) ?? const <String>[]);
-    // Ungültige IDs entfernen.
-    final valid = _catalog!.stickers.map((s) => s.id).toSet();
-    _owned.removeWhere((id) => !valid.contains(id));
+    // Kein aggressives Prunen: Remote-IDs bleiben erhalten, falls Sync kurz fehlt.
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
     _ready = true;
     notifyListeners();
+  }
+
+  /// Nach CDN-Sync: Katalog neu mergen (Owned bleibt).
+  Future<void> reloadCatalog() async {
+    StickerCatalog.clearCache();
+    await _loadCatalogMerged();
+    _ready = true;
+    notifyListeners();
+  }
+
+  /// Test/Reset: alle freigeschalteten Stickers + Daily-Claim löschen.
+  Future<void> resetCollection() async {
+    await _ensureReady();
+    _owned.clear();
+    _lastDailyClaimDay = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_ownedKey);
+    await prefs.remove(_dailyClaimKey);
+    notifyListeners();
+  }
+
+  Future<void> _loadCatalogMerged() async {
+    final remote = await RemotePackService.instance.remoteStickerEntries();
+    StickerCatalog.clearCache();
+    _catalog = await StickerCatalog.load(remote: remote);
   }
 
   String _todayKey() {

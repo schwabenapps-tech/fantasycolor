@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/sticker_catalog.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
+import '../utils/image_source.dart';
 
 /// Magisches Grid-Album über dem Hub (Hub bleibt gedimmt sichtbar).
 class StickerAlbumOverlay extends StatefulWidget {
@@ -34,6 +35,12 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
   static const _perPage = 9;
   static const _cols = 3;
   static const _rows = 3;
+
+  // Pergament-Buch Palette
+  static const _parchment = Color(0xFFF3E6C8);
+  static const _parchmentDeep = Color(0xFFE8D4A8);
+  static const _ink = Color(0xFF4A3208);
+  static const _sepiaEdge = Color(0xFFC4A46A);
 
   @override
   void initState() {
@@ -64,10 +71,10 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
       await dir.create(recursive: true);
       final files = <XFile>[];
       for (final s in cat.stickers) {
-        final data = await rootBundle.load(s.assetPath);
+        final bytes = await loadImageBytes(s.assetPath);
         final name = s.assetPath.split('/').last;
         final out = File('${dir.path}/$name');
-        await out.writeAsBytes(data.buffer.asUint8List());
+        await out.writeAsBytes(bytes);
         files.add(XFile(out.path));
       }
       AnalyticsService.instance.logStickerPackExport(files.length);
@@ -109,7 +116,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
         MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
 
     return Material(
-      color: Colors.black.withValues(alpha: 0.62),
+      color: Colors.black.withValues(alpha: 0.55),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -117,71 +124,132 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
             duration: const Duration(milliseconds: 220),
             opacity: _showRules ? 0.28 : 1,
             child: SafeArea(
-              child: Stack(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      landscape ? 20 : 16,
-                      landscape ? 8 : 12,
-                      landscape ? 20 : 16,
-                      landscape ? 6 : 10,
-                    ),
-                    child: Column(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  landscape ? 20 : 16,
+                  landscape ? 6 : 8,
+                  landscape ? 20 : 16,
+                  landscape ? 6 : 10,
+                ),
+                child: Column(
+                  children: [
+                    // Nur Info/Close — Titel sitzt am Album-Block.
+                    Row(
                       children: [
-                        Text(
-                          '${store.ownedCount} / ${store.totalCount}',
-                          style: TextStyle(
+                        _AlbumChromeButton(
+                          tooltip: 'Rules',
+                          icon: Icons.info_outline_rounded,
+                          onPressed: () =>
+                              setState(() => _showRules = true),
+                        ),
+                        const Spacer(),
+                        _AlbumChromeButton(
+                          tooltip: 'Close',
+                          icon: Icons.close_rounded,
+                          onPressed: widget.onClose,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final gap = landscape ? 6.0 : 10.0;
+                          final inset = landscape ? 10.0 : 14.0;
+                          final titleSize = landscape ? 17.0 : 20.0;
+                          final countSize = landscape ? 15.0 : 18.0;
+                          final titleGap = landscape ? 4.0 : 8.0;
+                          final countGap = landscape ? 4.0 : 8.0;
+                          final titleH = titleSize + 4;
+                          final countH = countSize + 4;
+                          final exportH = store.isComplete ? 40.0 : 0.0;
+                          final chromeExtras = titleH +
+                              titleGap +
+                              countGap +
+                              countH +
+                              exportH +
+                              6; // Slack gegen Subpixel-Overflow
+
+                          final maxW = constraints.maxWidth;
+                          final maxPanelH =
+                              (constraints.maxHeight - chromeExtras)
+                                  .clamp(64.0, double.infinity);
+                          final innerMaxW = (maxW - inset * 2)
+                              .clamp(0.0, double.infinity);
+                          final innerMaxH = (maxPanelH - inset * 2)
+                              .clamp(0.0, double.infinity);
+                          final cellFromW =
+                              (innerMaxW - gap * (_cols - 1)) / _cols;
+                          final cellFromH =
+                              (innerMaxH - gap * (_rows - 1)) / _rows;
+                          var cell = cellFromW < cellFromH
+                              ? cellFromW
+                              : cellFromH;
+                          final maxCell = landscape ? 110.0 : 140.0;
+                          if (cell > maxCell) cell = maxCell;
+                          if (cell < 36) cell = 36;
+                          // Nochmals gegen Budget kappen (min-cell darf nicht sprengen).
+                          final gridW = cell * _cols + gap * (_cols - 1);
+                          var gridH = cell * _rows + gap * (_rows - 1);
+                          var panelW = gridW + inset * 2;
+                          var panelH = gridH + inset * 2;
+                          if (panelH > maxPanelH) {
+                            final scale = maxPanelH / panelH;
+                            panelW *= scale;
+                            panelH = maxPanelH;
+                          }
+                          if (panelW > maxW) {
+                            final scale = maxW / panelW;
+                            panelW = maxW;
+                            panelH *= scale;
+                          }
+
+                          final titleStyle = TextStyle(
                             color: const Color(0xFFFFE7A0),
                             fontWeight: FontWeight.w800,
-                            fontSize: landscape ? 17 : 20,
+                            fontSize: titleSize,
                             shadows: const [
                               Shadow(
                                 color: Color(0xAA000000),
-                                blurRadius: 6,
+                                blurRadius: 8,
                               ),
                             ],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              final gap = landscape ? 8.0 : 10.0;
-                              final inset = landscape ? 12.0 : 14.0;
-                              // Leave a little slack so the panel never clips.
-                              final maxW = constraints.maxWidth;
-                              final maxH = constraints.maxHeight;
-                              final innerMaxW = (maxW - inset * 2)
-                                  .clamp(0.0, double.infinity);
-                              final innerMaxH = (maxH - inset * 2)
-                                  .clamp(0.0, double.infinity);
-                              final cellFromW =
-                                  (innerMaxW - gap * (_cols - 1)) / _cols;
-                              final cellFromH =
-                                  (innerMaxH - gap * (_rows - 1)) / _rows;
-                              final cell =
-                                  (cellFromW < cellFromH ? cellFromW : cellFromH)
-                                      .clamp(48.0, landscape ? 120.0 : 140.0);
-                              final gridW =
-                                  cell * _cols + gap * (_cols - 1);
-                              final gridH =
-                                  cell * _rows + gap * (_rows - 1);
-                              final panelW = gridW + inset * 2;
-                              final panelH = gridH + inset * 2;
+                          );
+                          final countStyle = TextStyle(
+                            color: const Color(0xFFFFE7A0),
+                            fontSize: countSize,
+                            fontWeight: FontWeight.w800,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          );
 
-                              return Center(
-                                child: SizedBox(
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Sticker album',
+                                  textAlign: TextAlign.center,
+                                  style: titleStyle,
+                                ),
+                                SizedBox(height: titleGap),
+                                SizedBox(
                                   width: panelW,
                                   height: panelH,
                                   child: DecoratedBox(
                                     decoration: BoxDecoration(
-                                      color: const Color(0xCC1A2438),
+                                      color:
+                                          _parchment.withValues(alpha: 0.96),
                                       borderRadius:
                                           BorderRadius.circular(22),
                                       border: Border.all(
-                                        color: const Color(0xFFFFE7A0)
-                                            .withValues(alpha: 0.35),
-                                        width: 1.5,
+                                        color: _sepiaEdge
+                                            .withValues(alpha: 0.85),
+                                        width: 1.8,
                                       ),
                                       boxShadow: const [
                                         BoxShadow(
@@ -207,8 +275,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                                               .take(_perPage)
                                               .toList();
                                           return Padding(
-                                            padding:
-                                                EdgeInsets.all(inset),
+                                            padding: EdgeInsets.all(inset),
                                             child: GridView.builder(
                                               physics:
                                                   const NeverScrollableScrollPhysics(),
@@ -220,8 +287,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                                                 childAspectRatio: 1,
                                               ),
                                               itemCount: slice.length,
-                                              itemBuilder:
-                                                  (context, i) {
+                                              itemBuilder: (context, i) {
                                                 final s = slice[i];
                                                 final owned =
                                                     store.owns(s.id);
@@ -242,62 +308,34 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ),
-                        if (pageCount > 1) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_page + 1} / $pageCount',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.75),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                                SizedBox(height: countGap),
+                                Text(
+                                  '${store.ownedCount} / ${store.totalCount}',
+                                  style: countStyle,
+                                ),
+                                if (store.isComplete)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: TextButton.icon(
+                                      onPressed: () => _exportPack(store),
+                                      icon: const Icon(
+                                        Icons.download_rounded,
+                                      ),
+                                      label: const Text('Sticker pack'),
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: _parchmentDeep,
+                                        foregroundColor: _ink,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                        ],
-                        if (store.isComplete)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: TextButton.icon(
-                              onPressed: () => _exportPack(store),
-                              icon: const Icon(Icons.download_rounded),
-                              label: const Text('Sticker pack'),
-                              style: TextButton.styleFrom(
-                                backgroundColor: const Color(0xFFFFE8A8),
-                                foregroundColor: const Color(0xFF4A3208),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    right: 12,
-                    child: IconButton(
-                      tooltip: 'Close',
-                      onPressed: widget.onClose,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Colors.white,
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    left: 12,
-                    child: IconButton(
-                      tooltip: 'Rules',
-                      onPressed: () => setState(() => _showRules = true),
-                      icon: const Icon(
-                        Icons.info_outline_rounded,
-                        color: Color(0xFFFFE7A0),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -315,6 +353,44 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
   }
 }
 
+/// Heller Chrome-Button über dem Album (dunkler Hub-Hintergrund).
+class _AlbumChromeButton extends StatelessWidget {
+  const _AlbumChromeButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: const Color(0xE6FFF6E0),
+        shape: const CircleBorder(),
+        elevation: 2,
+        shadowColor: const Color(0x88000000),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Icon(
+              icon,
+              size: 24,
+              color: const Color(0xFF3A2810),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AlbumStickerCell extends StatelessWidget {
   const _AlbumStickerCell({
     required this.sticker,
@@ -326,26 +402,28 @@ class _AlbumStickerCell extends StatelessWidget {
   final bool owned;
   final VoidCallback onTap;
 
+  static const _lockedFilter = ColorFilter.matrix(<double>[
+    0.32, 0.28, 0.2, 0, 55,
+    0.28, 0.3, 0.2, 0, 48,
+    0.22, 0.22, 0.18, 0, 40,
+    0, 0, 0, 0.5, 0,
+  ]);
+
   @override
   Widget build(BuildContext context) {
-    final image = Image.asset(
-      sticker.assetPath,
+    final image = Image(
+      image: imageProviderFor(sticker.assetPath),
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
     );
     final body = owned
         ? image
         : ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              0.05, 0.05, 0.05, 0, 18,
-              0.05, 0.05, 0.05, 0, 18,
-              0.08, 0.08, 0.1, 0, 28,
-              0, 0, 0, 0.55, 0,
-            ]),
+            colorFilter: _lockedFilter,
             child: image,
           );
     return Material(
-      color: Colors.white.withValues(alpha: 0.06),
+      color: const Color(0xFFE8D4A8).withValues(alpha: 0.55),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -370,12 +448,19 @@ class _StickerPreviewOverlay extends StatelessWidget {
   final bool owned;
   final VoidCallback onClose;
 
+  static const _lockedFilter = ColorFilter.matrix(<double>[
+    0.32, 0.28, 0.2, 0, 55,
+    0.28, 0.3, 0.2, 0, 48,
+    0.22, 0.22, 0.18, 0, 40,
+    0, 0, 0, 0.5, 0,
+  ]);
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final side = (size.shortestSide * 0.72).clamp(220.0, 380.0);
-    final image = Image.asset(
-      sticker.assetPath,
+    final image = Image(
+      image: imageProviderFor(sticker.assetPath),
       fit: BoxFit.contain,
       filterQuality: FilterQuality.high,
     );
@@ -398,12 +483,7 @@ class _StickerPreviewOverlay extends StatelessWidget {
                       child: owned
                           ? image
                           : ColorFiltered(
-                              colorFilter: const ColorFilter.matrix(<double>[
-                                0.05, 0.05, 0.05, 0, 18,
-                                0.05, 0.05, 0.05, 0, 18,
-                                0.08, 0.08, 0.1, 0, 28,
-                                0, 0, 0, 0.55, 0,
-                              ]),
+                              colorFilter: _lockedFilter,
                               child: image,
                             ),
                     ),
@@ -438,7 +518,7 @@ class _StickerPreviewOverlay extends StatelessWidget {
   }
 }
 
-/// Halbtransparentes Regel-Panel (Genshin-Stil).
+/// Halbtransparentes Regel-Panel (Pergament).
 class _RulesPanel extends StatelessWidget {
   const _RulesPanel({required this.onClose});
 
@@ -455,10 +535,10 @@ class _RulesPanel extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 20),
             decoration: BoxDecoration(
-              color: const Color(0xCC1A2438),
+              color: const Color(0xF5F3E6C8),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.28),
+                color: const Color(0xFFC4A46A).withValues(alpha: 0.9),
               ),
               boxShadow: const [
                 BoxShadow(
@@ -477,7 +557,7 @@ class _RulesPanel extends StatelessWidget {
                       child: Text(
                         'Sticker album',
                         style: TextStyle(
-                          color: Color(0xFFFFE7A0),
+                          color: Color(0xFF4A3208),
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                         ),
@@ -487,18 +567,18 @@ class _RulesPanel extends StatelessWidget {
                       onPressed: onClose,
                       icon: const Icon(
                         Icons.close_rounded,
-                        color: Colors.white,
+                        color: Color(0xFF4A3208),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   '• Each day when you open the app you get a daily surprise — pick one of three gift boxes for a reward sticker.\n'
                   '• Every sticker can only be unlocked once — no duplicates.\n'
                   '• Collect them all to download the free sticker pack.',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: Color(0xFF4A3208),
                     fontSize: 14,
                     height: 1.45,
                     fontWeight: FontWeight.w500,

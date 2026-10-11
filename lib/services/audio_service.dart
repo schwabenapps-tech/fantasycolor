@@ -27,6 +27,12 @@ class AudioService extends ChangeNotifier {
     'sounds/ambient_03_voyage.mp3',
     'sounds/ambient_04_cinematic.mp3',
     'sounds/ambient_05_castle.mp3',
+    'sounds/ambient_06_forest.mp3',
+    'sounds/ambient_07_summer.mp3',
+    'sounds/ambient_08_echoes.mp3',
+    'sounds/ambient_09_aquarelle.mp3',
+    'sounds/ambient_10_dancing.mp3',
+    'sounds/ambient_11_fairy_tale.mp3',
   ];
 
   static const levelCompleteSfx = 'sounds/sfx_complete.mp3';

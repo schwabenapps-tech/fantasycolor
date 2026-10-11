@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/consent_service.dart';
@@ -143,6 +144,22 @@ class SettingsScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                const _SectionTitle('Stickers'),
+                                _SettingsTile(
+                                  icon: Icons.restart_alt_rounded,
+                                  title: 'Reset sticker album',
+                                  subtitle:
+                                      'Clear collected stickers and the daily gift',
+                                  onTap: () => _resetStickers(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _SettingsCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 const _SectionTitle('About'),
                                 _SettingsTile(
                                   icon: Icons.palette_outlined,
@@ -206,6 +223,35 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  static Future<void> _resetStickers(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset sticker album?'),
+        content: const Text(
+          'All collected stickers and today’s daily gift will be cleared. '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await context.read<StickerCollectionStore>().resetCollection();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sticker album reset')),
+    );
+  }
+
   static Future<void> _openSupportMail(BuildContext context) async {
     await _sendMail(
       context,
@@ -219,6 +265,7 @@ class SettingsScreen extends StatelessWidget {
   static Future<void> _openFeedbackDialog(BuildContext context) async {
     final message = await showDialog<String>(
       context: context,
+      barrierDismissible: true,
       builder: (context) => const _FeedbackDialog(),
     );
     if (message == null || message.trim().isEmpty) return;
@@ -412,83 +459,196 @@ class _FeedbackDialogState extends State<_FeedbackDialog> {
     Navigator.of(context).pop(text);
   }
 
+  InputDecoration _fieldDecoration() {
+    return InputDecoration(
+      hintText: 'Tell us what you think…',
+      hintStyle: TextStyle(
+        color: Colors.black.withValues(alpha: 0.4),
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Colors.black.withValues(alpha: 0.2),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: Colors.black.withValues(alpha: 0.18),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Color(0xFFC9A06A),
+          width: 1.6,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _actionButtons() {
+    return [
+      TextButton(
+        onPressed: _sending ? null : () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed:
+            _controller.text.trim().isEmpty || _sending ? null : _submit,
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFC9A06A),
+          foregroundColor: const Color(0xFF2A2410),
+        ),
+        child: const Text('Send'),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final landscape = size.width > size.height;
+    final keyboardOpen = viewInsets.bottom > 80;
+
+    // Landscape: Dialog sitzt über der Tastatur, Textfeld bleibt sichtbar.
+    if (landscape) {
+      final field = TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: keyboardOpen ? 1 : 3,
+        minLines: 1,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+          height: 1.35,
+        ),
+        cursorColor: Colors.black87,
+        textInputAction:
+            keyboardOpen ? TextInputAction.done : TextInputAction.newline,
+        onSubmitted: keyboardOpen ? (_) => _submit() : null,
+        decoration: _fieldDecoration(),
+        onChanged: (_) => setState(() {}),
+      );
+
+      return AnimatedPadding(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.fromLTRB(
+          28,
+          8,
+          28,
+          viewInsets.bottom + 8,
+        ),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Material(
+            color: Theme.of(context).dialogTheme.backgroundColor ??
+                Theme.of(context).colorScheme.surface,
+            elevation: 8,
+            borderRadius: BorderRadius.circular(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  keyboardOpen ? 8 : 12,
+                  12,
+                  keyboardOpen ? 6 : 8,
+                ),
+                child: keyboardOpen
+                    // Kompakte eine Zeile: Text + Buttons, kein Vertical-Overflow.
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(child: field),
+                          const SizedBox(width: 8),
+                          ..._actionButtons(),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Send feedback',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Ideas, bugs, or anything we should improve.',
+                            style: TextStyle(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          field,
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: _actionButtons(),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final maxContentH = (size.height - viewInsets.vertical - 220)
+        .clamp(120.0, 360.0);
+
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       title: const Text('Send feedback'),
       content: SizedBox(
         width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ideas, bugs, or anything we should improve.',
-              style: TextStyle(
-                color: Colors.black.withValues(alpha: 0.55),
-                fontSize: 12,
-              ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxContentH),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ideas, bugs, or anything we should improve.',
+                  style: TextStyle(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  maxLines: 5,
+                  minLines: 4,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                  cursorColor: Colors.black87,
+                  textInputAction: TextInputAction.newline,
+                  decoration: _fieldDecoration(),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              maxLines: 5,
-              minLines: 4,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 15,
-                height: 1.35,
-              ),
-              cursorColor: Colors.black87,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                hintText: 'Tell us what you think…',
-                hintStyle: TextStyle(
-                  color: Colors.black.withValues(alpha: 0.4),
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Colors.black.withValues(alpha: 0.2),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: Colors.black.withValues(alpha: 0.18),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFFC9A06A),
-                    width: 1.6,
-                  ),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _sending ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed:
-              _controller.text.trim().isEmpty || _sending ? null : _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFC9A06A),
-            foregroundColor: const Color(0xFF2A2410),
-          ),
-          child: const Text('Send'),
-        ),
-      ],
+      actions: _actionButtons(),
     );
   }
 }

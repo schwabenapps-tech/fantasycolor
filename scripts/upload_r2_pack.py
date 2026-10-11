@@ -11,6 +11,14 @@ Expected source layout:
   my-pack/
     coloring/   # optional PNGs
     puzzle/     # optional PNGs
+    stickers/   # optional PNGs (+ optional catalog.json)
+
+Or flat sticker folder with --as-stickers:
+
+  neue-stickers/
+    catalog.json   # optional
+    foo.png
+    bar.png
 
 Usage:
 
@@ -21,6 +29,12 @@ Usage:
     --as-coloring \\
     --starts-at 2026-09-15 \\
     --ends-at 2026-11-02
+
+  python3 scripts/upload_r2_pack.py \\
+    --pack-id fairy-stickers \\
+    --title "Fairy Stickers" \\
+    --source ~/Desktop/neue-stickers \\
+    --as-stickers
 """
 
 from __future__ import annotations
@@ -40,6 +54,7 @@ CDN_BASE = "https://cdn.schwabenapps.com"
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 SOURCE_MAP = ROOT / "assets/coloring_source_map.json"
 PUZZLE_DIR = ROOT / "assets/puzzle_images"
+STICKER_DIR = ROOT / "assets/stickers"
 
 
 def normalize_name(name: str) -> str:
@@ -141,14 +156,30 @@ def collect_images(folder: Path) -> list[Path]:
     ]
 
 
-def resolve_sections(source: Path, as_coloring: bool) -> dict[str, list[Path]]:
-    sections: dict[str, list[Path]] = {"coloring": [], "puzzle": []}
+def resolve_sections(
+    source: Path,
+    as_coloring: bool,
+    as_stickers: bool,
+) -> dict[str, list[Path]]:
+    sections: dict[str, list[Path]] = {
+        "coloring": [],
+        "puzzle": [],
+        "stickers": [],
+    }
     coloring_dir = source / "coloring"
     puzzle_dir = source / "puzzle"
+    stickers_dir = source / "stickers"
 
-    if coloring_dir.is_dir() or puzzle_dir.is_dir():
+    if as_stickers:
+        sections["stickers"] = collect_images(source)
+        if not sections["stickers"] and stickers_dir.is_dir():
+            sections["stickers"] = collect_images(stickers_dir)
+        return sections
+
+    if coloring_dir.is_dir() or puzzle_dir.is_dir() or stickers_dir.is_dir():
         sections["coloring"] = collect_images(coloring_dir)
         sections["puzzle"] = collect_images(puzzle_dir)
+        sections["stickers"] = collect_images(stickers_dir)
         return sections
 
     if as_coloring:
@@ -156,8 +187,8 @@ def resolve_sections(source: Path, as_coloring: bool) -> dict[str, list[Path]]:
         return sections
 
     raise SystemExit(
-        f"Expected {source}/coloring and/or {source}/puzzle, "
-        "or pass --as-coloring to treat the folder as coloring images."
+        f"Expected {source}/coloring, puzzle/, and/or stickers/, "
+        "or pass --as-coloring / --as-stickers for a flat folder."
     )
 
 
@@ -165,14 +196,31 @@ def sanitize_name(name: str) -> str:
     return name.replace(" ", "_")
 
 
+def load_bundle_sticker_names() -> set[str]:
+    names: set[str] = set()
+    if STICKER_DIR.is_dir():
+        for path in STICKER_DIR.iterdir():
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTS:
+                names.add(normalize_name(path.name))
+    return names
+
+
 def filter_duplicates(
     sections: dict[str, list[Path]],
 ) -> tuple[dict[str, list[Path]], list[str]]:
     coloring_bundle, puzzle_bundle = load_bundle_names()
-    kept: dict[str, list[Path]] = {"coloring": [], "puzzle": []}
+    sticker_bundle = load_bundle_sticker_names()
+    kept: dict[str, list[Path]] = {"coloring": [], "puzzle": [], "stickers": []}
     skipped: list[str] = []
     for section, files in sections.items():
-        bundle = coloring_bundle if section == "coloring" else puzzle_bundle
+        if section == "coloring":
+            bundle = coloring_bundle
+        elif section == "puzzle":
+            bundle = puzzle_bundle
+        elif section == "stickers":
+            bundle = sticker_bundle
+        else:
+            bundle = set()
         for path in files:
             key = normalize_name(path.name)
             if key in bundle:
@@ -183,7 +231,70 @@ def filter_duplicates(
     return kept, skipped
 
 
-def upload_pack(pack_id: str, sections: dict[str, list[Path]]) -> list[str]:
+def build_sticker_catalog(
+    pack_id: str,
+    sticker_files: list[Path],
+    source: Path,
+) -> dict:
+    """Use source catalog.json if present; otherwise auto-generate ids."""
+    candidates = [
+        source / "catalog.json",
+        source / "stickers" / "catalog.json",
+    ]
+    for cand in candidates:
+        if cand.is_file():
+            data = json.loads(cand.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("stickers"), list):
+                # Rewrite asset fields to sanitized filenames only.
+                out = []
+                name_set = {sanitize_name(p.name) for p in sticker_files}
+                for item in data["stickers"]:
+                    if not isinstance(item, dict):
+                        continue
+                    asset = str(item.get("asset") or "")
+                    file_name = sanitize_name(Path(asset).name)
+                    if file_name not in name_set:
+                        # Allow matching unsanitized original names.
+                        match = next(
+                            (
+                                sanitize_name(p.name)
+                                for p in sticker_files
+                                if normalize_name(p.name) == normalize_name(file_name)
+                            ),
+                            None,
+                        )
+                        if match is None:
+                            continue
+                        file_name = match
+                    entry = {
+                        "id": str(item.get("id") or f"remote_{pack_id}_{normalize_name(file_name)}"),
+                        "asset": file_name,
+                    }
+                    if item.get("coloringId"):
+                        entry["coloringId"] = str(item["coloringId"])
+                    if item.get("puzzleId"):
+                        entry["puzzleId"] = str(item["puzzleId"])
+                    out.append(entry)
+                if out:
+                    return {"stickers": out}
+
+    stickers = []
+    for path in sticker_files:
+        file_name = sanitize_name(path.name)
+        stickers.append(
+            {
+                "id": f"remote_{pack_id}_{normalize_name(file_name)}",
+                "asset": file_name,
+            }
+        )
+    return {"stickers": stickers}
+
+
+def upload_pack(
+    pack_id: str,
+    sections: dict[str, list[Path]],
+    extra_files: list[tuple[str, Path]] | None = None,
+) -> list[str]:
     uploaded: list[str] = []
     for section, files in sections.items():
         for path in files:
@@ -191,6 +302,10 @@ def upload_pack(pack_id: str, sections: dict[str, list[Path]]) -> list[str]:
             put_object(key, path)
             uploaded.append(key)
             print(f"  OK  {CDN_BASE}/{key}")
+    for key, local in extra_files or []:
+        put_object(key, local)
+        uploaded.append(key)
+        print(f"  OK  {CDN_BASE}/{key}")
     return uploaded
 
 
@@ -260,6 +375,11 @@ def main() -> int:
         action="store_true",
         help="Treat --source as a flat folder of coloring images",
     )
+    parser.add_argument(
+        "--as-stickers",
+        action="store_true",
+        help="Treat --source as a flat folder of sticker images (+ optional catalog.json)",
+    )
     parser.add_argument("--starts-at", default=None, help="Event start YYYY-MM-DD")
     parser.add_argument("--ends-at", default=None, help="Event end YYYY-MM-DD")
     parser.add_argument(
@@ -274,11 +394,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.as_coloring and args.as_stickers:
+        raise SystemExit("Use only one of --as-coloring or --as-stickers")
+
     source = args.source.expanduser().resolve()
     if not source.is_dir():
         raise SystemExit(f"Source folder not found: {source}")
 
-    raw_sections = resolve_sections(source, args.as_coloring)
+    raw_sections = resolve_sections(source, args.as_coloring, args.as_stickers)
     sections, skipped = filter_duplicates(raw_sections)
     planned: list[str] = []
     for section, files in sections.items():
@@ -286,6 +409,15 @@ def main() -> int:
             planned.append(
                 f"packs/{args.pack_id}/{section}/{sanitize_name(path.name)}"
             )
+
+    sticker_catalog_key = None
+    sticker_catalog_data = None
+    if sections.get("stickers"):
+        sticker_catalog_data = build_sticker_catalog(
+            args.pack_id, sections["stickers"], source
+        )
+        sticker_catalog_key = f"packs/{args.pack_id}/stickers/catalog.json"
+        planned.append(sticker_catalog_key)
 
     print(f"Pack: {args.pack_id} ({args.title})")
     print(f"Source: {source}")
@@ -300,33 +432,45 @@ def main() -> int:
     if args.cleanup_stale:
         cleanup_pack_objects(args.pack_id, set(planned))
 
-    files = upload_pack(args.pack_id, sections) if planned else []
     if not planned and not skipped:
         raise SystemExit(f"No images found under {source}")
 
-    manifest = fetch_remote_manifest()
-    # If everything was duplicate, remove empty pack from CDN.
-    if args.cleanup_stale or not files:
-        for pack in list(manifest.get("packs") or []):
-            if pack.get("id") == args.pack_id:
-                for key in pack.get("files") or []:
-                    if key not in files:
-                        try:
-                            delete_object(key)
-                            print(f"  deleted stale: {key}")
-                        except subprocess.CalledProcessError:
-                            pass
-
-    manifest = upsert_manifest(
-        manifest,
-        args.pack_id,
-        args.title,
-        files,
-        args.starts_at,
-        args.ends_at,
-    )
-
+    files: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
+        extra: list[tuple[str, Path]] = []
+        if sticker_catalog_key and sticker_catalog_data is not None:
+            catalog_path = Path(tmp) / "catalog.json"
+            catalog_path.write_text(
+                json.dumps(sticker_catalog_data, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            extra.append((sticker_catalog_key, catalog_path))
+
+        if planned:
+            files = upload_pack(args.pack_id, sections, extra_files=extra)
+
+        manifest = fetch_remote_manifest()
+        # If everything was duplicate, remove empty pack from CDN.
+        if args.cleanup_stale or not files:
+            for pack in list(manifest.get("packs") or []):
+                if pack.get("id") == args.pack_id:
+                    for key in pack.get("files") or []:
+                        if key not in files:
+                            try:
+                                delete_object(key)
+                                print(f"  deleted stale: {key}")
+                            except subprocess.CalledProcessError:
+                                pass
+
+        manifest = upsert_manifest(
+            manifest,
+            args.pack_id,
+            args.title,
+            files,
+            args.starts_at,
+            args.ends_at,
+        )
+
         local_manifest = Path(tmp) / "manifest.json"
         local_manifest.write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
@@ -334,14 +478,14 @@ def main() -> int:
         )
         put_object("manifest.json", local_manifest)
 
-    print()
-    print("Done.")
-    print(f"Manifest: {CDN_BASE}/manifest.json")
-    if files:
-        pack = next(p for p in manifest["packs"] if p["id"] == args.pack_id)
-        print(f"Pack version: {pack['version']}  files: {len(files)}")
-    else:
-        print("Pack not listed (all files were bundle duplicates).")
+        print()
+        print("Done.")
+        print(f"Manifest: {CDN_BASE}/manifest.json")
+        if files:
+            pack = next(p for p in manifest["packs"] if p["id"] == args.pack_id)
+            print(f"Pack version: {pack['version']}  files: {len(files)}")
+        else:
+            print("Pack not listed (all files were bundle duplicates).")
     return 0
 
 

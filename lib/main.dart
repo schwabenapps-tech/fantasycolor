@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
@@ -62,12 +63,16 @@ Future<void> main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(AdsService.initialize());
     unawaited(AudioService.instance.initialize());
-    unawaited(RemotePackService.instance.sync());
     unawaited(favorites.load());
     unawaited(progress.load());
     unawaited(pixelUnlock.load());
     unawaited(pixelProgress.load());
-    unawaited(stickers.load());
+    unawaited(() async {
+      await stickers.load();
+      await RemotePackService.instance.sync();
+      await stickers.reloadCatalog();
+    }());
+    unawaited(WakelockPlus.enable());
   });
 
   runApp(
@@ -165,8 +170,10 @@ class _FantasyColorAppState extends State<FantasyColorApp>
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
         unawaited(AudioService.instance.pauseForBackground());
+        unawaited(WakelockPlus.disable());
       case AppLifecycleState.resumed:
         unawaited(AudioService.instance.resumeFromBackground());
+        unawaited(WakelockPlus.enable());
     }
   }
 

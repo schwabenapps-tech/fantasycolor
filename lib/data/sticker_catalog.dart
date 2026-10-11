@@ -12,6 +12,7 @@ class StickerEntry {
   });
 
   final String id;
+  /// Bundle (`assets/…`) oder lokale Datei (Remote-Pack).
   final String assetPath;
   final String? coloringId;
   final String? puzzleId;
@@ -26,7 +27,7 @@ class StickerEntry {
   }
 }
 
-/// Lädt [assets/sticker_catalog.json].
+/// Lädt [assets/sticker_catalog.json] und merged optional Remote-Einträge.
 class StickerCatalog {
   StickerCatalog._(this.stickers);
 
@@ -34,15 +35,48 @@ class StickerCatalog {
 
   static StickerCatalog? _cached;
 
-  static Future<StickerCatalog> load() async {
+  static void clearCache() {
+    _cached = null;
+  }
+
+  static Future<StickerCatalog> load({
+    List<StickerEntry> remote = const [],
+  }) async {
     final cached = _cached;
-    if (cached != null) return cached;
+    if (cached != null && remote.isEmpty) return cached;
+    final bundle = await _loadBundle();
+    return _cached = merge(bundle, remote);
+  }
+
+  static Future<List<StickerEntry>> _loadBundle() async {
     final raw = await rootBundle.loadString('assets/sticker_catalog.json');
     final map = jsonDecode(raw) as Map<String, dynamic>;
-    final list = (map['stickers'] as List<dynamic>)
+    return (map['stickers'] as List<dynamic>)
         .map((e) => StickerEntry.fromJson(e as Map<String, dynamic>))
         .toList(growable: false);
-    return _cached = StickerCatalog._(list);
+  }
+
+  /// Bundle zuerst; Remote mit gleicher `id` ersetzt das Asset; neue IDs ans Ende.
+  static StickerCatalog merge(
+    List<StickerEntry> bundle,
+    List<StickerEntry> remote,
+  ) {
+    if (remote.isEmpty) return StickerCatalog._(List.unmodifiable(bundle));
+    final byId = <String, StickerEntry>{
+      for (final s in bundle) s.id: s,
+    };
+    final order = <String>[for (final s in bundle) s.id];
+    for (final s in remote) {
+      if (byId.containsKey(s.id)) {
+        byId[s.id] = s;
+      } else {
+        byId[s.id] = s;
+        order.add(s.id);
+      }
+    }
+    return StickerCatalog._([
+      for (final id in order) byId[id]!,
+    ]);
   }
 
   StickerEntry? byId(String id) {
