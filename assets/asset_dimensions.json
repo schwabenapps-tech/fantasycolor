@@ -7,8 +7,8 @@
     },
     {
       "path": "assets/coloring_pages/fee_clean_02.png",
-      "width": 1132,
-      "height": 1390
+      "width": 1448,
+      "height": 1086
     },
     {
       "path": "assets/coloring_pages/fee_clean_03.png",
@@ -32,18 +32,18 @@
     },
     {
       "path": "assets/coloring_pages/fee_clean_07.png",
-      "width": 1448,
-      "height": 1086
+      "width": 1446,
+      "height": 1088
     },
     {
       "path": "assets/coloring_pages/fee_clean_08.png",
-      "width": 1254,
-      "height": 1254
+      "width": 1132,
+      "height": 1390
     },
     {
       "path": "assets/coloring_pages/fee_clean_09.png",
-      "width": 1122,
-      "height": 1402
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/coloring_pages/fee_clean_10.png",
@@ -52,8 +52,8 @@
     },
     {
       "path": "assets/coloring_pages/fee_clean_11.png",
-      "width": 1429,
-      "height": 1075
+      "width": 1122,
+      "height": 1402
     },
     {
       "path": "assets/coloring_pages/fee_clean_12.png",
@@ -107,8 +107,8 @@
     },
     {
       "path": "assets/coloring_pages/fee_clean_22.png",
-      "width": 1536,
-      "height": 1024
+      "width": 1254,
+      "height": 1254
     },
     {
       "path": "assets/coloring_pages/fee_clean_23.png",
@@ -223,6 +223,46 @@
       "height": 1254
     },
     {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_11_35.png",
+      "width": 1448,
+      "height": 1086
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_14_58.png",
+      "width": 1446,
+      "height": 1088
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_24_16.png",
+      "width": 1132,
+      "height": 1390
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_37_48.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_49_36.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_10_05_46.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_10_12_49.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_11_okt_2026_12_33_26.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
       "path": "assets/print_templates/chatgpt-bild_27_sept_2026_00_06_29.png",
       "width": 1371,
       "height": 1148
@@ -263,11 +303,6 @@
       "height": 1199
     },
     {
-      "path": "assets/print_templates/chatgpt_image_10_sept_2026_21_17_41.png",
-      "width": 1429,
-      "height": 1075
-    },
-    {
       "path": "assets/print_templates/chatgpt_image_10_sept_2026_21_49_51.png",
       "width": 1122,
       "height": 1402
@@ -306,16 +341,6 @@
       "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_50_22.png",
       "width": 1122,
       "height": 1402
-    },
-    {
-      "path": "assets/print_templates/chatgpt_image_10_sept_2026_22_52_23.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/print_templates/chatgpt_image_11_sept_2026_21_59_12.png",
-      "width": 1536,
-      "height": 1024
     },
     {
       "path": "assets/print_templates/chatgpt_image_11_sept_2026_22_04_46.png",
@@ -393,39 +418,14 @@
       "height": 1046
     },
     {
-      "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_42_49.png",
-      "width": 1132,
-      "height": 1390
-    },
-    {
       "path": "assets/print_templates/chatgpt_image_5_sept_2026_22_59_11.png",
       "width": 1189,
       "height": 1323
     },
     {
-      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_19_30.png",
-      "width": 1448,
-      "height": 1086
-    },
-    {
-      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_26_35.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
-      "path": "assets/print_templates/chatgpt_image_9_sept_2026_22_42_09.png",
-      "width": 1254,
-      "height": 1254
-    },
-    {
       "path": "assets/print_templates/da68d204-2d9d-411f-b112-5f03f1961b2b.png",
       "width": 1310,
       "height": 1201
-    },
-    {
-      "path": "assets/print_templates/vereinfacht.png",
-      "width": 1122,
-      "height": 1402
     },
     {
       "path": "assets/print_templates/wasserfee_vereinfacht.png",

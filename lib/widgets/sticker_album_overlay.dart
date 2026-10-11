@@ -494,10 +494,8 @@ class _RulesPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '• Finish a coloring page with the green check to earn its sticker — paint at least about 70% of the picture.\n'
-                  '• Leaving without the check does not give a sticker.\n'
-                  '• Completing a puzzle on any difficulty (Easy, Medium, or Pro) also earns a sticker.\n'
-                  '• Each day you can open one of three gift boxes for a surprise sticker (no duplicates).\n'
+                  '• Each day when you open the app you get a daily surprise — pick one of three gift boxes for a reward sticker.\n'
+                  '• Every sticker can only be unlocked once — no duplicates.\n'
                   '• Collect them all to download the free sticker pack.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.92),

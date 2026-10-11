@@ -33,16 +33,18 @@ HASH_PATH = ROOT / "assets/coloring_asset_hashes.json"
 # Neue Desktop-Dateien werden unten angehängt; entfernte fliegen raus.
 ORDER = [
     "ChatGPT Image 5. Sept. 2026, 21_43_42.png",
-    "ChatGPT Image 5. Sept. 2026, 22_42_49.png",
+    # Ersetzt 22_42_49
+    "ChatGPT-Bild 11. Okt. 2026, 09_11_35.png",
     "ChatGPT Image 5. Sept. 2026, 21_40_45.png",
     "wasserfee_vereinfacht.png",
     "ChatGPT Image 5. Sept. 2026, 22_03_54.png",
     "ChatGPT Image 5. Sept. 2026, 22_39_37.png",
-    "ChatGPT Image 9. Sept. 2026, 22_19_30.png",
-    "ChatGPT Image 9. Sept. 2026, 22_26_35.png",
-    "vereinfacht.png",
-    "ChatGPT Image 9. Sept. 2026, 22_42_09.png",
-    "ChatGPT Image 10. Sept. 2026, 21_17_41.png",
+    # Ersetzt 9. Sept. 22_19_30 / 22_26_35 / vereinfacht / 22_42_09 / 10. Sept. 21_17_41
+    "ChatGPT-Bild 11. Okt. 2026, 09_14_58.png",
+    "ChatGPT-Bild 11. Okt. 2026, 09_24_16.png",
+    "ChatGPT-Bild 11. Okt. 2026, 09_37_48.png",
+    "ChatGPT-Bild 11. Okt. 2026, 09_49_36.png",
+    "ChatGPT-Bild 11. Okt. 2026, 10_05_46.png",
     "ChatGPT Image 10. Sept. 2026, 21_49_51.png",
     "ChatGPT Image 5. Sept. 2026, 22_59_11.png",
     "ChatGPT Image 10. Sept. 2026, 22_00_55.png",
@@ -52,8 +54,9 @@ ORDER = [
     "ChatGPT Image 10. Sept. 2026, 22_38_35.png",
     "ChatGPT Image 10. Sept. 2026, 22_42_15.png",
     "ChatGPT Image 10. Sept. 2026, 22_50_22.png",
-    "ChatGPT Image 10. Sept. 2026, 22_52_23.png",
-    "ChatGPT Image 11. Sept. 2026, 21_59_12.png",
+    # Ersetzt 22_52_23 / 21_59_12
+    "ChatGPT-Bild 11. Okt. 2026, 10_12_49.png",
+    "ChatGPT-Bild 11. Okt. 2026, 12_33_26.png",
     "ChatGPT Image 11. Sept. 2026, 22_04_46.png",
     "ChatGPT Image 11. Sept. 2026, 22_07_20.png",
     "ChatGPT Image 11. Sept. 2026, 22_13_20.png",

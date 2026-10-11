@@ -20,9 +20,9 @@ class StickerDailyGiftOverlay extends StatefulWidget {
     this.choices,
     this.award,
     this.isDaily = false,
-    this.title = 'Pick a gift!',
-    this.subtitle = 'Each box holds a different sticker',
-    this.revealTitle = 'Daily gift!',
+    this.title = 'Daily surprise!',
+    this.subtitle = 'Pick a box for today’s reward',
+    this.revealTitle = 'Daily reward!',
     this.source = 'daily',
   });
 

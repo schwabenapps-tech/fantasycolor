@@ -3,13 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 
-import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
-import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -18,7 +15,6 @@ import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
-import '../widgets/sticker_daily_gift_overlay.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -61,7 +57,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _solved = false;
   bool _revealing = false;
   bool _celebrating = false;
-  List<StickerEntry>? _giftChoices;
   bool _exitAdShown = false;
   int? _popPiece;
   int? _shakeSlot;
@@ -541,34 +536,16 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     HapticFeedback.heavyImpact();
     // Zoom zurücksetzen → Bild sitzt korrekt und mittig.
     _resetBoardZoom();
-    // Store vor awaits greifen — Stickers ab Easy/Medium/Pro, ohne Stufen-Gate.
-    final stickerStore = context.read<StickerCollectionStore>();
     setState(() {
       _revealing = true;
       _hoverSlot = null;
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
-    List<StickerEntry> choices = const [];
-    try {
-      await stickerStore.load();
-      choices = stickerStore.choicesForPuzzle(widget.puzzle.id);
-    } catch (e, st) {
-      debugPrint('Puzzle sticker choices failed: $e\n$st');
-    }
-    if (choices.isEmpty) {
-      debugPrint(
-        'Puzzle sticker: none offered '
-        '(owned ${stickerStore.ownedCount}/${stickerStore.totalCount})',
-      );
-    }
-    // Donees Motiv kurz in Ruhe zeigen.
+    // Fertiges Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
     if (!mounted) return;
-    setState(() {
-      _celebrating = true;
-      _giftChoices = choices.isEmpty ? null : choices;
-    });
+    setState(() => _celebrating = true);
     unawaited(AudioService.instance.playLevelComplete());
     AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
   }
@@ -873,18 +850,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
           ),
-          if (_celebrating && _giftChoices != null)
-            StickerDailyGiftOverlay(
-              choices: _giftChoices,
-              source: 'puzzle',
-              title: 'Pick a gift!',
-              subtitle: 'Each box holds a different sticker',
-              revealTitle: 'New sticker!',
-              onClosed: () {
-                setState(() => _giftChoices = null);
-              },
-            ),
-          if (_celebrating && _giftChoices == null)
+          if (_celebrating)
             LevelCompleteOverlay(
               key: _levelKey,
               title: 'Wonderful!',

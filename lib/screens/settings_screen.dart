@@ -20,7 +20,7 @@ class SettingsScreen extends StatelessWidget {
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
   static const supportEmail = 'fantasycolor@schwabenapps.com';
-  static const appVersion = '1.0.0';
+  static const appVersion = '1.1.0';
   static const privacyUrl =
       'https://cdn.schwabenapps.com/fantasy-color/legal/privacy.html';
   static const termsUrl =
