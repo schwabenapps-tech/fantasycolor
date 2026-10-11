@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../providers/coloring_session.dart';
 
-/// Kleiner, unaufdringlicher Fortschrittsbalken + Sticker-Ziel-Icon.
+/// Fortschrittsbalken + „You can do it“-Sticker als klares Ziel-Icon.
 class StickerCoverageBar extends StatelessWidget {
   const StickerCoverageBar({
     super.key,
@@ -11,8 +11,16 @@ class StickerCoverageBar extends StatelessWidget {
 
   final ColoringSession session;
 
+  static const stickerAsset = 'assets/images/you_can_do_it.png';
+
   @override
   Widget build(BuildContext context) {
+    final landscape = MediaQuery.sizeOf(context).width >
+        MediaQuery.sizeOf(context).height;
+    // Portrait: kurz halten (Top-Bar hat Back + Save + Done).
+    final barWidth = landscape ? 108.0 : 64.0;
+    final stickerSize = landscape ? 48.0 : 44.0;
+
     return ListenableBuilder(
       listenable: session,
       builder: (context, _) {
@@ -23,20 +31,28 @@ class StickerCoverageBar extends StatelessWidget {
         return IgnorePointer(
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 220),
-            opacity: ratio < 0.02 ? 0.35 : 0.9,
+            opacity: ratio < 0.02 ? 0.4 : 1,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 72,
-                  height: 7,
+                  width: barWidth,
+                  height: 11,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(99),
-                    color: Colors.black.withValues(alpha: 0.28),
+                    color: Colors.black.withValues(alpha: 0.32),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      width: 0.8,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      width: 0.9,
                     ),
+                    boxShadow: ready
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x663DDC84),
+                              blurRadius: 8,
+                            ),
+                          ]
+                        : null,
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: FractionallySizedBox(
@@ -53,13 +69,18 @@ class StickerCoverageBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 5),
-                Icon(
-                  Icons.sticky_note_2_rounded,
-                  size: 14,
-                  color: ready
-                      ? const Color(0xFF3DDC84)
-                      : Colors.white.withValues(alpha: 0.7),
+                const SizedBox(width: 6),
+                SizedBox(
+                  width: stickerSize,
+                  height: stickerSize,
+                  child: Opacity(
+                    opacity: ready ? 1 : 0.72,
+                    child: Image.asset(
+                      stickerAsset,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
                 ),
               ],
             ),

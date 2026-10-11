@@ -17,8 +17,17 @@ FOLDERS = [
     "assets/images",
 ]
 
+# Ausmalbilder + UI-Bilder: keine 256-Farben-Palette (Linien/Alpha bleiben scharf).
+LOSSLESS_FOLDERS = {
+    "assets/coloring_pages",
+    "assets/print_templates",
+    "assets/images",
+}
 
-def compress_png(path: str) -> tuple[str, int, int, str | None]:
+
+def compress_png(
+    path: str, *, lossless: bool = False
+) -> tuple[str, int, int, str | None]:
     before = os.path.getsize(path)
     if before < 50_000:
         return "skip", before, before, "tiny"
@@ -34,7 +43,7 @@ def compress_png(path: str) -> tuple[str, int, int, str | None]:
         if im.mode not in ("RGB", "RGBA", "P", "L"):
             im = im.convert("RGBA")
 
-        if im.mode == "P" and "transparency" in im.info:
+        if lossless or (im.mode == "P" and "transparency" in im.info):
             im.save(tmp, format="PNG", optimize=True, compress_level=9)
         else:
             if im.mode == "L":
@@ -94,11 +103,12 @@ def main() -> int:
             if p.lower().endswith((".png", ".jpg", ".jpeg"))
         )
         print(f"\n=== {folder} ({len(paths)}) ===")
+        lossless = folder in LOSSLESS_FOLDERS
         for path in paths:
             if path.lower().endswith((".jpg", ".jpeg")):
                 status, before, after, err = compress_jpeg(path)
             else:
-                status, before, after, err = compress_png(path)
+                status, before, after, err = compress_png(path, lossless=lossless)
             total_before += before
             total_after += after
             name = os.path.basename(path)

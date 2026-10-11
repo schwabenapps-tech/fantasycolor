@@ -425,6 +425,10 @@ class _HubScreenState extends State<HubScreen>
             ),
           if (_showDaily)
             StickerDailyGiftOverlay(
+              isDaily: true,
+              title: 'Pick a gift!',
+              subtitle: 'Each box holds a different sticker',
+              revealTitle: 'Daily gift!',
               onClosed: () {
                 if (mounted) setState(() => _showDaily = false);
               },

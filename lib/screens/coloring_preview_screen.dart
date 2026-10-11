@@ -20,7 +20,7 @@ import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_coverage_bar.dart';
-import '../widgets/sticker_reveal_overlay.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 import 'puzzle_screen.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
@@ -47,7 +47,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Timer? _autoSaveTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
   Uint8List? _finishedPng;
-  StickerEntry? _earnedSticker;
+  List<StickerEntry>? _giftChoices;
 
   @override
   void initState() {
@@ -164,12 +164,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     _finishedPng = saved ?? await _session.renderColoredPng();
 
     if (!mounted) return;
-    final earned = await context
-        .read<StickerCollectionStore>()
-        .unlockForColoring(widget.page.id);
-    if (earned != null) {
-      AnalyticsService.instance.logStickerUnlock(earned.id, source: 'coloring');
-    }
+    final store = context.read<StickerCollectionStore>();
+    await store.load();
+    final choices = store.choicesForColoring(widget.page.id);
 
     if (!mounted) return;
     // Bild kurz in Ruhe zeigen, dann Level-Complete / Sticker einblenden.
@@ -177,7 +174,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _earnedSticker = earned;
+      _giftChoices = choices.isEmpty ? null : choices;
     });
     unawaited(AudioService.instance.playLevelComplete());
     AnalyticsService.instance.logCompleteColoring(widget.page.id);
@@ -303,37 +300,26 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                 SilverBackButton(
                                   onPressed: () => unawaited(_leaveScreen()),
                                 ),
-                                const SizedBox(width: 10),
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: StickerCoverageBar(session: _session),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: StickerCoverageBar(
+                                        session: _session,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: 8),
                                 AnimatedBuilder(
                                   animation: _session,
                                   builder: (context, _) {
                                     final ready = _session.meetsStickerCoverage;
                                     return Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        _MagicToolButton(
-                                          icon: Icons.replay_rounded,
-                                          tooltip: 'Undo',
-                                          colors: const [
-                                            Color(0xFFFFE8F0),
-                                            Color(0xFFE8A0BF),
-                                            Color(0xFFC56B9E),
-                                          ],
-                                          iconColor: const Color(0xFF4A2038),
-                                          onPressed: _session.canUndo
-                                              ? _session.undo
-                                              : null,
-                                          onLongPress: _session.canReset
-                                              ? _resetAllColors
-                                              : null,
-                                          dimmed: !_session.canUndo &&
-                                              !_session.canReset,
-                                        ),
-                                        const SizedBox(width: 10),
                                         _MagicToolButton(
                                           icon: Icons.download_rounded,
                                           tooltip: 'Save to Photos',
@@ -373,17 +359,24 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                     ],
                   ),
                 ),
-                PaintBottomBar(session: _session),
+                PaintBottomBar(
+                  session: _session,
+                  onResetAll: () => unawaited(_resetAllColors()),
+                ),
               ],
             ),
-            if (_celebrating && _earnedSticker != null)
-              StickerRevealOverlay(
-                sticker: _earnedSticker!,
-                onDismiss: () {
-                  setState(() => _earnedSticker = null);
+            if (_celebrating && _giftChoices != null)
+              StickerDailyGiftOverlay(
+                choices: _giftChoices,
+                source: 'coloring',
+                title: 'Pick a gift!',
+                subtitle: 'Each box holds a different sticker',
+                revealTitle: 'New sticker!',
+                onClosed: () {
+                  setState(() => _giftChoices = null);
                 },
               ),
-            if (_celebrating && _earnedSticker == null)
+            if (_celebrating && _giftChoices == null)
               LevelCompleteOverlay(
                 key: _levelKey,
                 title: 'Wonderful!',

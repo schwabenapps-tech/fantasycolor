@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -6,14 +5,13 @@ import 'package:perfect_freehand/perfect_freehand.dart';
 
 import '../data/paint_catalog.dart';
 import '../painting/coloring_bitmap.dart';
-import '../painting/zoom_viewport_clamp.dart';
 import '../providers/coloring_session.dart';
 import 'freehand_stroke_painter.dart';
 
 /// Zoombares PNG-Ausmalblatt mit Flood-Fill und Pen.
 ///
-/// Pinch = Zoomen, bei Zoom verschieben (Fill: 1 Finger, Pen: 2 Finger).
-/// Doppeltipp setzt Zoom nur zurück (kein Reinzoomen — sonst stören schnelle Füll-Tipps).
+/// Pinch = Zoomen (im Viewport geclippt), bei Zoom verschieben
+/// (Fill: 1 Finger, Pen: 2 Finger). Doppeltipp / Rauszoomen → weich zurück.
 class ColoringCanvas extends StatefulWidget {
   const ColoringCanvas({
     super.key,
@@ -35,10 +33,8 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   int _frameGeneration = -1;
   bool _encoding = false;
   bool _wasZoomed = false;
-  bool _zoomInteracting = false;
-  Size _viewportSize = Size.zero;
-  Size _sheetSize = Size.zero;
-  Timer? _clampTimer;
+  /// Pan erst nach Zoom-Geste freischalten — kein Rebuild mitten im Pinch.
+  bool _panLatched = false;
   late final AnimationController _zoomController;
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
@@ -48,15 +44,12 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     super.initState();
     _zoomController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 380),
     );
     widget.session.addListener(_onSessionChanged);
-    // Kein notify während build/init — sonst crasht AnimatedBuilder.
     widget.session.attachBitmap(widget.bitmap, notify: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _rebuildFrame();
-      }
+      if (mounted) _rebuildFrame();
     });
   }
 
@@ -76,7 +69,6 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   @override
   void dispose() {
     widget.session.removeListener(_onSessionChanged);
-    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.dispose();
     _transform.dispose();
@@ -94,10 +86,9 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   void _onSessionChanged() {
     if (!mounted) return;
+    // Nur Bitmap-Frame neu — kein setState bei jedem Stroke (sonst Zoom-Ruckler).
     if (widget.session.bitmapGeneration != _frameGeneration) {
       _rebuildFrame();
-    } else {
-      setState(() {});
     }
   }
 
@@ -116,7 +107,6 @@ class _ColoringCanvasState extends State<ColoringCanvas>
         _frame = image;
         _frameGeneration = generation;
       });
-      // Altes Frame erst nach dem Paint disposen — sonst Flackern/Weißblitz.
       if (previous != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           previous.dispose();
@@ -136,34 +126,34 @@ class _ColoringCanvasState extends State<ColoringCanvas>
       builder: (context, constraints) {
         final viewport = constraints.biggest;
         final sheetSize = _sheetSizeFor(viewport);
-        _viewportSize = viewport;
-        _sheetSize = sheetSize;
         widget.session.sheetSize = sheetSize;
 
         return Stack(
           children: [
             Positioned.fill(
-              child: _FullscreenZoomViewport(
-                sheetSize: sheetSize,
-                transform: _transform,
-                panEnabled: _panEnabled,
-                onDoubleTapAt: _onSoftZoom,
-                onInteractionStart: () => _zoomInteracting = true,
-                onInteractionUpdate: _onZoomInteractionUpdate,
-                onInteractionEnd: _onZoomInteractionEnd,
-                child: _PaintSurface(
-                  bitmap: widget.bitmap,
-                  session: widget.session,
+              child: ClipRect(
+                child: _ZoomViewport(
                   sheetSize: sheetSize,
-                  frame: _frame,
+                  transform: _transform,
+                  panEnabled: _panLatched && _panAllowedForTool,
+                  onDoubleTapAt: _onSoftZoom,
+                  onInteractionEnd: _onZoomInteractionEnd,
+                  child: _PaintSurface(
+                    bitmap: widget.bitmap,
+                    session: widget.session,
+                    sheetSize: sheetSize,
+                    frame: _frame,
+                  ),
                 ),
               ),
             ),
-            if (_isZoomed)
+            if (_wasZoomed)
               Positioned(
                 left: 10,
                 bottom: 10,
-                child: _ZoomResetChip(onPressed: () => _resetZoom(animated: true)),
+                child: _ZoomResetChip(
+                  onPressed: () => _resetZoom(animated: true),
+                ),
               ),
           ],
         );
@@ -173,14 +163,7 @@ class _ColoringCanvasState extends State<ColoringCanvas>
 
   bool get _isZoomed => _transform.value.getMaxScaleOnAxis() > 1.05;
 
-  void _onZoomInteractionUpdate() {
-    // Kein setState während Pinch — sonst Rebuild + Zoom springt zurück.
-  }
-
-  /// Ein-Finger-Schieben nur wenn Zoom aktiv und kein Pen-Zug nötig ist.
-  /// So bleibt Tippen = Füllen kinderleicht; Pen zeichnet weiter mit 1 Finger.
-  bool get _panEnabled {
-    if (!_isZoomed) return false;
+  bool get _panAllowedForTool {
     final tool = widget.session.tool;
     if (tool == PaintTool.pen) return false;
     if (tool == PaintTool.eraser && !widget.session.eraserClearsFills) {
@@ -189,11 +172,8 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     return true;
   }
 
-  /// Doppeltipp zoomt nicht mehr rein (schnelle Füll-Tipps wirkten sonst wie Zoom).
-  /// Nur wenn schon gezoomt: Doppeltipp = Zoom zurücksetzen.
   void _onSoftZoom(Offset viewportPos) {
-    final current = _transform.value.getMaxScaleOnAxis();
-    if (current > 1.2) {
+    if (_transform.value.getMaxScaleOnAxis() > 1.2) {
       _resetZoom(animated: true);
     }
   }
@@ -206,64 +186,37 @@ class _ColoringCanvasState extends State<ColoringCanvas>
     }
   }
 
-  /// Sofort zentrieren — ohne Animation, sonst „gleitet“ das Bild weg.
   void _snapToIdentity() {
-    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.stop();
     _transform.value = Matrix4.identity();
     _wasZoomed = false;
+    _panLatched = false;
     if (mounted) setState(() {});
   }
 
-  void _applyZoomClamp() {
-    if (_viewportSize.isEmpty || _sheetSize.isEmpty) return;
-    final scale = _transform.value.getMaxScaleOnAxis();
-    if (scale <= 1.02) {
-      _snapToIdentity();
-      return;
-    }
-    final clamped = clampCenteredZoomMatrix(
-      input: _transform.value,
-      viewport: _viewportSize,
-      content: _sheetSize,
-      resetBelowScale: 1.02,
-    );
-    if (clamped != _transform.value) {
-      _transform.value = clamped;
-    }
-    final zoomed = _isZoomed;
-    if (zoomed != _wasZoomed) {
-      _wasZoomed = zoomed;
-      if (mounted) setState(() {});
-    }
-  }
-
   void _onZoomInteractionEnd() {
-    _zoomInteracting = false;
-    // Chip / panEnabled erst NACH der Geste updaten (kein Mid-Pinch-Rebuild).
     final scale = _transform.value.getMaxScaleOnAxis();
-    if (scale <= 1.02) {
-      _clampTimer?.cancel();
-      _snapToIdentity();
+    // Weich zurück zur Normalposition — kein harter Snap, kein nachträglicher Clamp.
+    if (scale <= 1.08) {
+      _animateTo(Matrix4.identity());
       return;
     }
-    final zoomed = _isZoomed;
-    if (zoomed != _wasZoomed) {
+    // Matrix unverändert lassen (= genau dort bleiben, wo die Geste endete).
+    final zoomed = true;
+    final pan = _panAllowedForTool;
+    if (zoomed != _wasZoomed || pan != _panLatched) {
       _wasZoomed = zoomed;
+      _panLatched = pan;
       if (mounted) setState(() {});
     }
-    _clampTimer?.cancel();
-    _clampTimer = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted || _zoomInteracting) return;
-      _applyZoomClamp();
-    });
   }
 
   void _animateTo(Matrix4 target) {
     _clearMatrixAnimation();
     _zoomController.stop();
 
+    final goingHome = target.getMaxScaleOnAxis() <= 1.001;
     _matrixAnimation = Matrix4Tween(
       begin: _transform.value.clone(),
       end: target,
@@ -271,13 +224,19 @@ class _ColoringCanvasState extends State<ColoringCanvas>
       CurvedAnimation(parent: _zoomController, curve: Curves.easeOutCubic),
     );
     _matrixListener = () {
-      // Nur Matrix updaten — kein setState (sonst ruckelt der Zoom-Reset).
       _transform.value = _matrixAnimation!.value;
     };
     _matrixAnimation!.addListener(_matrixListener!);
     _zoomController.forward(from: 0).whenComplete(() {
       _clearMatrixAnimation();
-      _wasZoomed = _isZoomed;
+      if (goingHome) {
+        _transform.value = Matrix4.identity();
+        _wasZoomed = false;
+        _panLatched = false;
+      } else {
+        _wasZoomed = _isZoomed;
+        _panLatched = _wasZoomed && _panAllowedForTool;
+      }
       if (mounted) setState(() {});
     });
   }
@@ -294,15 +253,13 @@ class _ColoringCanvasState extends State<ColoringCanvas>
   }
 }
 
-/// Bild füllt den Screen; Zoom/Pan über die ganze Fläche, ohne Rahmen.
-class _FullscreenZoomViewport extends StatelessWidget {
-  const _FullscreenZoomViewport({
+/// Geclipptes Zoom-Fenster: natives Boundary, kein Post-Clamp (kein Springen).
+class _ZoomViewport extends StatelessWidget {
+  const _ZoomViewport({
     required this.sheetSize,
     required this.transform,
     required this.panEnabled,
     required this.onDoubleTapAt,
-    required this.onInteractionStart,
-    required this.onInteractionUpdate,
     required this.onInteractionEnd,
     required this.child,
   });
@@ -311,8 +268,6 @@ class _FullscreenZoomViewport extends StatelessWidget {
   final TransformationController transform;
   final bool panEnabled;
   final ValueChanged<Offset> onDoubleTapAt;
-  final VoidCallback onInteractionStart;
-  final VoidCallback onInteractionUpdate;
   final VoidCallback onInteractionEnd;
   final Widget child;
 
@@ -328,14 +283,11 @@ class _FullscreenZoomViewport extends StatelessWidget {
         maxScale: 8,
         panEnabled: panEnabled,
         scaleEnabled: true,
-        // constrained:true + Center = Blatt bleibt mittig (auch Landscape).
-        // boundary infinity = Pinch nicht zäh; Clamp danach hälts im Screen.
         constrained: true,
         alignment: Alignment.center,
         clipBehavior: Clip.hardEdge,
-        boundaryMargin: const EdgeInsets.all(double.infinity),
-        onInteractionStart: (_) => onInteractionStart(),
-        onInteractionUpdate: (_) => onInteractionUpdate(),
+        // Endliches Margin: Flutter begrenzt selbst (flüssig), Blatt bleibt im Fenster.
+        boundaryMargin: const EdgeInsets.all(48),
         onInteractionEnd: (_) => onInteractionEnd(),
         child: Center(
           child: SizedBox(
@@ -374,6 +326,31 @@ class _PaintSurfaceState extends State<_PaintSurface> {
   Offset? _pendingTapLocal;
   bool _tapExceededSlop = false;
   int? _paintPointer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSession);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PaintSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      oldWidget.session.removeListener(_onSession);
+      widget.session.addListener(_onSession);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSession);
+    super.dispose();
+  }
+
+  void _onSession() {
+    if (mounted) setState(() {});
+  }
 
   Offset _toImage(Offset local) {
     return Offset(
@@ -534,32 +511,25 @@ class _ZoomResetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
     return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: radius),
-      clipBehavior: Clip.antiAlias,
+      color: Colors.black.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: radius,
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            color: Colors.black.withValues(alpha: 0.45),
-            border: Border.all(color: Colors.white54),
-          ),
-          child: const Row(
+        borderRadius: BorderRadius.circular(18),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 6),
+              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 16),
+              SizedBox(width: 4),
               Text(
-                'Ganzes Bild',
+                'Reset',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

@@ -126,11 +126,26 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
+  /// Einmalig halten — niemals `?? Store()` im build (sonst leerer Store ohne load).
+  late final FavoritesStore _favorites =
+      widget.favorites ?? FavoritesStore();
+  late final ColoringProgressStore _progress =
+      widget.progress ?? ColoringProgressStore();
+  late final PixelModeUnlockStore _pixelUnlock =
+      widget.pixelUnlock ?? PixelModeUnlockStore();
+  late final PixelProgressStore _pixelProgress =
+      widget.pixelProgress ?? PixelProgressStore();
+  late final StickerCollectionStore _stickers =
+      widget.stickers ?? StickerCollectionStore();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     DeepLinkService.instance.onOpenHub = _openHubFromDeepLink;
+    if (widget.stickers == null) {
+      unawaited(_stickers.load());
+    }
   }
 
   @override
@@ -180,21 +195,11 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     // Provider hier (nicht nur in main), damit Hot-Reload den Baum mitnimmt.
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(
-          value: widget.favorites ?? FavoritesStore(),
-        ),
-        ChangeNotifierProvider.value(
-          value: widget.progress ?? ColoringProgressStore(),
-        ),
-        ChangeNotifierProvider.value(
-          value: widget.pixelUnlock ?? PixelModeUnlockStore(),
-        ),
-        ChangeNotifierProvider.value(
-          value: widget.pixelProgress ?? PixelProgressStore(),
-        ),
-        ChangeNotifierProvider.value(
-          value: widget.stickers ?? StickerCollectionStore(),
-        ),
+        ChangeNotifierProvider.value(value: _favorites),
+        ChangeNotifierProvider.value(value: _progress),
+        ChangeNotifierProvider.value(value: _pixelUnlock),
+        ChangeNotifierProvider.value(value: _pixelProgress),
+        ChangeNotifierProvider.value(value: _stickers),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
         ),

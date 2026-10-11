@@ -9,7 +9,6 @@ import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
-import '../painting/zoom_viewport_clamp.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
@@ -19,7 +18,7 @@ import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
-import '../widgets/sticker_reveal_overlay.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -62,16 +61,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _solved = false;
   bool _revealing = false;
   bool _celebrating = false;
-  StickerEntry? _earnedSticker;
+  List<StickerEntry>? _giftChoices;
   bool _exitAdShown = false;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
   bool _boardZoomed = false;
   bool _boardZoomInteracting = false;
-  Size _boardViewportSize = Size.zero;
-  Size _boardContentSize = Size.zero;
-  Timer? _boardClampTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
 
   late final AnimationController _revealController;
@@ -156,48 +152,21 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   void _resetBoardZoom() {
-    _boardClampTimer?.cancel();
     _boardTransform.value = Matrix4.identity();
     if (_boardZoomed) {
       setState(() => _boardZoomed = false);
     }
   }
 
-  void _applyBoardZoomClamp() {
-    if (_boardViewportSize.isEmpty || _boardContentSize.isEmpty) return;
-    final scale = _boardTransform.value.getMaxScaleOnAxis();
-    // Nur bei fast komplett rausgezoomt zurücksetzen — nicht nach normalem Zoom.
-    if (scale <= 1.02) {
-      _resetBoardZoom();
-      return;
-    }
-    final clamped = clampCenteredZoomMatrix(
-      input: _boardTransform.value,
-      viewport: _boardViewportSize,
-      content: _boardContentSize,
-      resetBelowScale: 1.02,
-    );
-    if (clamped != _boardTransform.value) {
-      _boardTransform.value = clamped;
-    }
-    _syncBoardZoomChip();
-  }
-
   void _onBoardZoomInteractionEnd() {
     _boardZoomInteracting = false;
-    _syncBoardZoomChip();
     final scale = _boardTransform.value.getMaxScaleOnAxis();
-    if (scale <= 1.02) {
-      _boardClampTimer?.cancel();
+    if (scale <= 1.08) {
       _resetBoardZoom();
       return;
     }
-    // Nur Translation einfangen, Zoom-Level behalten.
-    _boardClampTimer?.cancel();
-    _boardClampTimer = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted || _boardZoomInteracting) return;
-      _applyBoardZoomClamp();
-    });
+    // Matrix lassen — Zoom bleibt genau dort, wo die Geste endete.
+    _syncBoardZoomChip();
   }
 
   @override
@@ -211,7 +180,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   @override
   void dispose() {
-    _boardClampTimer?.cancel();
     _boardTransform.removeListener(_onBoardTransformChanged);
     _boardTransform.dispose();
     _revealController.dispose();
@@ -573,24 +541,33 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     HapticFeedback.heavyImpact();
     // Zoom zurücksetzen → Bild sitzt korrekt und mittig.
     _resetBoardZoom();
+    // Store vor awaits greifen — Stickers ab Easy/Medium/Pro, ohne Stufen-Gate.
+    final stickerStore = context.read<StickerCollectionStore>();
     setState(() {
       _revealing = true;
       _hoverSlot = null;
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
-    final earned = await context
-        .read<StickerCollectionStore>()
-        .unlockForPuzzle(widget.puzzle.id);
-    if (earned != null) {
-      AnalyticsService.instance.logStickerUnlock(earned.id, source: 'puzzle');
+    List<StickerEntry> choices = const [];
+    try {
+      await stickerStore.load();
+      choices = stickerStore.choicesForPuzzle(widget.puzzle.id);
+    } catch (e, st) {
+      debugPrint('Puzzle sticker choices failed: $e\n$st');
+    }
+    if (choices.isEmpty) {
+      debugPrint(
+        'Puzzle sticker: none offered '
+        '(owned ${stickerStore.ownedCount}/${stickerStore.totalCount})',
+      );
     }
     // Donees Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _earnedSticker = earned;
+      _giftChoices = choices.isEmpty ? null : choices;
     });
     unawaited(AudioService.instance.playLevelComplete());
     AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
@@ -758,29 +735,26 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       return Center(child: board);
     }
 
-    _boardViewportSize = maxSize;
-    _boardContentSize = framed;
-
     return Stack(
       fit: StackFit.expand,
       children: [
-        InteractiveViewer(
-          transformationController: _boardTransform,
-          minScale: 1,
-          maxScale: 3.8,
-          constrained: true,
-          alignment: Alignment.center,
-          // Während Pinch keine Boundary — sonst fühlt sich Zoom „zäh“ an.
-          // Nach der Geste: clampCenteredZoomMatrix hälts im Screen.
-          boundaryMargin: const EdgeInsets.all(double.infinity),
-          clipBehavior: Clip.hardEdge,
-          onInteractionStart: (_) => _boardZoomInteracting = true,
-          onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
-          child: Center(
-            child: SizedBox(
-              width: framed.width,
-              height: framed.height,
-              child: board,
+        ClipRect(
+          child: InteractiveViewer(
+            transformationController: _boardTransform,
+            minScale: 1,
+            maxScale: 3.8,
+            constrained: true,
+            alignment: Alignment.center,
+            boundaryMargin: const EdgeInsets.all(48),
+            clipBehavior: Clip.hardEdge,
+            onInteractionStart: (_) => _boardZoomInteracting = true,
+            onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
+            child: Center(
+              child: SizedBox(
+                width: framed.width,
+                height: framed.height,
+                child: board,
+              ),
             ),
           ),
         ),
@@ -899,14 +873,18 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
           ),
-          if (_celebrating && _earnedSticker != null)
-            StickerRevealOverlay(
-              sticker: _earnedSticker!,
-              onDismiss: () {
-                setState(() => _earnedSticker = null);
+          if (_celebrating && _giftChoices != null)
+            StickerDailyGiftOverlay(
+              choices: _giftChoices,
+              source: 'puzzle',
+              title: 'Pick a gift!',
+              subtitle: 'Each box holds a different sticker',
+              revealTitle: 'New sticker!',
+              onClosed: () {
+                setState(() => _giftChoices = null);
               },
             ),
-          if (_celebrating && _earnedSticker == null)
+          if (_celebrating && _giftChoices == null)
             LevelCompleteOverlay(
               key: _levelKey,
               title: 'Wonderful!',

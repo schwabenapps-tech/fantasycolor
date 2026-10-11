@@ -10,7 +10,6 @@ import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
 import '../painting/pixel_export.dart';
 import '../painting/pixel_quantizer.dart';
-import '../painting/zoom_viewport_clamp.dart';
 import '../providers/pixel_progress_store.dart';
 import '../services/ads_service.dart';
 import '../services/gallery_export.dart';
@@ -60,11 +59,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   final TransformationController _transform = TransformationController();
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
-  bool _zoomInteracting = false;
   bool _wasZoomed = false;
-  Size _viewportSize = Size.zero;
-  Size _sheetSize = Size.zero;
-  Timer? _clampTimer;
 
   /// 1 Finger = halten & ziehen zum Malen; 2+ Finger = Pinch-Zoom (kein Malen).
   final Set<int> _pointers = <int>{};
@@ -81,7 +76,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     );
     _zoomController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 320),
+      duration: const Duration(milliseconds: 380),
     );
     _puzzleFuture = _load();
   }
@@ -142,7 +137,6 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _autoSaveTimer?.cancel();
-    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.dispose();
     _celebrateController.dispose();
@@ -187,7 +181,6 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   }
 
   void _snapToIdentity() {
-    _clampTimer?.cancel();
     _clearMatrixAnimation();
     _zoomController.stop();
     _transform.value = Matrix4.identity();
@@ -195,53 +188,23 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     if (mounted) setState(() {});
   }
 
-  void _applyZoomClamp() {
-    if (_viewportSize.isEmpty || _sheetSize.isEmpty) return;
-    final scale = _transform.value.getMaxScaleOnAxis();
-    if (scale <= 1.02) {
-      _snapToIdentity();
-      return;
-    }
-    final clamped = clampCenteredZoomMatrix(
-      input: _transform.value,
-      viewport: _viewportSize,
-      content: _sheetSize,
-      resetBelowScale: 1.02,
-    );
-    if (clamped != _transform.value) {
-      _transform.value = clamped;
-    }
-    final zoomed = _isZoomed;
-    if (zoomed != _wasZoomed && mounted) {
-      _wasZoomed = zoomed;
-      setState(() {});
-    }
-  }
-
   void _onZoomInteractionEnd() {
-    _zoomInteracting = false;
     final scale = _transform.value.getMaxScaleOnAxis();
-    if (scale <= 1.02) {
-      _clampTimer?.cancel();
-      _snapToIdentity();
+    if (scale <= 1.08) {
+      _animateTo(Matrix4.identity());
       return;
     }
-    final zoomed = _isZoomed;
-    if (zoomed != _wasZoomed && mounted) {
-      _wasZoomed = zoomed;
+    if (!_wasZoomed && mounted) {
+      _wasZoomed = true;
       setState(() {});
     }
-    _clampTimer?.cancel();
-    _clampTimer = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted || _zoomInteracting) return;
-      _applyZoomClamp();
-    });
   }
 
   void _animateTo(Matrix4 target) {
     _clearMatrixAnimation();
     _zoomController.stop();
 
+    final goingHome = target.getMaxScaleOnAxis() <= 1.001;
     _matrixAnimation = Matrix4Tween(
       begin: _transform.value.clone(),
       end: target,
@@ -254,7 +217,12 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     _matrixAnimation!.addListener(_matrixListener!);
     _zoomController.forward(from: 0).whenComplete(() {
       _clearMatrixAnimation();
-      _wasZoomed = _isZoomed;
+      if (goingHome) {
+        _transform.value = Matrix4.identity();
+        _wasZoomed = false;
+      } else {
+        _wasZoomed = _isZoomed;
+      }
       if (mounted) setState(() {});
     });
   }
@@ -525,14 +493,13 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                             viewport,
                             puzzle.cols / puzzle.rows,
                           );
-                          _viewportSize = viewport;
-                          _sheetSize = sheet;
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onDoubleTapDown: (details) =>
                                 _onSoftZoom(details.localPosition),
                             onDoubleTap: () {},
-                            child: InteractiveViewer(
+                            child: ClipRect(
+                              child: InteractiveViewer(
                               transformationController: _transform,
                               minScale: 1,
                               maxScale: 8,
@@ -543,11 +510,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                               constrained: true,
                               alignment: Alignment.center,
                               clipBehavior: Clip.hardEdge,
-                              boundaryMargin:
-                                  const EdgeInsets.all(double.infinity),
-                              onInteractionStart: (_) {
-                                _zoomInteracting = true;
-                              },
+                              boundaryMargin: const EdgeInsets.all(48),
                               onInteractionEnd: (_) =>
                                   _onZoomInteractionEnd(),
                               child: Center(
@@ -653,6 +616,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                   ),
                                 ),
                               ),
+                            ),
                             ),
                           );
                         },

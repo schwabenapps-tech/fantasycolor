@@ -92,19 +92,58 @@ class StickerCollectionStore extends ChangeNotifier {
     return unlock(entry.id);
   }
 
-  /// Puzzle belohnt: gemappten Sticker, sonst zufällig aus dem unverdienten Pool.
+  /// Bis zu [count] verschiedene noch nicht besessene Sticker zur Box-Auswahl.
+  /// [prefer] landet bevorzugt in der Auswahl (z. B. gemapptes Motiv).
+  List<StickerEntry> offerChoices({int count = 3, StickerEntry? prefer}) {
+    final pool = unownedStickers();
+    if (pool.isEmpty) return const [];
+    final out = <StickerEntry>[];
+    if (prefer != null && pool.any((s) => s.id == prefer.id)) {
+      out.add(prefer);
+    }
+    final rest = [...pool]..shuffle(_rng);
+    for (final s in rest) {
+      if (out.length >= count) break;
+      if (out.any((e) => e.id == s.id)) continue;
+      out.add(s);
+    }
+    out.shuffle(_rng);
+    return out;
+  }
+
+  List<StickerEntry> choicesForColoring(String coloringId) {
+    final prefer = _catalog?.forColoringId(coloringId);
+    return offerChoices(prefer: prefer);
+  }
+
+  /// Puzzle-Belohnung auf **jeder** Schwierigkeit (Easy/Medium/Pro).
+  List<StickerEntry> choicesForPuzzle(String puzzleId) {
+    final prefer = _catalog?.forPuzzleId(puzzleId);
+    return offerChoices(prefer: prefer);
+  }
+
+  /// Puzzle-Belohnung auf **jeder** Schwierigkeit (Easy/Medium/Pro).
+  /// Gemappter Sticker falls vorhanden, sonst zufällig aus dem unverdienten Pool.
   Future<StickerEntry?> unlockForPuzzle(String puzzleId) async {
     await _ensureReady();
-    final mapped = _catalog?.forPuzzleId(puzzleId);
-    if (mapped != null) {
-      final unlocked = await unlock(mapped.id);
-      if (unlocked != null) return unlocked;
-      // Schon besessen → trotzdem Belohnung aus dem Restpool.
+    final choices = choicesForPuzzle(puzzleId);
+    if (choices.isEmpty) {
+      debugPrint('unlockForPuzzle: all stickers already owned');
+      return null;
     }
-    final pool = unownedStickers();
-    if (pool.isEmpty) return null;
-    final pick = pool[_rng.nextInt(pool.length)];
-    return unlock(pick.id);
+    return unlock(choices.first.id);
+  }
+
+  /// Daily: freischalten der gewählten Box + Tag markieren.
+  Future<StickerEntry?> claimDailyChoice(String stickerId) async {
+    if (!canClaimDaily) return null;
+    final unlocked = await unlock(stickerId);
+    if (unlocked == null) return null;
+    _lastDailyClaimDay = _todayKey();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_dailyClaimKey, _lastDailyClaimDay!);
+    notifyListeners();
+    return unlocked;
   }
 
   /// Daily: wählt zufälligen unverdienten Sticker und markiert den Tag.
@@ -113,12 +152,6 @@ class StickerCollectionStore extends ChangeNotifier {
     final pool = unownedStickers();
     if (pool.isEmpty) return null;
     final pick = pool[_rng.nextInt(pool.length)];
-    final unlocked = await unlock(pick.id);
-    if (unlocked == null) return null;
-    _lastDailyClaimDay = _todayKey();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_dailyClaimKey, _lastDailyClaimDay!);
-    notifyListeners();
-    return unlocked;
+    return claimDailyChoice(pick.id);
   }
 }

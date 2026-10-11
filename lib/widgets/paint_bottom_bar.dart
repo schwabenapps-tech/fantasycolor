@@ -4,14 +4,18 @@ import '../data/paint_catalog.dart';
 import '../providers/coloring_session.dart';
 import '../utils/app_layout.dart';
 
-/// Untere Farbleiste: Fill + Eraser, alle Farben ohne Kategorie-Filter.
+/// Untere Farbleiste: Eraser + Undo + Farben.
 class PaintBottomBar extends StatelessWidget {
   const PaintBottomBar({
     super.key,
     required this.session,
+    this.onResetAll,
   });
 
   final ColoringSession session;
+
+  /// Long-Press auf Undo → alles zurücksetzen (inkl. Progress löschen).
+  final VoidCallback? onResetAll;
 
   static double heightOf(BuildContext context) =>
       AppLayout.of(context).paintBarHeight;
@@ -38,6 +42,11 @@ class PaintBottomBar extends StatelessWidget {
             child: Row(
               children: [
                 _EraserButton(session: session),
+                const SizedBox(width: 8),
+                _UndoButton(
+                  session: session,
+                  onResetAll: onResetAll,
+                ),
                 const SizedBox(width: 10),
                 Expanded(child: _ColorStrip(session: session)),
               ],
@@ -45,6 +54,49 @@ class PaintBottomBar extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _UndoButton extends StatelessWidget {
+  const _UndoButton({
+    required this.session,
+    this.onResetAll,
+  });
+
+  final ColoringSession session;
+  final VoidCallback? onResetAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = session.canUndo || session.canReset;
+    final radius = BorderRadius.circular(14);
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: session.canUndo ? session.undo : null,
+          onLongPress: session.canReset ? onResetAll : null,
+          borderRadius: radius,
+          child: Ink(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              color: Colors.white.withValues(alpha: 0.16),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Icon(
+              Icons.replay_rounded,
+              size: 22,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
