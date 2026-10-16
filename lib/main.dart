@@ -20,11 +20,13 @@ import 'screens/hub_screen.dart';
 import 'screens/start_screen.dart';
 import 'services/ads_service.dart';
 import 'services/analytics_service.dart';
+import 'services/app_update_service.dart';
 import 'services/audio_service.dart';
 import 'services/consent_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/remote_pack_service.dart';
 import 'utils/app_page_route.dart';
+import 'widgets/force_update_overlay.dart';
 
 /// Hintergrund hinter dem ersten Flutter-Frame (Splash / Gaps).
 const _bootBackground = Color(0xFF12263F);
@@ -148,6 +150,11 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     DeepLinkService.instance.onOpenHub = _openHubFromDeepLink;
+    // Force-Update-Check hier (nicht nur in main): Listener sind gemountet,
+    // und der Check läuft zuverlässig nach dem ersten Frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(AppUpdateService.instance.check());
+    });
     if (widget.stickers == null) {
       unawaited(_stickers.load());
     }
@@ -174,6 +181,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
       case AppLifecycleState.resumed:
         unawaited(AudioService.instance.resumeFromBackground());
         unawaited(WakelockPlus.enable());
+        unawaited(AppUpdateService.instance.check(forceRefresh: true));
     }
   }
 
@@ -216,6 +224,9 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(
           value: RemotePackService.instance,
         ),
+        ChangeNotifierProvider.value(
+          value: AppUpdateService.instance,
+        ),
       ],
       child: MaterialApp(
         title: 'Fairy Fantasy Color',
@@ -232,6 +243,26 @@ class _FantasyColorAppState extends State<FantasyColorApp>
           scaffoldBackgroundColor: _bootBackground,
           useMaterial3: true,
         ),
+        builder: (context, child) {
+          // ListenableBuilder statt context.watch im MaterialApp.builder —
+          // zuverlässigeres Rebuild, wenn forceRequired umschaltet.
+          return ListenableBuilder(
+            listenable: AppUpdateService.instance,
+            builder: (context, _) {
+              final update = AppUpdateService.instance;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (child != null) child,
+                  if (update.forceRequired)
+                    Positioned.fill(
+                      child: ForceUpdateOverlay(message: update.message),
+                    ),
+                ],
+              );
+            },
+          );
+        },
         home: const StartScreen(),
       ),
     );

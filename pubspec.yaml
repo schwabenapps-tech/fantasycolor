@@ -50,6 +50,7 @@ dependencies:
   url_launcher: ^6.3.2
   app_links: ^7.2.1
   wakelock_plus: ^1.8.1
+  package_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

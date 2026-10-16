@@ -79,3 +79,40 @@ Ohne Katalog vergibt das Script IDs wie `remote_fairy-stickers_<dateiname>`. Nac
 `https://cdn.schwabenapps.com/manifest.json`
 
 Packs may include `starts_at` / `ends_at` so the app shows them as event hubs (front while active, back after end).
+
+## Force Update (app_config.json)
+
+**Wichtig:** Ohne diese Datei auf dem CDN (HTTP 404) ist Force Update wirkungslos.
+Die App fail-opent bewusst — Nutzer werden nicht ausgesperrt, wenn die Config fehlt.
+
+Beim App-Start lädt die App:
+
+`https://cdn.schwabenapps.com/app_config.json`
+
+Wenn die installierte Version (aus dem Store-Build via `PackageInfo`) **kleiner**
+als `min_version` / `minVersion` ist, erscheint ein nicht schließbares Overlay
+mit Store-Button.
+
+Lokale Vorlage: `remote_packs/app_config.json`
+
+Hochladen:
+
+```bash
+npx wrangler r2 object put fantasy-color-packs/app_config.json \
+  --file=remote_packs/app_config.json \
+  --content-type=application/json \
+  --remote
+```
+
+Danach prüfen: `curl -sI https://cdn.schwabenapps.com/app_config.json` → muss `200` sein.
+
+Beispiel Force Update ab Version 1.2.0:
+
+```json
+{
+  "min_version": "1.2.0",
+  "message": "Please update Fairy Fantasy Color to continue."
+}
+```
+
+`min_version` bewusst niedrig lassen (`1.0.0`), solange kein Update erzwungen werden soll.

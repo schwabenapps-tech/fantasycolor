@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../app_version.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -21,7 +22,7 @@ class SettingsScreen extends StatelessWidget {
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
   static const supportEmail = 'fantasycolor@schwabenapps.com';
-  static const appVersion = '1.1.0';
+  static const appVersion = AppVersion.name;
   static const privacyUrl =
       'https://cdn.schwabenapps.com/fantasy-color/legal/privacy.html';
   static const termsUrl =
