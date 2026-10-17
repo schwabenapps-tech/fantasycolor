@@ -7,8 +7,11 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+import 'l10n/app_strings.dart';
 
 import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
@@ -24,7 +27,9 @@ import 'services/app_update_service.dart';
 import 'services/audio_service.dart';
 import 'services/consent_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/notification_service.dart';
 import 'services/remote_pack_service.dart';
+import 'services/streak_service.dart';
 import 'utils/app_page_route.dart';
 import 'widgets/force_update_overlay.dart';
 
@@ -65,6 +70,8 @@ Future<void> main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(AdsService.initialize());
     unawaited(AudioService.instance.initialize());
+    unawaited(StreakService.instance.load());
+    unawaited(NotificationService.instance.initialize());
     unawaited(favorites.load());
     unawaited(progress.load());
     unawaited(pixelUnlock.load());
@@ -227,6 +234,9 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(
           value: AppUpdateService.instance,
         ),
+        ChangeNotifierProvider.value(
+          value: StreakService.instance,
+        ),
       ],
       child: MaterialApp(
         title: 'Fairy Fantasy Color',
@@ -234,6 +244,23 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         navigatorKey: _navigatorKey,
         navigatorObservers: [
           if (Firebase.apps.isNotEmpty) AnalyticsService.instance.observer,
+        ],
+        localeResolutionCallback: (locale, supported) {
+          if (locale == null) return const Locale('en');
+          for (final code in AppStrings.supported) {
+            if (locale.languageCode.toLowerCase() == code) {
+              return Locale(code);
+            }
+          }
+          return const Locale('en');
+        },
+        supportedLocales: [
+          for (final code in AppStrings.supported) Locale(code),
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
         ],
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

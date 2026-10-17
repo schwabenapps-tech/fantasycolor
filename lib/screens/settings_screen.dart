@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../app_version.dart';
+import '../l10n/app_strings.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -33,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
     final layout = AppLayout.of(context);
     final audio = context.watch<AudioService>();
     final consent = context.watch<ConsentService>();
+    final t = AppStrings.of(context);
 
     return Scaffold(
       body: Stack(
@@ -88,15 +90,15 @@ class SettingsScreen extends StatelessWidget {
                                     : Icons.music_note_rounded,
                                 color: const Color(0xFF3A2810),
                               ),
-                              title: const Text(
-                                'Music',
-                                style: TextStyle(
+                              title: Text(
+                                t.music,
+                                style: const TextStyle(
                                   color: Color(0xFF2A2410),
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               subtitle: Text(
-                                audio.muted ? 'Muted' : 'Playing',
+                                audio.muted ? t.muted : t.playing,
                                 style: TextStyle(
                                   color: const Color(0xFF2A2410)
                                       .withValues(alpha: 0.65),
@@ -119,22 +121,22 @@ class SettingsScreen extends StatelessWidget {
                                 const _SectionTitle('Support'),
                                 _SettingsTile(
                                   icon: Icons.mail_outline_rounded,
-                                  title: 'Contact support',
-                                  subtitle: 'Report an issue and get help',
+                                  title: t.contactSupport,
+                                  subtitle: t.contactSupportSub,
                                   onTap: () => _openSupportMail(context),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
                                   icon: Icons.feedback_outlined,
-                                  title: 'Send feedback',
-                                  subtitle: 'Share ideas or report a problem',
+                                  title: t.sendFeedback,
+                                  subtitle: t.sendFeedbackSub,
                                   onTap: () => _openFeedbackDialog(context),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
                                   icon: Icons.star_rate_rounded,
-                                  title: 'Rate Fairy Fantasy Color',
-                                  subtitle: 'Open the store page',
+                                  title: t.rateApp,
+                                  subtitle: t.rateAppSub,
                                   onTap: () => _openStorePage(context),
                                 ),
                               ],
@@ -148,9 +150,8 @@ class SettingsScreen extends StatelessWidget {
                                 const _SectionTitle('Stickers'),
                                 _SettingsTile(
                                   icon: Icons.restart_alt_rounded,
-                                  title: 'Reset sticker album',
-                                  subtitle:
-                                      'Clear collected stickers and the daily gift',
+                                  title: t.resetStickers,
+                                  subtitle: t.resetStickersSub,
                                   onTap: () => _resetStickers(context),
                                 ),
                               ],
@@ -164,42 +165,38 @@ class SettingsScreen extends StatelessWidget {
                                 const _SectionTitle('About'),
                                 _SettingsTile(
                                   icon: Icons.palette_outlined,
-                                  title: 'Original artwork',
-                                  subtitle:
-                                      'All images in Fairy Fantasy Color are '
-                                      'original creations made for this app.',
+                                  title: t.originalArtwork,
+                                  subtitle: t.originalArtworkSub,
                                   onTap: () => _showArtworkInfo(context),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
                                   icon: Icons.privacy_tip_outlined,
-                                  title: 'Privacy',
-                                  subtitle:
-                                      'How Fairy Fantasy Color handles your data',
+                                  title: t.privacy,
+                                  subtitle: t.privacySub,
                                   onTap: () => _openUrl(context, privacyUrl),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
                                   icon: Icons.tune_rounded,
-                                  title: 'Ad privacy choices',
+                                  title: t.adPrivacy,
                                   subtitle: consent.privacyOptionsRequired
-                                      ? 'Review or change ad privacy settings'
-                                      : 'Open privacy choices when available '
-                                          'in your region',
+                                      ? t.adPrivacySubAvailable
+                                      : t.adPrivacySubUnavailable,
                                   onTap: () => _openAdPrivacyChoices(context),
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
                                   icon: Icons.description_outlined,
-                                  title: 'Terms of Use',
-                                  subtitle: 'Rules for using Fairy Fantasy Color',
+                                  title: t.terms,
+                                  subtitle: t.termsSub,
                                   onTap: () => _openUrl(context, termsUrl),
                                 ),
                                 const Divider(height: 8),
-                                const _SettingsTile(
+                                _SettingsTile(
                                   icon: Icons.info_outline_rounded,
                                   title: 'Fairy Fantasy Color',
-                                  subtitle: 'Version $appVersion\nSchwaben Apps',
+                                  subtitle: t.versionLabel(appVersion),
                                 ),
                               ],
                             ),
@@ -225,22 +222,20 @@ class SettingsScreen extends StatelessWidget {
   }
 
   static Future<void> _resetStickers(BuildContext context) async {
+    final t = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset sticker album?'),
-        content: const Text(
-          'All collected stickers and today’s daily gift will be cleared. '
-          'This cannot be undone.',
-        ),
+        title: Text(t.resetStickersTitle),
+        content: Text(t.resetStickersBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Reset'),
+            child: Text(t.reset),
           ),
         ],
       ),
@@ -249,7 +244,7 @@ class SettingsScreen extends StatelessWidget {
     await context.read<StickerCollectionStore>().resetCollection();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sticker album reset')),
+      SnackBar(content: Text(t.stickersReset)),
     );
   }
 
@@ -384,15 +379,12 @@ class SettingsScreen extends StatelessWidget {
   }
 
   static void _showArtworkInfo(BuildContext context) {
+    final t = AppStrings.of(context);
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Original artwork'),
-        content: const Text(
-          'Every coloring page, puzzle image, and print template in '
-          'Fairy Fantasy Color is an original creation made for this app. '
-          'Thank you for coloring with us!',
-        ),
+        title: Text(t.originalArtwork),
+        content: Text(t.artworkInfoBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

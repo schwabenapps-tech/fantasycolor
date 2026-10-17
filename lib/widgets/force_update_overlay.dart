@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../l10n/app_strings.dart';
 import '../services/store_config.dart';
 
 /// Vollflächiges, nicht schließbares Update-Overlay.
@@ -94,6 +95,7 @@ class _ForceUpdateOverlayState extends State<ForceUpdateOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     final shortest = MediaQuery.sizeOf(context).shortestSide;
     final titleSize = shortest < 360 ? 26.0 : 32.0;
     final bodySize = shortest < 360 ? 14.0 : 16.0;
@@ -184,7 +186,7 @@ class _ForceUpdateOverlayState extends State<ForceUpdateOverlay>
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    'Update required',
+                                    t.updateRequired,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: const Color(0xFFFFE8FF),
@@ -207,7 +209,9 @@ class _ForceUpdateOverlayState extends State<ForceUpdateOverlay>
                                   ),
                                   const SizedBox(height: 14),
                                   Text(
-                                    widget.message,
+                                    widget.message.isNotEmpty
+                                        ? widget.message
+                                        : t.forceUpdateMessage,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: const Color(0xFFE8D4FF)
@@ -230,6 +234,7 @@ class _ForceUpdateOverlayState extends State<ForceUpdateOverlay>
                                     scale: _bounceScale,
                                     child: _UpdateStoreButton(
                                       busy: _openingStore,
+                                      label: t.updateNow,
                                       onPressed: () =>
                                           unawaited(_openStore()),
                                     ),
@@ -256,10 +261,12 @@ class _UpdateStoreButton extends StatefulWidget {
   const _UpdateStoreButton({
     required this.onPressed,
     required this.busy,
+    required this.label,
   });
 
   final VoidCallback onPressed;
   final bool busy;
+  final String label;
 
   @override
   State<_UpdateStoreButton> createState() => _UpdateStoreButtonState();
@@ -272,7 +279,7 @@ class _UpdateStoreButtonState extends State<_UpdateStoreButton> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Update now',
+      label: widget.label,
       child: GestureDetector(
         onTapDown:
             widget.busy ? null : (_) => setState(() => _pressed = true),
@@ -326,9 +333,9 @@ class _UpdateStoreButtonState extends State<_UpdateStoreButton> {
                         color: Color(0xFF3A1848),
                       ),
                     )
-                  : const Text(
-                      'Update now',
-                      style: TextStyle(
+                  : Text(
+                      widget.label,
+                      style: const TextStyle(
                         color: Color(0xFF3A1848),
                         fontSize: 20,
                         fontWeight: FontWeight.w900,

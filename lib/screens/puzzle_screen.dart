@@ -11,6 +11,7 @@ import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
+import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
@@ -547,6 +548,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!mounted) return;
     setState(() => _celebrating = true);
     unawaited(AudioService.instance.playLevelComplete());
+    unawaited(StreakService.instance.recordPlayDay());
     AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
   }
 

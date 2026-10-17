@@ -24,6 +24,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications braucht Desugaring (java.time u. a.).
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -75,4 +77,5 @@ dependencies {
     // in Release (Android 16 / AGP 9). Bekannter Fix: neuere WorkManager-Version erzwingen.
     // https://github.com/googleads/googleads-mobile-flutter/issues/1444
     implementation("androidx.work:work-runtime:2.11.2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

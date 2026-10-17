@@ -4,19 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../data/sticker_catalog.dart';
+import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
+import '../services/streak_service.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_coverage_bar.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 import 'puzzle_screen.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
@@ -43,6 +49,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Timer? _autoSaveTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
   Uint8List? _finishedPng;
+  List<StickerEntry>? _giftChoices;
 
   @override
   void initState() {
@@ -146,6 +153,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
 
   Future<void> _finish() async {
     if (_celebrating) return;
+    // Done + Sticker nur ab 75 % Ausmal-Anteil.
+    if (!_session.meetsStickerCoverage) return;
 
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: true);
@@ -157,11 +166,24 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     _finishedPng = saved ?? await _session.renderColoredPng();
 
     if (!mounted) return;
-    // Bild kurz in Ruhe zeigen, dann Level-Complete.
+    final store = context.read<StickerCollectionStore>();
+    await store.load();
+    List<StickerEntry>? choices;
+    if (store.canRewardColoring(widget.page.id)) {
+      final offered = store.choicesForColoring(widget.page.id);
+      if (offered.isNotEmpty) choices = offered;
+    }
+
+    if (!mounted) return;
+    // Bild kurz in Ruhe zeigen, dann Sticker-Wahl / Level-Complete.
     await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-    setState(() => _celebrating = true);
+    setState(() {
+      _celebrating = true;
+      _giftChoices = choices;
+    });
     unawaited(AudioService.instance.playLevelComplete());
+    unawaited(StreakService.instance.recordPlayDay());
     AnalyticsService.instance.logCompleteColoring(widget.page.id);
   }
 
@@ -176,7 +198,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to Photos!')),
+        SnackBar(content: Text(AppStrings.of(context).savedToPhotos)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -219,6 +241,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -246,7 +269,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                           if (snapshot.hasError) {
                             return Center(
                               child: Text(
-                                'Could not load image',
+                                t.couldNotLoadImage,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.9),
                                 ),
@@ -285,29 +308,57 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                 SilverBackButton(
                                   onPressed: () => unawaited(_leaveScreen()),
                                 ),
-                                const Spacer(),
-                                _MagicToolButton(
-                                  icon: Icons.download_rounded,
-                                  tooltip: 'Save to Photos',
-                                  colors: const [
-                                    Color(0xFFE8F6FF),
-                                    Color(0xFF9EC8FF),
-                                    Color(0xFF5B8FD4),
-                                  ],
-                                  iconColor: const Color(0xFF1A3358),
-                                  onPressed: () => unawaited(_saveToPhotos()),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: StickerCoverageBar(
+                                        session: _session,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(width: 10),
-                                _MagicToolButton(
-                                  icon: Icons.check_rounded,
-                                  tooltip: 'Done',
-                                  colors: const [
-                                    Color(0xFFB6F5C8),
-                                    Color(0xFF3DDC84),
-                                    Color(0xFF1FA855),
-                                  ],
-                                  iconColor: const Color(0xFF0E3B22),
-                                  onPressed: () => unawaited(_finish()),
+                                const SizedBox(width: 8),
+                                AnimatedBuilder(
+                                  animation: _session,
+                                  builder: (context, _) {
+                                    final ready =
+                                        _session.meetsStickerCoverage;
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _MagicToolButton(
+                                          icon: Icons.download_rounded,
+                                          tooltip: t.saveToPhotos,
+                                          colors: const [
+                                            Color(0xFFE8F6FF),
+                                            Color(0xFF9EC8FF),
+                                            Color(0xFF5B8FD4),
+                                          ],
+                                          iconColor: const Color(0xFF1A3358),
+                                          onPressed: () =>
+                                              unawaited(_saveToPhotos()),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        _MagicToolButton(
+                                          icon: Icons.check_rounded,
+                                          tooltip: t.done,
+                                          colors: const [
+                                            Color(0xFFB6F5C8),
+                                            Color(0xFF3DDC84),
+                                            Color(0xFF1FA855),
+                                          ],
+                                          iconColor: const Color(0xFF0E3B22),
+                                          onPressed: ready
+                                              ? () => unawaited(_finish())
+                                              : null,
+                                          dimmed: !ready,
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -323,25 +374,41 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                 ),
               ],
             ),
-            if (_celebrating)
+            if (_celebrating && _giftChoices != null)
+              StickerDailyGiftOverlay(
+                choices: _giftChoices,
+                source: 'coloring',
+                title: t.pickAGift,
+                subtitle: t.eachBoxDifferent,
+                revealTitle: t.newSticker,
+                onClosed: () {
+                  unawaited(
+                    context
+                        .read<StickerCollectionStore>()
+                        .markColoringRewarded(widget.page.id),
+                  );
+                  setState(() => _giftChoices = null);
+                },
+              ),
+            if (_celebrating && _giftChoices == null)
               LevelCompleteOverlay(
                 key: _levelKey,
-                title: 'Wonderful!',
-                subtitle: 'Level complete',
+                title: t.wonderful,
+                subtitle: t.levelComplete,
                 actions: [
                   LevelCompleteActionButton(
                     icon: Icons.download_rounded,
-                    label: 'Photos',
+                    label: t.photos,
                     onPressed: () => unawaited(_saveToPhotos()),
                   ),
                   LevelCompleteActionButton(
                     icon: Icons.extension_rounded,
-                    label: 'As puzzle',
+                    label: t.asPuzzle,
                     onPressed: () => unawaited(_playAsPuzzle()),
                   ),
                   LevelCompleteActionButton(
                     icon: Icons.check_rounded,
-                    label: 'Done',
+                    label: t.done,
                     filled: false,
                     onPressed: () => unawaited(_closeAfterFinish()),
                   ),

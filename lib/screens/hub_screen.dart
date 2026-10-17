@@ -9,8 +9,11 @@ import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
 import '../providers/sticker_collection_store.dart';
+import '../l10n/app_strings.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/notification_service.dart';
+import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
@@ -18,6 +21,7 @@ import '../widgets/event_hub_portal.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
+import '../widgets/streak_badge.dart';
 import '../widgets/welcome_portal_overlay.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
@@ -94,6 +98,9 @@ class _HubScreenState extends State<HubScreen>
     // Nach Play-Button / Hub-Einstieg — nicht auf dem Startscreen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybeShowWelcome());
+      unawaited(
+        NotificationService.instance.scheduleGentleReminders(context),
+      );
     });
   }
 
@@ -219,35 +226,27 @@ class _HubScreenState extends State<HubScreen>
     );
   }
 
-  Widget _sideColumn({
-    required double gap,
-    required List<Widget> sideActions,
-    required Widget? eventHub,
-  }) {
-    final actionsRow = SizedBox(
-      height: 42,
-      child: Row(
-        children: [
-          Expanded(child: sideActions[0]),
-          SizedBox(width: gap * 0.55),
-          Expanded(child: sideActions[1]),
-        ],
+  void _openAlbum() {
+    AnalyticsService.instance.logScreen('sticker_album');
+    setState(() => _showAlbum = true);
+  }
+
+  void _openFavorites() {
+    _open(const FavoritesScreen(), world: 'favoriten');
+  }
+
+  void _openPrint() {
+    _open(const PrintTemplatesScreen(), world: 'drucken');
+  }
+
+  void _openSettings() {
+    AnalyticsService.instance.logOpenWorld('settings');
+    AnalyticsService.instance.logScreen('settings');
+    Navigator.of(context).push(
+      AppPageRoute<void>(
+        settings: const RouteSettings(name: 'settings'),
+        builder: (_) => const SettingsScreen(),
       ),
-    );
-
-    if (eventHub == null) {
-      return Align(
-        alignment: Alignment.bottomCenter,
-        child: actionsRow,
-      );
-    }
-
-    return Column(
-      children: [
-        Expanded(child: eventHub),
-        SizedBox(height: gap * 0.65),
-        actionsRow,
-      ],
     );
   }
 
@@ -256,6 +255,7 @@ class _HubScreenState extends State<HubScreen>
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final gap = size.shortestSide * 0.028;
+    final portrait = layout.isPortrait;
 
     final worlds = [
       _WorldPortal(
@@ -276,31 +276,6 @@ class _HubScreenState extends State<HubScreen>
       ),
     ];
 
-    final sideActions = [
-      _SideAction(
-        semanticLabel: 'Print',
-        icon: Icons.print_rounded,
-        colors: const [
-          Color(0xFFF4FFF8),
-          Color(0xFFD4F5E4),
-          Color(0xFFA8E6C3),
-        ],
-        accent: const Color(0xFF2F8F5B),
-        onTap: () => _open(const PrintTemplatesScreen(), world: 'drucken'),
-      ),
-      _SideAction(
-        semanticLabel: 'Favorites',
-        icon: Icons.star_rounded,
-        colors: const [
-          Color(0xFFFFFAF0),
-          Color(0xFFFFE8A8),
-          Color(0xFFFFD56A),
-        ],
-        accent: const Color(0xFFB8860B),
-        onTap: () => _open(const FavoritesScreen(), world: 'favoriten'),
-      ),
-    ];
-
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -316,11 +291,16 @@ class _HubScreenState extends State<HubScreen>
               child: Stack(
                 children: [
                   Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: layout.hubHorizontalPadding * 0.85,
-                      vertical: layout.hubVerticalPadding * 0.75,
+                    // Landscape: Hubs weiter links. Portrait: wenig Top-Inset
+                    // (Toolbar liegt als Overlay oben).
+                    padding: EdgeInsets.fromLTRB(
+                      layout.hubHorizontalPadding * (portrait ? 0.85 : 0.45),
+                      layout.hubVerticalPadding * (portrait ? 0.35 : 0.55),
+                      layout.hubHorizontalPadding * (portrait ? 0.85 : 0.55),
+                      layout.hubVerticalPadding * 0.75,
                     ),
-                    child: Center(
+                    child: Align(
+                      alignment: portrait ? Alignment.center : Alignment.centerLeft,
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
                           maxWidth: layout.isTablet ? 1100 : double.infinity,
@@ -345,9 +325,11 @@ class _HubScreenState extends State<HubScreen>
                                     ),
                                   );
 
-                            if (layout.isPortrait) {
+                            if (portrait) {
                               return Column(
                                 children: [
+                                  // Platz für die Overlay-Topbar (weiter oben).
+                                  const SizedBox(height: 48),
                                   Expanded(
                                     flex: 5,
                                     child: Column(
@@ -358,15 +340,13 @@ class _HubScreenState extends State<HubScreen>
                                       ],
                                     ),
                                   ),
-                                  SizedBox(height: gap),
-                                  SizedBox(
-                                    height: size.height * (hasEvent ? 0.30 : 0.10),
-                                    child: _sideColumn(
-                                      gap: gap,
-                                      sideActions: sideActions,
-                                      eventHub: eventHub,
+                                  if (eventHub != null) ...[
+                                    SizedBox(height: gap),
+                                    SizedBox(
+                                      height: size.height * 0.28,
+                                      child: eventHub,
                                     ),
-                                  ),
+                                  ],
                                 ],
                               );
                             }
@@ -374,7 +354,7 @@ class _HubScreenState extends State<HubScreen>
                             return Row(
                               children: [
                                 Expanded(
-                                  flex: 5,
+                                  flex: 6,
                                   child: Row(
                                     children: [
                                       Expanded(child: worlds[0]),
@@ -383,16 +363,20 @@ class _HubScreenState extends State<HubScreen>
                                     ],
                                   ),
                                 ),
-                                SizedBox(width: gap * 1.1),
-                                SizedBox(
-                                  width: size.width *
-                                      (layout.isTablet ? 0.20 : 0.22),
-                                  child: _sideColumn(
-                                    gap: gap,
-                                    sideActions: sideActions,
-                                    eventHub: eventHub,
+                                if (eventHub != null) ...[
+                                  SizedBox(width: gap * 1.4),
+                                  SizedBox(
+                                    width: size.width *
+                                        (layout.isTablet ? 0.24 : 0.26),
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(
+                                        top: 64,
+                                        right: 4,
+                                      ),
+                                      child: eventHub,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             );
                           },
@@ -400,20 +384,23 @@ class _HubScreenState extends State<HubScreen>
                       ),
                     ),
                   ),
-                  const Positioned(
-                    top: 8,
-                    right: 12,
-                    child: _SettingsButton(),
-                  ),
                   Positioned(
-                    top: 4,
-                    left: 8,
-                    child: _StickerBookButton(
-                      onPressed: () {
-                        AnalyticsService.instance.logScreen('sticker_album');
-                        setState(() => _showAlbum = true);
-                      },
-                    ),
+                    top: 2,
+                    left: portrait ? 6 : null,
+                    right: portrait ? 6 : 10,
+                    child: portrait
+                        ? _HubPortraitTopBar(
+                            onAlbum: _openAlbum,
+                            onFavorites: _openFavorites,
+                            onPrint: _openPrint,
+                            onSettings: _openSettings,
+                          )
+                        : _HubLandscapeControls(
+                            onAlbum: _openAlbum,
+                            onFavorites: _openFavorites,
+                            onPrint: _openPrint,
+                            onSettings: _openSettings,
+                          ),
                   ),
                 ],
               ),
@@ -424,13 +411,19 @@ class _HubScreenState extends State<HubScreen>
               onFinished: () => unawaited(_dismissWelcome()),
             ),
           if (_showDaily)
-            StickerDailyGiftOverlay(
-              isDaily: true,
-              title: 'Daily surprise!',
-              subtitle: 'Pick a box for today’s reward',
-              revealTitle: 'Daily reward!',
-              onClosed: () {
-                if (mounted) setState(() => _showDaily = false);
+            Builder(
+              builder: (context) {
+                final t = AppStrings.of(context);
+                return StickerDailyGiftOverlay(
+                  isDaily: true,
+                  title: t.dailySurprise,
+                  subtitle: t.pickBoxToday,
+                  revealTitle: t.dailyReward,
+                  onClosed: () {
+                    unawaited(StreakService.instance.recordPlayDay());
+                    if (mounted) setState(() => _showDaily = false);
+                  },
+                );
               },
             ),
           if (_showAlbum)
@@ -445,6 +438,131 @@ class _HubScreenState extends State<HubScreen>
   }
 }
 
+/// Portrait: Album → Streak → Drucker/Stern (untereinander) → Einstellungen
+class _HubPortraitTopBar extends StatelessWidget {
+  const _HubPortraitTopBar({
+    required this.onAlbum,
+    required this.onFavorites,
+    required this.onPrint,
+    required this.onSettings,
+  });
+
+  final VoidCallback onAlbum;
+  final VoidCallback onFavorites;
+  final VoidCallback onPrint;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StickerBookButton(onPressed: onAlbum),
+        const SizedBox(width: 6),
+        const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: StreakBadge(),
+        ),
+        const SizedBox(width: 4),
+        _PlainIconButton(
+          semanticLabel: 'Print',
+          icon: Icons.print_rounded,
+          onPressed: onPrint,
+        ),
+        _PlainIconButton(
+          semanticLabel: 'Favorites',
+          icon: Icons.star_rounded,
+          onPressed: onFavorites,
+        ),
+        const Spacer(),
+        SilverBackButton(
+          icon: Icons.settings_rounded,
+          size: 40,
+          iconSize: 20,
+          onPressed: onSettings,
+        ),
+      ],
+    );
+  }
+}
+
+/// Landscape rechts: Streak | Album, darunter Settings, Drucker, Stern darunter
+class _HubLandscapeControls extends StatelessWidget {
+  const _HubLandscapeControls({
+    required this.onAlbum,
+    required this.onFavorites,
+    required this.onPrint,
+    required this.onSettings,
+  });
+
+  final VoidCallback onAlbum;
+  final VoidCallback onFavorites;
+  final VoidCallback onPrint;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const StreakBadge(),
+            const SizedBox(width: 8),
+            _StickerBookButton(onPressed: onAlbum),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SilverBackButton(
+          icon: Icons.settings_rounded,
+          size: 40,
+          iconSize: 20,
+          onPressed: onSettings,
+        ),
+        const SizedBox(height: 6),
+        _PrintStarStack(
+          onPrint: onPrint,
+          onFavorites: onFavorites,
+        ),
+      ],
+    );
+  }
+}
+
+/// Nur Icons (kein Kreis): Drucker oben, Stern darunter.
+class _PrintStarStack extends StatelessWidget {
+  const _PrintStarStack({
+    required this.onPrint,
+    required this.onFavorites,
+  });
+
+  final VoidCallback onPrint;
+  final VoidCallback onFavorites;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _PlainIconButton(
+          semanticLabel: 'Print',
+          icon: Icons.print_rounded,
+          onPressed: onPrint,
+        ),
+        const SizedBox(height: 2),
+        _PlainIconButton(
+          semanticLabel: 'Favorites',
+          icon: Icons.star_rounded,
+          onPressed: onFavorites,
+        ),
+      ],
+    );
+  }
+}
+
 class _StickerBookButton extends StatelessWidget {
   const _StickerBookButton({required this.onPressed});
 
@@ -455,7 +573,7 @@ class _StickerBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 52.0 : 42.0;
+    final size = side >= 600 ? 48.0 : 40.0;
     return Semantics(
       button: true,
       label: 'Sticker album',
@@ -475,26 +593,44 @@ class _StickerBookButton extends StatelessWidget {
   }
 }
 
-class _SettingsButton extends StatelessWidget {
-  const _SettingsButton();
+/// Flaches Icon ohne Kreis-Hintergrund.
+class _PlainIconButton extends StatelessWidget {
+  const _PlainIconButton({
+    required this.semanticLabel,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String semanticLabel;
+  final IconData icon;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Settings',
-      child: SilverBackButton(
-        icon: Icons.settings_rounded,
-        onPressed: () {
-          AnalyticsService.instance.logOpenWorld('settings');
-          AnalyticsService.instance.logScreen('settings');
-          Navigator.of(context).push(
-            AppPageRoute<void>(
-        settings: const RouteSettings(name: 'settings'),
-        builder: (_) => const SettingsScreen(),
-      ),
-          );
-        },
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              icon,
+              size: 28,
+              color: const Color(0xFFFFF6E8),
+              shadows: const [
+                Shadow(
+                  color: Color(0xAA000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -685,76 +821,6 @@ class _WorldPortalState extends State<_WorldPortal> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SideAction extends StatefulWidget {
-  const _SideAction({
-    required this.semanticLabel,
-    required this.icon,
-    required this.colors,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final String semanticLabel;
-  final IconData icon;
-  final List<Color> colors;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  State<_SideAction> createState() => _SideActionState();
-}
-
-class _SideActionState extends State<_SideAction> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: widget.semanticLabel,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 110),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: widget.colors,
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8),
-                width: 1.4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.accent.withValues(alpha: 0.35),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                widget.icon,
-                color: widget.accent,
-                size: 20,
               ),
             ),
           ),

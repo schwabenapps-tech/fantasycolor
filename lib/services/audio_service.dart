@@ -9,8 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Wichtig für iOS/audioplayers: Play/Stop/Source-Wechsel strikt serialisieren.
 ///
-/// Musik ist beim App-Start immer an. Mute gilt nur für die aktuelle Session
-/// und wird nicht über Neustarts hinweg gespeichert.
+/// Mute wird in SharedPreferences gespeichert und beim Start wiederhergestellt.
 ///
 /// Playlist: Zufallsbeutel → wenn leer, neu mischen (Dauerschleife).
 class AudioService extends ChangeNotifier {
@@ -18,7 +17,6 @@ class AudioService extends ChangeNotifier {
 
   static final AudioService instance = AudioService._();
 
-  /// Legacy-Key — wird beim Start gelöscht, damit alte Mute-Prefs verschwinden.
   static const _prefsMutedKey = 'audio_muted';
 
   static const calmTracks = <String>[
@@ -68,16 +66,13 @@ class AudioService extends ChangeNotifier {
   }
 
   Future<void> _initializeOnce() async {
-    // Immer mit Musik starten — alten Mute-Stand verwerfen.
-    _muted = false;
     try {
       try {
         final prefs = await SharedPreferences.getInstance();
-        if (prefs.containsKey(_prefsMutedKey)) {
-          await prefs.remove(_prefsMutedKey);
-        }
+        _muted = prefs.getBool(_prefsMutedKey) ?? false;
       } catch (e, st) {
-        debugPrint('AudioService prefs cleanup failed: $e\n$st');
+        debugPrint('AudioService prefs load failed: $e\n$st');
+        _muted = false;
       }
 
       final ctx = AudioContextConfig(
@@ -171,9 +166,14 @@ class AudioService extends ChangeNotifier {
 
   Future<void> setMuted(bool value) async {
     if (_muted == value) return;
-    // Nur Session — kein Persistieren über App-Neustart.
     _muted = value;
     notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefsMutedKey, _muted);
+    } catch (e, st) {
+      debugPrint('AudioService prefs save failed: $e\n$st');
+    }
     await _enqueueMusic(() async {
       final player = _music;
       if (player == null) return;

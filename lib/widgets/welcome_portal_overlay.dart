@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_strings.dart';
+
 /// Erststart-Willkommen — spielerisches Portal, kein „Dokument“-Dialog.
 class WelcomePortalOverlay extends StatefulWidget {
   const WelcomePortalOverlay({
@@ -67,6 +69,7 @@ class _WelcomePortalOverlayState extends State<WelcomePortalOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     final shortest = MediaQuery.sizeOf(context).shortestSide;
     final titleSize = shortest < 360 ? 28.0 : 34.0;
     final bodySize = shortest < 360 ? 15.0 : 17.0;
@@ -150,7 +153,7 @@ class _WelcomePortalOverlayState extends State<WelcomePortalOverlay>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Welcome, little\nadventurer!',
+                                  t.welcomeTitle,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: const Color(0xFFFFE8FF),
@@ -173,9 +176,7 @@ class _WelcomePortalOverlayState extends State<WelcomePortalOverlay>
                                 ),
                                 const SizedBox(height: 14),
                                 Text(
-                                  'A fairy world awaits —\n'
-                                  'color · puzzle · explore\n'
-                                  'magic at your own pace.',
+                                  t.welcomeBody,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: const Color(0xFFE8D4FF)
@@ -196,7 +197,10 @@ class _WelcomePortalOverlayState extends State<WelcomePortalOverlay>
                                 const SizedBox(height: 22),
                                 ScaleTransition(
                                   scale: _bounceScale,
-                                  child: _LetsGoButton(onPressed: _finish),
+                                  child: _LetsGoButton(
+                                    label: t.letsGo,
+                                    onPressed: _finish,
+                                  ),
                                 ),
                               ],
                             ),
@@ -216,9 +220,13 @@ class _WelcomePortalOverlayState extends State<WelcomePortalOverlay>
 }
 
 class _LetsGoButton extends StatefulWidget {
-  const _LetsGoButton({required this.onPressed});
+  const _LetsGoButton({
+    required this.onPressed,
+    required this.label,
+  });
 
   final VoidCallback onPressed;
+  final String label;
 
   @override
   State<_LetsGoButton> createState() => _LetsGoButtonState();
@@ -231,7 +239,7 @@ class _LetsGoButtonState extends State<_LetsGoButton> {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: "Let's go",
+      label: widget.label,
       child: GestureDetector(
         onTapDown: (_) => setState(() => _pressed = true),
         onTapCancel: () => setState(() => _pressed = false),
@@ -271,11 +279,11 @@ class _LetsGoButtonState extends State<_LetsGoButton> {
                 ),
               ],
             ),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 36, vertical: 14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14),
               child: Text(
-                "Let's go!",
-                style: TextStyle(
+                widget.label,
+                style: const TextStyle(
                   color: Color(0xFF3A1848),
                   fontSize: 20,
                   fontWeight: FontWeight.w900,

@@ -12,8 +12,10 @@ class StickerCollectionStore extends ChangeNotifier {
 
   static const _ownedKey = 'sticker_owned_ids_v1';
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
+  static const _coloringRewardedKey = 'sticker_coloring_rewarded_ids_v1';
 
   final Set<String> _owned = <String>{};
+  final Set<String> _coloringRewarded = <String>{};
   StickerCatalog? _catalog;
   bool _ready = false;
   String? _lastDailyClaimDay;
@@ -48,6 +50,9 @@ class StickerCollectionStore extends ChangeNotifier {
     _owned
       ..clear()
       ..addAll(prefs.getStringList(_ownedKey) ?? const <String>[]);
+    _coloringRewarded
+      ..clear()
+      ..addAll(prefs.getStringList(_coloringRewardedKey) ?? const <String>[]);
     // Kein aggressives Prunen: Remote-IDs bleiben erhalten, falls Sync kurz fehlt.
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
     _ready = true;
@@ -66,10 +71,27 @@ class StickerCollectionStore extends ChangeNotifier {
   Future<void> resetCollection() async {
     await _ensureReady();
     _owned.clear();
+    _coloringRewarded.clear();
     _lastDailyClaimDay = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
     await prefs.remove(_dailyClaimKey);
+    await prefs.remove(_coloringRewardedKey);
+    notifyListeners();
+  }
+
+  /// Pro Ausmalbild nur einmal Sticker-Belohnung (verhindert Farming).
+  bool canRewardColoring(String coloringId) =>
+      !_coloringRewarded.contains(coloringId);
+
+  Future<void> markColoringRewarded(String coloringId) async {
+    if (_coloringRewarded.contains(coloringId)) return;
+    _coloringRewarded.add(coloringId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _coloringRewardedKey,
+      _coloringRewarded.toList(growable: false)..sort(),
+    );
     notifyListeners();
   }
 
