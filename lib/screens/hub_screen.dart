@@ -298,6 +298,7 @@ class _HubScreenState extends State<HubScreen>
                               categoryTitle: t.puzzle,
                               showEventHubs: false,
                               showCategoryTitle: false,
+                              showDownloadButton: true,
                               onOpenPage: _openPuzzle,
                               gridScroll: _puzzleGridScroll,
                               rowScroll: _puzzleRowScroll,
@@ -453,17 +454,21 @@ class _HubTopBar extends StatelessWidget {
         _PlainIconButton(
           semanticLabel: 'Print',
           icon: Icons.print_rounded,
+          size: 34,
           onPressed: onPrint,
         ),
+        const SizedBox(width: 10),
         _PlainIconButton(
           semanticLabel: 'Favorites',
           icon: Icons.star_rounded,
+          size: 36,
           onPressed: onFavorites,
         ),
+        const SizedBox(width: 8),
         SilverBackButton(
           icon: Icons.settings_rounded,
-          size: 40,
-          iconSize: 20,
+          size: 44,
+          iconSize: 22,
           onPressed: onSettings,
         ),
       ],
@@ -498,15 +503,20 @@ class _HubTopBar extends StatelessWidget {
       );
     }
 
+    // Tabs echt mittig: Seiten-Icons in einer Row, Tabs als Overlay zentriert.
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          _StickerBookButton(onPressed: onAlbum),
-          Expanded(
-            child: _tabs(t: t, tablet: tablet, portrait: false),
+          Row(
+            children: [
+              _StickerBookButton(onPressed: onAlbum),
+              const Spacer(),
+              _actions(),
+            ],
           ),
-          _actions(),
+          _tabs(t: t, tablet: tablet, portrait: false),
         ],
       ),
     );
@@ -587,7 +597,7 @@ class _TabLogo extends StatelessWidget {
   }
 }
 
-/// Home: Neu → Puzzle-Reihe → Malen-Reihe.
+/// Home: Neu → Favoriten → Letztes Event → Puzzle → Malen.
 class _HomeTab extends StatefulWidget {
   const _HomeTab({
     required this.catalog,
@@ -653,7 +663,7 @@ class _HomeTabState extends State<_HomeTab> {
 
   List<ColoringPage> _pagesForIds(
     List<ColoringPage> all,
-    Set<String> ids,
+    Iterable<String> ids,
   ) {
     final byId = {for (final p in all) p.id: p};
     return [
@@ -666,6 +676,7 @@ class _HomeTabState extends State<_HomeTab> {
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final tags = widget.catalog.tags;
+    final favorites = context.watch<FavoritesStore>();
     final allColoring = tags.sortNewestFirst(
       _flatten(widget.catalog.coloring),
       coloring: true,
@@ -673,6 +684,15 @@ class _HomeTabState extends State<_HomeTab> {
     final allPuzzles = tags.sortNewestFirst(
       _flatten(widget.catalog.puzzle),
       coloring: false,
+    );
+
+    final favColoring = _pagesForIds(
+      allColoring,
+      favorites.coloringIds(),
+    );
+    final favPuzzles = _pagesForIds(
+      allPuzzles,
+      favorites.puzzleIds(),
     );
 
     final lastEvent = tags.lastPastEvent();
@@ -720,6 +740,7 @@ class _HomeTabState extends State<_HomeTab> {
               isNew: (_) => true,
               isHalloween: (id) => halloweenPuzzle.contains(id),
               favoriteKind: FavoriteKind.puzzle,
+              showDownloadButton: true,
               onOpen: widget.onOpenPuzzle,
             ),
           if (newColoring.isNotEmpty)
@@ -727,6 +748,29 @@ class _HomeTabState extends State<_HomeTab> {
               label: t.newColor,
               pages: newColoring,
               isNew: (_) => true,
+              isHalloween: (id) => halloweenColor.contains(id),
+              favoriteKind: FavoriteKind.coloring,
+              onOpen: widget.onOpenColoring,
+            ),
+          const SizedBox(height: 8),
+        ],
+        if (favPuzzles.isNotEmpty || favColoring.isNotEmpty) ...[
+          _SectionHeader(title: t.favorites),
+          if (favPuzzles.isNotEmpty)
+            _HomeRow(
+              label: t.puzzle,
+              pages: favPuzzles,
+              isNew: (id) => tags.isNewPuzzle(id),
+              isHalloween: (id) => halloweenPuzzle.contains(id),
+              favoriteKind: FavoriteKind.puzzle,
+              showDownloadButton: true,
+              onOpen: widget.onOpenPuzzle,
+            ),
+          if (favColoring.isNotEmpty)
+            _HomeRow(
+              label: t.color,
+              pages: favColoring,
+              isNew: (id) => tags.isNewColoring(id),
               isHalloween: (id) => halloweenColor.contains(id),
               favoriteKind: FavoriteKind.coloring,
               onOpen: widget.onOpenColoring,
@@ -746,6 +790,7 @@ class _HomeTabState extends State<_HomeTab> {
               isNew: (_) => false,
               isHalloween: (id) => halloweenPuzzle.contains(id),
               favoriteKind: FavoriteKind.puzzle,
+              showDownloadButton: true,
               onOpen: widget.onOpenPuzzle,
             ),
           if (lastColoring.isNotEmpty)
@@ -766,6 +811,7 @@ class _HomeTabState extends State<_HomeTab> {
             isNew: (id) => tags.isNewPuzzle(id),
             isHalloween: (id) => halloweenPuzzle.contains(id),
             favoriteKind: FavoriteKind.puzzle,
+            showDownloadButton: true,
             onOpen: widget.onOpenPuzzle,
           ),
         ],
@@ -822,6 +868,7 @@ class _HomeRow extends StatelessWidget {
     required this.favoriteKind,
     required this.onOpen,
     this.label,
+    this.showDownloadButton = false,
   });
 
   final List<ColoringPage> pages;
@@ -830,6 +877,7 @@ class _HomeRow extends StatelessWidget {
   final bool Function(String id) isHalloween;
   final FavoriteKind favoriteKind;
   final ValueChanged<ColoringPage> onOpen;
+  final bool showDownloadButton;
 
   @override
   Widget build(BuildContext context) {
@@ -877,6 +925,7 @@ class _HomeRow extends StatelessWidget {
                   isHalloween: isHalloween(page.id),
                   isNew: isNew(page.id),
                   showFavoriteButton: true,
+                  showDownloadButton: showDownloadButton,
                   favoriteKind: favoriteKind,
                   onTap: () => onOpen(page),
                 ),
@@ -899,7 +948,7 @@ class _StickerBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 48.0 : 40.0;
+    final size = side >= 600 ? 58.0 : 50.0;
     return Semantics(
       button: true,
       label: 'Sticker album',
@@ -924,11 +973,13 @@ class _PlainIconButton extends StatelessWidget {
     required this.semanticLabel,
     required this.icon,
     required this.onPressed,
+    this.size = 28,
   });
 
   final String semanticLabel;
   final IconData icon;
   final VoidCallback onPressed;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -941,10 +992,10 @@ class _PlainIconButton extends StatelessWidget {
           onTap: onPressed,
           customBorder: const CircleBorder(),
           child: Padding(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(6),
             child: Icon(
               icon,
-              size: 28,
+              size: size,
               color: const Color(0xFFFFF6E8),
               shadows: const [
                 Shadow(

@@ -348,17 +348,23 @@ class FavoriteImagesScreen extends StatelessWidget {
     required this.title,
     required this.kind,
     required this.emptyLabel,
-    required this.emptyLogoAsset,
-    required this.emptyIcon,
     required this.catalog,
+    this.emptyLogoAsset,
+    this.emptyIcon,
   });
 
   final String title;
   final FavoriteKind kind;
   final String emptyLabel;
-  final String emptyLogoAsset;
-  final IconData emptyIcon;
   final List<ColoringPage> catalog;
+  final String? emptyLogoAsset;
+  final IconData? emptyIcon;
+
+  String get _logoAsset =>
+      emptyLogoAsset ??
+      (kind == FavoriteKind.coloring
+          ? FavoritesScreen.coloringEmptyLogo
+          : FavoritesScreen.puzzleEmptyLogo);
 
   void _open(BuildContext context, ColoringPage page) {
     if (kind == FavoriteKind.coloring) {
@@ -410,7 +416,15 @@ class FavoriteImagesScreen extends StatelessWidget {
                       SilverBackButton(
                         onPressed: () => Navigator.of(context).pop(),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
+                      Image.asset(
+                        _logoAsset,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
+                      ),
+                      const SizedBox(width: 10),
                       Text(
                         title,
                         style: TextStyle(
@@ -432,19 +446,31 @@ class FavoriteImagesScreen extends StatelessWidget {
                 ),
                 Expanded(
                   child: pages.isEmpty
-                      ? Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            size.width * 0.05,
-                            20,
-                            size.width * 0.05,
-                            24,
-                          ),
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: _EmptyFavoriteCard(
-                              label: emptyLabel,
-                              icon: emptyIcon,
-                              logoAsset: emptyLogoAsset,
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.asset(
+                                  _logoAsset,
+                                  width: 88,
+                                  height: 88,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  emptyLabel,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.78),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         )
@@ -515,7 +541,10 @@ class _FavoriteLandscapeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
-    final tileHeight = layout.galleryTileHeight;
+    // Kompakter als Haupt-Galerie — Ordner-Detail nicht riesig.
+    final tileHeight = layout.isTablet
+        ? (size.height * 0.36).clamp(160.0, 260.0)
+        : (size.height * 0.42).clamp(150.0, 230.0);
 
     return Align(
       alignment: const Alignment(0, 0.15),
@@ -544,83 +573,6 @@ class _FavoriteLandscapeRow extends StatelessWidget {
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyFavoriteCard extends StatelessWidget {
-  const _EmptyFavoriteCard({
-    required this.label,
-    required this.icon,
-    required this.logoAsset,
-  });
-
-  final String label;
-  final IconData icon;
-  final String logoAsset;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFF8EC),
-            Color(0xFFE8C9A0),
-            Color(0xFFD4B896),
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.75),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFC9A06A).withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
-                logoAsset,
-                width: 72,
-                height: 72,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon, color: const Color(0xFF3A2810), size: 22),
-                  const SizedBox(height: 6),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: const Color(0xFF2A2410).withValues(alpha: 0.85),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

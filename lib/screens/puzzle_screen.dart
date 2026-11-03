@@ -69,7 +69,12 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   late final AnimationController _revealController;
   late final AnimationController _popController;
   late final AnimationController _shakeController;
+  late final AnimationController _introController;
   late final TransformationController _boardTransform;
+
+  /// Deal-Intro: Vollbild → Shatter → Teile in den Tray.
+  bool _introDone = false;
+  bool _introStarted = false;
 
   /// Hochkant-Bilder bleiben aufrecht (nicht seitlich legen).
   bool get _rotatePortrait => false;
@@ -99,6 +104,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
+    );
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
     );
     _boardTransform = TransformationController();
     _boardTransform.addListener(_onBoardTransformChanged);
@@ -181,6 +190,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _revealController.dispose();
     _popController.dispose();
     _shakeController.dispose();
+    _introController.dispose();
     super.dispose();
   }
 
@@ -255,8 +265,29 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _revealController.value = 0;
     _popController.value = 0;
     _shakeController.value = 0;
+    _introController.value = 0;
+    _introDone = false;
+    _introStarted = false;
     _boardTransform.value = Matrix4.identity();
     _boardZoomed = false;
+  }
+
+  void _maybeStartIntro(Size boardSize) {
+    if (_introDone || _introStarted || boardSize == Size.zero) return;
+    _introStarted = true;
+    unawaited(_runIntro());
+  }
+
+  Future<void> _runIntro() async {
+    HapticFeedback.lightImpact();
+    try {
+      await _introController.forward(from: 0);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _introDone = true);
   }
 
   void _checkSolved() {
@@ -813,35 +844,75 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                         ),
                       );
 
-                      return Column(
+                      if (boardSize != Size.zero) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _maybeStartIntro(boardSize);
+                        });
+                      }
+
+                      final showIntro = !_introDone && !_solved;
+
+                      return Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                              child: boardSize == Size.zero
-                                  ? const SizedBox.shrink()
-                                  : _buildBoard(
-                                      boardMax,
-                                      boardSize: _solved
-                                          ? _fitBoard(boardMax)
-                                          : boardSize,
+                          IgnorePointer(
+                            ignoring: showIntro,
+                            child: Opacity(
+                              opacity: showIntro ? 0 : 1,
+                              child: Column(
+                                children: [
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        12,
+                                        4,
+                                        12,
+                                        4,
+                                      ),
+                                      child: boardSize == Size.zero
+                                          ? const SizedBox.shrink()
+                                          : _buildBoard(
+                                              boardMax,
+                                              boardSize: _solved
+                                                  ? _fitBoard(boardMax)
+                                                  : boardSize,
+                                            ),
                                     ),
+                                  ),
+                                  if (!_solved)
+                                    SizedBox(
+                                      height: trayHeight,
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          10,
+                                          0,
+                                          10,
+                                          8,
+                                        ),
+                                        child: _JigsawTray(
+                                          tray: _tray,
+                                          layout: _layout,
+                                          imageProvider: _imageProvider,
+                                          rotatePortrait: _rotatePortrait,
+                                          boardSize: boardSize,
+                                          onDragRejected: _rejectDrop,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
-                          if (!_solved)
-                            SizedBox(
-                              height: trayHeight,
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                                child: _JigsawTray(
-                                  tray: _tray,
-                                  layout: _layout,
-                                  imageProvider: _imageProvider,
-                                  rotatePortrait: _rotatePortrait,
-                                  boardSize: boardSize,
-                                  onDragRejected: _rejectDrop,
-                                ),
+                          if (showIntro && boardSize != Size.zero)
+                            Positioned.fill(
+                              child: _PuzzleDealIntro(
+                                animation: _introController,
+                                layout: _layout,
+                                trayOrder: _tray,
+                                imageProvider: _imageProvider,
+                                rotatePortrait: _rotatePortrait,
+                                boardSize: boardSize,
+                                trayHeight: trayHeight,
                               ),
                             ),
                         ],
@@ -872,6 +943,204 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Intro: volles Bild → Puzzle-Teile lösen sich → fliegen in den Tray.
+class _PuzzleDealIntro extends StatelessWidget {
+  const _PuzzleDealIntro({
+    required this.animation,
+    required this.layout,
+    required this.trayOrder,
+    required this.imageProvider,
+    required this.rotatePortrait,
+    required this.boardSize,
+    required this.trayHeight,
+  });
+
+  final Animation<double> animation;
+  final JigsawLayout layout;
+  final List<int> trayOrder;
+  final ImageProvider imageProvider;
+  final bool rotatePortrait;
+  final Size boardSize;
+  final double trayHeight;
+
+  static const _padFraction = _JigsawBoard.padFraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final t = animation.value.clamp(0.0, 1.0);
+        // 0.00–0.22 Preview, 0.18–0.42 Shatter, 0.40–0.95 Fly, 0.88–1.00 Fade.
+        final previewOpacity = 1.0 - ((t - 0.18) / 0.14).clamp(0.0, 1.0);
+        final piecesVisible = t >= 0.16;
+        final flyT = ((t - 0.40) / 0.52).clamp(0.0, 1.0);
+        final shatterT = ((t - 0.18) / 0.22).clamp(0.0, 1.0);
+        final settleOpacity = 1.0 - ((t - 0.88) / 0.12).clamp(0.0, 1.0);
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final area = Size(constraints.maxWidth, constraints.maxHeight);
+            final boardAreaH = math.max(0.0, area.height - trayHeight);
+            final pad =
+                math.max(boardSize.width, boardSize.height) * _padFraction;
+            final framed = Size(
+              boardSize.width + pad * 2,
+              boardSize.height + pad * 2,
+            );
+            final boardLeft = (area.width - framed.width) / 2;
+            final boardTop = (boardAreaH - framed.height) / 2;
+            final imageOrigin = Offset(boardLeft + pad, boardTop + pad);
+
+            final trayTop = boardAreaH;
+            final trayInnerH = math.max(40.0, trayHeight - 8);
+            final maxPiece = layout.maxPieceSize(boardSize: boardSize);
+            final slotH = trayInnerH * 0.68;
+            final fit = math.min(
+              slotH / math.max(maxPiece.height, 1),
+              (area.width * 0.16) / math.max(maxPiece.width, 1),
+            );
+            final trayPieceW = maxPiece.width * fit;
+            final trayPieceH = maxPiece.height * fit;
+
+            final n = trayOrder.length;
+            final usableW = math.max(trayPieceW, area.width - 28);
+            final step = n <= 1
+                ? 0.0
+                : math.min(
+                    trayPieceW * 0.72,
+                    (usableW - trayPieceW) / (n - 1),
+                  );
+            final rowWidth = trayPieceW + step * math.max(0, n - 1);
+            final rowLeft = (area.width - rowWidth) / 2;
+
+            return IgnorePointer(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: boardLeft + pad,
+                    top: boardTop + pad,
+                    width: boardSize.width,
+                    height: boardSize.height,
+                    child: Opacity(
+                      opacity: previewOpacity,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: _PuzzleImageLayer(
+                          imageProvider: imageProvider,
+                          rotatePortrait: rotatePortrait,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (piecesVisible)
+                    for (var trayIndex = 0; trayIndex < n; trayIndex++)
+                      _flyingPiece(
+                        trayIndex: trayIndex,
+                        pieceId: trayOrder[trayIndex],
+                        imageOrigin: imageOrigin,
+                        shatterT: shatterT,
+                        flyT: flyT,
+                        settleOpacity: settleOpacity,
+                        trayLeft: rowLeft + trayIndex * step,
+                        trayTop: trayTop + (trayInnerH - trayPieceH) / 2,
+                        trayPieceW: trayPieceW,
+                        trayPieceH: trayPieceH,
+                      ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _flyingPiece({
+    required int trayIndex,
+    required int pieceId,
+    required Offset imageOrigin,
+    required double shatterT,
+    required double flyT,
+    required double settleOpacity,
+    required double trayLeft,
+    required double trayTop,
+    required double trayPieceW,
+    required double trayPieceH,
+  }) {
+    final col = pieceId % layout.columns;
+    final row = pieceId ~/ layout.columns;
+    final bounds = layout.pieceBounds(
+      col: col,
+      row: row,
+      boardSize: boardSize,
+    );
+    final startLeft = imageOrigin.dx + bounds.left;
+    final startTop = imageOrigin.dy + bounds.top;
+
+    final cx = imageOrigin.dx + boardSize.width / 2;
+    final cy = imageOrigin.dy + boardSize.height / 2;
+    final pieceCx = startLeft + bounds.width / 2;
+    final pieceCy = startTop + bounds.height / 2;
+    final explode = Offset(pieceCx - cx, pieceCy - cy) * (0.08 * shatterT);
+
+    final startRect = Rect.fromLTWH(
+      startLeft + explode.dx,
+      startTop + explode.dy,
+      bounds.width,
+      bounds.height,
+    );
+    final endRect = Rect.fromLTWH(
+      trayLeft,
+      trayTop,
+      trayPieceW,
+      trayPieceH,
+    );
+
+    final delay = (trayIndex / math.max(1, trayOrder.length)) * 0.35;
+    final localFly = ((flyT - delay) / (1.0 - delay * 0.85)).clamp(0.0, 1.0);
+    final curved = Curves.easeInOutCubic.transform(localFly);
+
+    final left = startRect.left + (endRect.left - startRect.left) * curved;
+    final top = startRect.top + (endRect.top - startRect.top) * curved;
+    final width = startRect.width + (endRect.width - startRect.width) * curved;
+    final height =
+        startRect.height + (endRect.height - startRect.height) * curved;
+
+    final twist =
+        (1.0 - curved) * shatterT * ((trayIndex.isEven ? 1 : -1) * 0.12);
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      child: Opacity(
+        opacity: settleOpacity,
+        child: Transform.rotate(
+          angle: twist,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox(
+              width: bounds.width,
+              height: bounds.height,
+              child: _JigsawPieceVisual(
+                pieceIndex: pieceId,
+                layout: layout,
+                imageProvider: imageProvider,
+                rotatePortrait: rotatePortrait,
+                boardSize: boardSize,
+                withShadow: true,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
