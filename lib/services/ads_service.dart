@@ -11,9 +11,7 @@ import 'consent_service.dart';
 /// Während des Malens/Puzzles: **keine** Werbung.
 ///
 /// Timing:
-/// - Ausmalen/Pixel verlassen (ohne Feier): jedes **3.** Mal
-/// - Nach Ausmalen-/Pixel-Feier (Done / As puzzle): jedes **2.** Mal
-/// - Puzzle gelöst (beim Schließen der Feier): jedes **2.** Mal
+/// - Jedes **2.** Verlassen von Malen, Pixel oder Puzzle (gemeinsamer Zähler)
 /// - Pixel-Modus freischalten: **einmalig**
 ///
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
@@ -29,9 +27,8 @@ class AdsService {
   static bool _showing = false;
   static bool _listeningForConsent = false;
 
-  static int _coloringLeaveCount = 0;
-  static int _coloringFinishCount = 0;
-  static int _puzzleFinishCount = 0;
+  /// Gemeinsam für Malen / Pixel / Puzzle — jedes 2. Verlassen.
+  static int _leaveCount = 0;
 
   static bool get isReady => _initialized;
 
@@ -120,38 +117,30 @@ class AdsService {
     }
   }
 
-  /// Ausmalen/Pixel ohne Done-Feier verlassen: jedes 3. Mal.
-  static Future<void> showColoringLeaveInterstitial() async {
-    _coloringLeaveCount++;
-    if (_coloringLeaveCount % 3 != 0) {
-      unawaited(preloadInterstitial());
-      return;
-    }
-    await showInterstitial();
-  }
+  /// Ausmalen/Pixel ohne Done-Feier verlassen.
+  static Future<void> showColoringLeaveInterstitial() =>
+      _showEverySecondLeave();
 
-  /// Nach der Ausmalen-/Pixel-Feier („Done“ / „As puzzle“): jedes 2. Mal.
-  static Future<void> showColoringFinishChoiceInterstitial() async {
-    _coloringFinishCount++;
-    if (_coloringFinishCount % 2 != 0) {
-      unawaited(preloadInterstitial());
-      return;
-    }
-    await showInterstitial();
-  }
+  /// Nach der Ausmalen-/Pixel-Feier („Done“ / „As puzzle“).
+  static Future<void> showColoringFinishChoiceInterstitial() =>
+      _showEverySecondLeave();
 
-  /// Puzzle gelöst: jedes 2. Mal.
-  static Future<void> showPuzzleFinishInterstitial() async {
-    _puzzleFinishCount++;
-    if (_puzzleFinishCount % 2 != 0) {
-      unawaited(preloadInterstitial());
-      return;
-    }
-    await showInterstitial();
-  }
+  /// Puzzle verlassen / Feier schließen.
+  static Future<void> showPuzzleFinishInterstitial() =>
+      _showEverySecondLeave();
 
   /// @Deprecated — bitte spezifische Methoden nutzen.
   static Future<void> showExitInterstitial() => showColoringLeaveInterstitial();
+
+  /// Jedes 2. Verlassen (Malen, Pixel, Puzzle — ein Zähler).
+  static Future<void> _showEverySecondLeave() async {
+    _leaveCount++;
+    if (_leaveCount % 2 != 0) {
+      unawaited(preloadInterstitial());
+      return;
+    }
+    await showInterstitial();
+  }
 
   /// Zeigt ein Interstitial, falls geladen — sonst sofort return.
   /// Für Freischaltungen o.Ä., die immer Werbung brauchen.

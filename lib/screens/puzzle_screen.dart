@@ -548,7 +548,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   Future<void> _leavePuzzle() async {
-    // Verlassen ohne Donestellen: keine Werbung.
+    if (!_exitAdShown) {
+      _exitAdShown = true;
+      await AdsService.showPuzzleFinishInterstitial();
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
