@@ -17,8 +17,6 @@ class StickerCoverageBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final landscape = MediaQuery.sizeOf(context).width >
         MediaQuery.sizeOf(context).height;
-    // Portrait: kurz halten (Top-Bar hat Back + Save + Done).
-    final barWidth = landscape ? 108.0 : 64.0;
     final stickerSize = landscape ? 48.0 : 44.0;
 
     return ListenableBuilder(
@@ -29,21 +27,27 @@ class StickerCoverageBar extends StatelessWidget {
         final display = (ratio / ColoringSession.stickerUnlockCoverage)
             .clamp(0.0, 1.0);
         return IgnorePointer(
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 220),
-            opacity: ratio < 0.02 ? 0.4 : 1,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: barWidth,
-                  height: 11,
+          child: Row(
+            children: [
+              SizedBox(
+                width: stickerSize,
+                height: stickerSize,
+                child: Image.asset(
+                  stickerAsset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  height: 12,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(99),
-                    color: Colors.black.withValues(alpha: 0.32),
+                    color: Colors.black.withValues(alpha: 0.4),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      width: 0.9,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      width: 1,
                     ),
                     boxShadow: ready
                         ? const [
@@ -69,21 +73,8 @@ class StickerCoverageBar extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                SizedBox(
-                  width: stickerSize,
-                  height: stickerSize,
-                  child: Opacity(
-                    opacity: ready ? 1 : 0.72,
-                    child: Image.asset(
-                      stickerAsset,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

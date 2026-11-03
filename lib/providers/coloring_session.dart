@@ -199,7 +199,7 @@ class ColoringSession extends ChangeNotifier {
   }
 
   /// Mindestens so viel ausmalen, bevor Done/Sticker freigeschaltet werden.
-  static const stickerUnlockCoverage = 0.75;
+  static const stickerUnlockCoverage = 0.90;
 
   bool get meetsStickerCoverage =>
       paintedCoverageRatio() >= stickerUnlockCoverage;

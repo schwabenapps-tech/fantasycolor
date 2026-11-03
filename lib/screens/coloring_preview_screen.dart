@@ -21,7 +21,6 @@ import '../widgets/coloring_canvas.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
-import '../widgets/sticker_coverage_bar.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 import 'puzzle_screen.dart';
 
@@ -153,7 +152,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
 
   Future<void> _finish() async {
     if (_celebrating) return;
-    // Done + Sticker nur ab 75 % Ausmal-Anteil.
+    // Done + Sticker nur ab 90 % Ausmal-Anteil.
     if (!_session.meetsStickerCoverage) return;
 
     _autoSaveTimer?.cancel();
@@ -237,6 +236,10 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Future<void> _resetAllColors() async {
     _session.resetAll();
     await context.read<ColoringProgressStore>().clearProgress(widget.page.id);
+    // Nach Reset darf beim erneuten Fertigstellen wieder ein Sticker verdient werden.
+    await context
+        .read<StickerCollectionStore>()
+        .clearColoringRewarded(widget.page.id);
   }
 
   @override
@@ -308,19 +311,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                 SilverBackButton(
                                   onPressed: () => unawaited(_leaveScreen()),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(top: 6),
-                                      child: StickerCoverageBar(
-                                        session: _session,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
+                                const Spacer(),
                                 AnimatedBuilder(
                                   animation: _session,
                                   builder: (context, _) {

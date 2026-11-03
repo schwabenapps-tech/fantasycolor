@@ -66,8 +66,8 @@ class AppLayout {
 
   double get paintRailWidth => isTablet ? 188.0 : 148.0;
 
-  /// Untere Farbleiste beim Ausmalen (Fill-only).
-  double get paintBarHeight => isTablet ? 96.0 : 84.0;
+  /// Untere Farbleiste beim Ausmalen (Sticker-Zeile + Farben).
+  double get paintBarHeight => isTablet ? 128.0 : 116.0;
 
   double get puzzleTrayHeight => isTablet ? 160.0 : 142.0;
 

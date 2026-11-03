@@ -80,13 +80,24 @@ class StickerCollectionStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Pro Ausmalbild nur einmal Sticker-Belohnung (verhindert Farming).
+  /// Pro Ausmal-Durchgang: nach Reset wieder belohnbar.
   bool canRewardColoring(String coloringId) =>
       !_coloringRewarded.contains(coloringId);
 
   Future<void> markColoringRewarded(String coloringId) async {
     if (_coloringRewarded.contains(coloringId)) return;
     _coloringRewarded.add(coloringId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _coloringRewardedKey,
+      _coloringRewarded.toList(growable: false)..sort(),
+    );
+    notifyListeners();
+  }
+
+  /// Nach Reset eines Bildes: Sticker beim erneuten Fertigstellen wieder möglich.
+  Future<void> clearColoringRewarded(String coloringId) async {
+    if (!_coloringRewarded.remove(coloringId)) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       _coloringRewardedKey,

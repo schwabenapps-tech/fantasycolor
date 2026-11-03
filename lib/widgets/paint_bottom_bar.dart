@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/paint_catalog.dart';
 import '../providers/coloring_session.dart';
 import '../utils/app_layout.dart';
+import 'sticker_coverage_bar.dart';
 
 /// Untere Farbleiste: Tools + Kategorien/Farben in einer scrollbaren Reihe.
 class PaintBottomBar extends StatelessWidget {
@@ -41,9 +42,19 @@ class PaintBottomBar extends StatelessWidget {
                 top: BorderSide(color: Colors.white24),
               ),
             ),
-            child: _ScrollablePaintTray(
-              session: session,
-              onResetAll: onResetAll,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Sticker + Balken über den Farben — Balken volle Tray-Breite.
+                StickerCoverageBar(session: session),
+                const SizedBox(height: 6),
+                Expanded(
+                  child: _ScrollablePaintTray(
+                    session: session,
+                    onResetAll: onResetAll,
+                  ),
+                ),
+              ],
             ),
           ),
         );
