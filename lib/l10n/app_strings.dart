@@ -55,6 +55,7 @@ class AppStrings {
   String get savedToPhotos => _t('savedToPhotos');
   String get saveToPhotos => _t('saveToPhotos');
   String get done => _t('done');
+  String get colorMoreForDone => _t('colorMoreForDone');
   String get wonderful => _t('wonderful');
   String get levelComplete => _t('levelComplete');
   String get photos => _t('photos');
@@ -150,6 +151,7 @@ const _en = {
   'savedToPhotos': 'Saved to Photos!',
   'saveToPhotos': 'Save to Photos',
   'done': 'Done',
+  'colorMoreForDone': 'Color a bit more to finish and earn a sticker!',
   'wonderful': 'Wonderful!',
   'levelComplete': 'Level complete',
   'photos': 'Photos',
@@ -231,6 +233,7 @@ const _de = {
   'savedToPhotos': 'In Fotos gespeichert!',
   'saveToPhotos': 'In Fotos speichern',
   'done': 'Fertig',
+  'colorMoreForDone': 'Male noch etwas weiter, um fertig zu werden und einen Sticker zu verdienen!',
   'wonderful': 'Wunderbar!',
   'levelComplete': 'Level geschafft',
   'photos': 'Fotos',
@@ -312,6 +315,7 @@ const _es = {
   'savedToPhotos': '¡Guardado en Fotos!',
   'saveToPhotos': 'Guardar en Fotos',
   'done': 'Listo',
+  'colorMoreForDone': '¡Colorea un poco más para terminar y ganar un sticker!',
   'wonderful': '¡Maravilloso!',
   'levelComplete': 'Nivel completado',
   'photos': 'Fotos',
@@ -393,6 +397,7 @@ const _fr = {
   'savedToPhotos': 'Enregistré dans Photos !',
   'saveToPhotos': 'Enregistrer dans Photos',
   'done': 'Terminé',
+  'colorMoreForDone': 'Colorie encore un peu pour terminer et gagner un sticker !',
   'wonderful': 'Merveilleux !',
   'levelComplete': 'Niveau terminé',
   'photos': 'Photos',
@@ -474,6 +479,7 @@ const _pt = {
   'savedToPhotos': 'Guardado nas Fotos!',
   'saveToPhotos': 'Guardar nas Fotos',
   'done': 'Concluído',
+  'colorMoreForDone': 'Colorir um pouco mais para terminar e ganhar um sticker!',
   'wonderful': 'Maravilhoso!',
   'levelComplete': 'Nível concluído',
   'photos': 'Fotos',
@@ -555,6 +561,7 @@ const _it = {
   'savedToPhotos': 'Salvato in Foto!',
   'saveToPhotos': 'Salva in Foto',
   'done': 'Fatto',
+  'colorMoreForDone': 'Colora ancora un po’ per finire e guadagnare uno sticker!',
   'wonderful': 'Meraviglioso!',
   'levelComplete': 'Livello completato',
   'photos': 'Foto',
@@ -636,6 +643,7 @@ const _nl = {
   'savedToPhotos': 'Opgeslagen in Foto’s!',
   'saveToPhotos': 'Opslaan in Foto’s',
   'done': 'Klaar',
+  'colorMoreForDone': 'Kleur nog wat meer om klaar te zijn en een sticker te verdienen!',
   'wonderful': 'Geweldig!',
   'levelComplete': 'Level voltooid',
   'photos': 'Foto’s',
@@ -717,6 +725,7 @@ const _pl = {
   'savedToPhotos': 'Zapisano w Zdjęciach!',
   'saveToPhotos': 'Zapisz w Zdjęciach',
   'done': 'Gotowe',
+  'colorMoreForDone': 'Pokoloruj jeszcze trochę, by skończyć i zdobyć naklejkę!',
   'wonderful': 'Wspaniale!',
   'levelComplete': 'Poziom ukończony',
   'photos': 'Zdjęcia',
@@ -798,6 +807,7 @@ const _tr = {
   'savedToPhotos': 'Fotoğraflara kaydedildi!',
   'saveToPhotos': 'Fotoğraflara kaydet',
   'done': 'Bitti',
+  'colorMoreForDone': 'Bitirmek ve sticker kazanmak için biraz daha boya!',
   'wonderful': 'Harika!',
   'levelComplete': 'Seviye tamamlandı',
   'photos': 'Fotoğraflar',

@@ -150,6 +150,19 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  Future<void> _onDonePressed() async {
+    if (_celebrating) return;
+    if (!_session.meetsStickerCoverage) {
+      if (!mounted) return;
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).colorMoreForDone)),
+      );
+      return;
+    }
+    await _finish();
+  }
+
   Future<void> _finish() async {
     if (_celebrating) return;
     // Done + Sticker nur ab 90 % Ausmal-Anteil.
@@ -312,44 +325,26 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                                   onPressed: () => unawaited(_leaveScreen()),
                                 ),
                                 const Spacer(),
-                                AnimatedBuilder(
-                                  animation: _session,
-                                  builder: (context, _) {
-                                    final ready =
-                                        _session.meetsStickerCoverage;
-                                    return Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _MagicToolButton(
-                                          icon: Icons.download_rounded,
-                                          tooltip: t.saveToPhotos,
-                                          colors: const [
-                                            Color(0xFFE8F6FF),
-                                            Color(0xFF9EC8FF),
-                                            Color(0xFF5B8FD4),
-                                          ],
-                                          iconColor: const Color(0xFF1A3358),
-                                          onPressed: () =>
-                                              unawaited(_saveToPhotos()),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        _MagicToolButton(
-                                          icon: Icons.check_rounded,
-                                          tooltip: t.done,
-                                          colors: const [
-                                            Color(0xFFB6F5C8),
-                                            Color(0xFF3DDC84),
-                                            Color(0xFF1FA855),
-                                          ],
-                                          iconColor: const Color(0xFF0E3B22),
-                                          onPressed: ready
-                                              ? () => unawaited(_finish())
-                                              : null,
-                                          dimmed: !ready,
-                                        ),
-                                      ],
-                                    );
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _RoundActionButton(
+                                      icon: Icons.download_rounded,
+                                      tooltip: t.saveToPhotos,
+                                      color: const Color(0xFF4A90E2),
+                                      onPressed: () =>
+                                          unawaited(_saveToPhotos()),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Immer sichtbar; Fertigstellen erst ab 90 %.
+                                    _RoundActionButton(
+                                      icon: Icons.check_rounded,
+                                      tooltip: t.done,
+                                      color: const Color(0xFF2ECC71),
+                                      onPressed: () =>
+                                          unawaited(_onDonePressed()),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -412,66 +407,37 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   }
 }
 
-/// Weicher Fantasy-Tool-Button (Undo / Done) — kein System-Grau.
-class _MagicToolButton extends StatelessWidget {
-  const _MagicToolButton({
+/// Runder Aktions-Button (Download / Done) — voll deckend, gleiches Look.
+class _RoundActionButton extends StatelessWidget {
+  const _RoundActionButton({
     required this.icon,
-    required this.colors,
-    required this.iconColor,
+    required this.color,
     required this.onPressed,
-    this.onLongPress,
-    this.dimmed = false,
     this.tooltip,
   });
 
   final IconData icon;
-  final List<Color> colors;
-  final Color iconColor;
-  final VoidCallback? onPressed;
-  final VoidCallback? onLongPress;
-  final bool dimmed;
+  final Color color;
+  final VoidCallback onPressed;
   final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    final button = Opacity(
-      opacity: dimmed ? 0.4 : 1,
-      child: Material(
-        color: Colors.transparent,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          onLongPress: onLongPress,
-          customBorder: const StadiumBorder(),
-          child: Ink(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.75),
-                width: 1.6,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.last.withValues(alpha: 0.45),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
+    final button = Material(
+      color: color,
+      shape: const CircleBorder(),
+      elevation: 3,
+      shadowColor: color.withValues(alpha: 0.4),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(icon, color: Colors.white, size: 28),
         ),
       ),
     );
-
     if (tooltip == null) return button;
     return Tooltip(message: tooltip!, child: button);
   }
