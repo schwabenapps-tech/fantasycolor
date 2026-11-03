@@ -18,6 +18,7 @@ import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
+import 'providers/recent_content_store.dart';
 import 'providers/sticker_collection_store.dart';
 import 'screens/hub_screen.dart';
 import 'screens/start_screen.dart';
@@ -65,6 +66,7 @@ Future<void> main() async {
   final pixelUnlock = PixelModeUnlockStore();
   final pixelProgress = PixelProgressStore();
   final stickers = StickerCollectionStore();
+  final recent = RecentContentStore();
 
   // Schwere Init erst nach dem ersten Frame — UI darf nie am Boot hängen.
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -76,6 +78,7 @@ Future<void> main() async {
     unawaited(progress.load());
     unawaited(pixelUnlock.load());
     unawaited(pixelProgress.load());
+    unawaited(recent.load());
     unawaited(() async {
       await stickers.load();
       await RemotePackService.instance.sync();
@@ -91,6 +94,7 @@ Future<void> main() async {
       pixelUnlock: pixelUnlock,
       pixelProgress: pixelProgress,
       stickers: stickers,
+      recent: recent,
     ),
   );
 }
@@ -123,6 +127,7 @@ class FantasyColorApp extends StatefulWidget {
     this.pixelUnlock,
     this.pixelProgress,
     this.stickers,
+    this.recent,
   });
 
   /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
@@ -131,6 +136,7 @@ class FantasyColorApp extends StatefulWidget {
   final PixelModeUnlockStore? pixelUnlock;
   final PixelProgressStore? pixelProgress;
   final StickerCollectionStore? stickers;
+  final RecentContentStore? recent;
 
   @override
   State<FantasyColorApp> createState() => _FantasyColorAppState();
@@ -151,6 +157,8 @@ class _FantasyColorAppState extends State<FantasyColorApp>
       widget.pixelProgress ?? PixelProgressStore();
   late final StickerCollectionStore _stickers =
       widget.stickers ?? StickerCollectionStore();
+  late final RecentContentStore _recent =
+      widget.recent ?? RecentContentStore();
 
   @override
   void initState() {
@@ -222,6 +230,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(value: _pixelUnlock),
         ChangeNotifierProvider.value(value: _pixelProgress),
         ChangeNotifierProvider.value(value: _stickers),
+        ChangeNotifierProvider.value(value: _recent),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
         ),

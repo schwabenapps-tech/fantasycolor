@@ -11,6 +11,7 @@ import '../data/puzzle_images_loader.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -597,7 +598,7 @@ class _TabLogo extends StatelessWidget {
   }
 }
 
-/// Home: Neu → Favoriten → Letztes Event → Puzzle → Malen.
+/// Home: Zuletzt → Neu → Favoriten → Letztes Event → Puzzle → Malen.
 class _HomeTab extends StatefulWidget {
   const _HomeTab({
     required this.catalog,
@@ -677,6 +678,7 @@ class _HomeTabState extends State<_HomeTab> {
     final t = AppStrings.of(context);
     final tags = widget.catalog.tags;
     final favorites = context.watch<FavoritesStore>();
+    final recent = context.watch<RecentContentStore>();
     final allColoring = tags.sortNewestFirst(
       _flatten(widget.catalog.coloring),
       coloring: true,
@@ -685,6 +687,15 @@ class _HomeTabState extends State<_HomeTab> {
       _flatten(widget.catalog.puzzle),
       coloring: false,
     );
+    final coloringById = {for (final p in allColoring) p.id: p};
+    final puzzleById = {for (final p in allPuzzles) p.id: p};
+    final recentItems = <({ColoringPage page, FavoriteKind kind})>[
+      for (final e in recent.entries())
+        if (e.kind == FavoriteKind.coloring && coloringById[e.id] != null)
+          (page: coloringById[e.id]!, kind: FavoriteKind.coloring)
+        else if (e.kind == FavoriteKind.puzzle && puzzleById[e.id] != null)
+          (page: puzzleById[e.id]!, kind: FavoriteKind.puzzle),
+    ];
 
     final favColoring = _pagesForIds(
       allColoring,
@@ -723,7 +734,6 @@ class _HomeTabState extends State<_HomeTab> {
         allPuzzles.where((p) => !highlightIds.contains(p.id)).toList();
     final regularColoring =
         allColoring.where((p) => !highlightIds.contains(p.id)).toList();
-
     final halloweenColor = tags.halloweenColoring;
     final halloweenPuzzle = tags.halloweenPuzzle;
 
@@ -731,6 +741,32 @@ class _HomeTabState extends State<_HomeTab> {
       controller: widget.scrollController,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
+        _SectionHeader(title: t.recentlyUsed),
+        if (recentItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 16, 12),
+            child: Text(
+              t.recentlyUsedEmpty,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else
+          _HomeRecentRow(
+            items: recentItems,
+            isNew: (id, kind) => kind == FavoriteKind.coloring
+                ? tags.isNewColoring(id)
+                : tags.isNewPuzzle(id),
+            isHalloween: (id, kind) => kind == FavoriteKind.coloring
+                ? halloweenColor.contains(id)
+                : halloweenPuzzle.contains(id),
+            onOpenColoring: widget.onOpenColoring,
+            onOpenPuzzle: widget.onOpenPuzzle,
+          ),
+        const SizedBox(height: 8),
         if (newPuzzles.isNotEmpty || newColoring.isNotEmpty) ...[
           _SectionHeader(title: t.newItems),
           if (newPuzzles.isNotEmpty)
@@ -855,6 +891,66 @@ class _SectionHeader extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HomeRecentRow extends StatelessWidget {
+  const _HomeRecentRow({
+    required this.items,
+    required this.isNew,
+    required this.isHalloween,
+    required this.onOpenColoring,
+    required this.onOpenPuzzle,
+  });
+
+  final List<({ColoringPage page, FavoriteKind kind})> items;
+  final bool Function(String id, FavoriteKind kind) isNew;
+  final bool Function(String id, FavoriteKind kind) isHalloween;
+  final ValueChanged<ColoringPage> onOpenColoring;
+  final ValueChanged<ColoringPage> onOpenPuzzle;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final layout = AppLayout.of(context);
+    final rowHeight = layout.isLandscape
+        ? (size.height * 0.34).clamp(150.0, 240.0)
+        : (size.height * 0.20).clamp(128.0, layout.isTablet ? 220.0 : 176.0);
+
+    return SizedBox(
+      height: rowHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => SizedBox(width: size.width * 0.028),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final page = item.page;
+          final kind = item.kind;
+          final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
+          final tileWidth = (rowHeight * ratio).clamp(
+            rowHeight * 0.55,
+            rowHeight * 1.55,
+          );
+          return SizedBox(
+            width: tileWidth,
+            height: rowHeight,
+            child: GalleryPageTile(
+              page: page,
+              isHalloween: isHalloween(page.id, kind),
+              isNew: isNew(page.id, kind),
+              showFavoriteButton: true,
+              showDownloadButton: kind == FavoriteKind.puzzle,
+              favoriteKind: kind,
+              onTap: () => kind == FavoriteKind.puzzle
+                  ? onOpenPuzzle(page)
+                  : onOpenColoring(page),
+            ),
+          );
+        },
       ),
     );
   }

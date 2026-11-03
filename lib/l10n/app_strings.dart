@@ -84,6 +84,8 @@ class AppStrings {
   String get newColor => _t('newColor');
   String get newPuzzle => _t('newPuzzle');
   String get lastEvent => _t('lastEvent');
+  String get recentlyUsed => _t('recentlyUsed');
+  String get recentlyUsedEmpty => _t('recentlyUsedEmpty');
   String get notifyTitle => _t('notifyTitle');
   String get notifyBody => _t('notifyBody');
   String get notifyStreakTitle => _t('notifyStreakTitle');
@@ -182,6 +184,8 @@ const _en = {
   'newColor': 'New color',
   'newPuzzle': 'New puzzle',
   'lastEvent': 'Last event',
+  'recentlyUsed': 'Recently used',
+  'recentlyUsedEmpty': 'Open a coloring page or puzzle to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
   'notifyBody': 'Your daily sticker gift is ready — come pick a box!',
   'notifyStreakTitle': 'Keep the magic going!',
@@ -264,6 +268,8 @@ const _de = {
   'newColor': 'Neu Malen',
   'newPuzzle': 'Neu Puzzle',
   'lastEvent': 'Letztes Event',
+  'recentlyUsed': 'Zuletzt benutzt',
+  'recentlyUsedEmpty': 'Öffne ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',
   'notifyBody': 'Dein täglicher Sticker ist bereit — komm und wähle eine Box!',
   'notifyStreakTitle': 'Halte die Magie am Leben!',
@@ -346,6 +352,8 @@ const _es = {
   'newColor': 'Nuevo colorear',
   'newPuzzle': 'Nuevo puzzle',
   'lastEvent': 'Último evento',
+  'recentlyUsed': 'Usado recientemente',
+  'recentlyUsedEmpty': 'Abre un coloreable o puzzle para verlo aquí.',
   'notifyTitle': 'Hay una sorpresa ✨',
   'notifyBody': 'Tu sticker diario está listo — ¡ven a elegir una caja!',
   'notifyStreakTitle': '¡Sigue la magia!',
@@ -428,6 +436,8 @@ const _fr = {
   'newColor': 'Nouveau coloriage',
   'newPuzzle': 'Nouveau puzzle',
   'lastEvent': 'Dernier événement',
+  'recentlyUsed': 'Récemment utilisé',
+  'recentlyUsedEmpty': 'Ouvre un coloriage ou un puzzle pour le voir ici.',
   'notifyTitle': 'Une surprise t’attend ✨',
   'notifyBody': 'Ton sticker du jour est prêt — viens choisir une boîte !',
   'notifyStreakTitle': 'Garde la magie vivante !',
@@ -510,6 +520,8 @@ const _pt = {
   'newColor': 'Novo colorir',
   'newPuzzle': 'Novo puzzle',
   'lastEvent': 'Último evento',
+  'recentlyUsed': 'Usado recentemente',
+  'recentlyUsedEmpty': 'Abre um colorir ou puzzle para o ver aqui.',
   'notifyTitle': 'Uma surpresa espera ✨',
   'notifyBody': 'O teu sticker diário está pronto — vem escolher uma caixa!',
   'notifyStreakTitle': 'Mantém a magia!',
@@ -592,6 +604,8 @@ const _it = {
   'newColor': 'Nuovo colorare',
   'newPuzzle': 'Nuovo puzzle',
   'lastEvent': 'Ultimo evento',
+  'recentlyUsed': 'Usati di recente',
+  'recentlyUsedEmpty': 'Apri un disegno o un puzzle per vederlo qui.',
   'notifyTitle': 'Ti aspetta una sorpresa ✨',
   'notifyBody': 'Il tuo sticker giornaliero è pronto — vieni a scegliere!',
   'notifyStreakTitle': 'Tieni viva la magia!',
@@ -674,6 +688,8 @@ const _nl = {
   'newColor': 'Nieuw kleuren',
   'newPuzzle': 'Nieuwe puzzel',
   'lastEvent': 'Laatste event',
+  'recentlyUsed': 'Recent gebruikt',
+  'recentlyUsedEmpty': 'Open een kleurplaat of puzzel om die hier te zien.',
   'notifyTitle': 'Er wacht een verrassing ✨',
   'notifyBody': 'Je dagelijkse sticker is klaar — kom een doos kiezen!',
   'notifyStreakTitle': 'Houd de magie levend!',
@@ -756,6 +772,8 @@ const _pl = {
   'newColor': 'Nowe kolorowanie',
   'newPuzzle': 'Nowe puzzle',
   'lastEvent': 'Ostatnie wydarzenie',
+  'recentlyUsed': 'Ostatnio używane',
+  'recentlyUsedEmpty': 'Otwórz kolorowankę lub puzzle, by zobaczyć je tutaj.',
   'notifyTitle': 'Czeka niespodzianka ✨',
   'notifyBody': 'Codzienna naklejka jest gotowa — wybierz pudełko!',
   'notifyStreakTitle': 'Utrzymaj magię!',
@@ -838,6 +856,8 @@ const _tr = {
   'newColor': 'Yeni boyama',
   'newPuzzle': 'Yeni yapboz',
   'lastEvent': 'Son etkinlik',
+  'recentlyUsed': 'Son kullanılanlar',
+  'recentlyUsedEmpty': 'Burada görmek için bir boyama veya yapboz aç.',
   'notifyTitle': 'Bir sürpriz seni bekliyor ✨',
   'notifyBody': 'Günlük çıkartman hazır — gel bir kutu seç!',
   'notifyStreakTitle': 'Sihri sürdürmeye devam!',

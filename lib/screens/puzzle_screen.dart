@@ -3,10 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../providers/favorites_store.dart';
+import '../providers/recent_content_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -62,8 +65,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
-  bool _boardZoomed = false;
-  bool _boardZoomInteracting = false;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
 
   late final AnimationController _revealController;
@@ -75,6 +76,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   /// Deal-Intro: Vollbild → Shatter → Teile in den Tray.
   bool _introDone = false;
   bool _introStarted = false;
+  bool _recentRecorded = false;
 
   /// Hochkant-Bilder bleiben aufrecht (nicht seitlich legen).
   bool get _rotatePortrait => false;
@@ -110,7 +112,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       duration: const Duration(milliseconds: 2800),
     );
     _boardTransform = TransformationController();
-    _boardTransform.addListener(_onBoardTransformChanged);
     _popController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         setState(() => _popPiece = null);
@@ -140,38 +141,16 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     });
   }
 
-  void _onBoardTransformChanged() {
-    // Kein setState während Pinch — Rebuild von InteractiveViewer setzt Zoom zurück.
-    if (_boardZoomInteracting) return;
-    final zoomed = _boardTransform.value.getMaxScaleOnAxis() > 1.05;
-    if (zoomed != _boardZoomed && mounted) {
-      setState(() => _boardZoomed = zoomed);
-    }
-  }
-
-  void _syncBoardZoomChip() {
-    final zoomed = _boardTransform.value.getMaxScaleOnAxis() > 1.05;
-    if (zoomed != _boardZoomed && mounted) {
-      setState(() => _boardZoomed = zoomed);
-    }
-  }
-
   void _resetBoardZoom() {
     _boardTransform.value = Matrix4.identity();
-    if (_boardZoomed) {
-      setState(() => _boardZoomed = false);
-    }
   }
 
   void _onBoardZoomInteractionEnd() {
-    _boardZoomInteracting = false;
     final scale = _boardTransform.value.getMaxScaleOnAxis();
+    // Kleiner Restzoom → sauber auf 1; sonst Matrix belassen (kein setState).
     if (scale <= 1.08) {
       _resetBoardZoom();
-      return;
     }
-    // Matrix lassen — Zoom bleibt genau dort, wo die Geste endete.
-    _syncBoardZoomChip();
   }
 
   @override
@@ -181,11 +160,22 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       _imagePrecached = true;
       precacheImage(_imageProvider, context);
     }
+    if (!_recentRecorded) {
+      _recentRecorded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(
+          context.read<RecentContentStore>().record(
+                widget.puzzle.id,
+                kind: FavoriteKind.puzzle,
+              ),
+        );
+      });
+    }
   }
 
   @override
   void dispose() {
-    _boardTransform.removeListener(_onBoardTransformChanged);
     _boardTransform.dispose();
     _revealController.dispose();
     _popController.dispose();
@@ -269,7 +259,6 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _introDone = false;
     _introStarted = false;
     _boardTransform.value = Matrix4.identity();
-    _boardZoomed = false;
   }
 
   void _maybeStartIntro(Size boardSize) {
@@ -745,6 +734,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       return Center(child: board);
     }
 
+    // Reset-Chip via ListenableBuilder: kein setState am Parent während Pinch
+    // (sonst rebuildet InteractiveViewer und der Zoom springt).
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -754,10 +745,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             minScale: 1,
             maxScale: 3.8,
             constrained: true,
-            alignment: Alignment.center,
+            // Kein alignment: sonst driftet Pinch-Zoom vom Fokuspunkt weg.
             boundaryMargin: const EdgeInsets.all(48),
             clipBehavior: Clip.hardEdge,
-            onInteractionStart: (_) => _boardZoomInteracting = true,
             onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
             child: Center(
               child: SizedBox(
@@ -768,12 +758,19 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             ),
           ),
         ),
-        if (_boardZoomed)
-          Positioned(
-            top: 4,
-            right: 4,
-            child: _ZoomResetChip(onPressed: _resetBoardZoom),
-          ),
+        ListenableBuilder(
+          listenable: _boardTransform,
+          builder: (context, _) {
+            if (_boardTransform.value.getMaxScaleOnAxis() <= 1.05) {
+              return const SizedBox.shrink();
+            }
+            return Positioned(
+              top: 4,
+              right: 4,
+              child: _ZoomResetChip(onPressed: _resetBoardZoom),
+            );
+          },
+        ),
       ],
     );
   }

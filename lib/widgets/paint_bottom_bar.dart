@@ -312,22 +312,27 @@ class _PalettePackChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           child: SizedBox(
             width: 56,
-            height: 52,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _PalettePreviewOrb(colors: category.previewColors),
-                const SizedBox(height: 3),
-                Text(
-                  category.label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.92),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _PalettePreviewOrb(colors: category.previewColors),
+                  const SizedBox(height: 2),
+                  Text(
+                    category.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

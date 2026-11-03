@@ -10,6 +10,8 @@ import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../providers/favorites_store.dart';
+import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
@@ -50,6 +52,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Uint8List? _finishedPng;
   List<StickerEntry>? _giftChoices;
 
+  bool _recentRecorded = false;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +65,18 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _bitmapFuture ??= _loadBitmap();
+    if (!_recentRecorded) {
+      _recentRecorded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(
+          context.read<RecentContentStore>().record(
+                widget.page.id,
+                kind: FavoriteKind.coloring,
+              ),
+        );
+      });
+    }
   }
 
   Future<ColoringBitmap> _loadBitmap() async {

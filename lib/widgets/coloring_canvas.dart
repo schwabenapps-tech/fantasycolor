@@ -323,7 +323,8 @@ class _ZoomViewport extends StatelessWidget {
         panEnabled: panEnabled,
         scaleEnabled: true,
         constrained: true,
-        alignment: Alignment.center,
+        // Kein alignment: sonst skaliert die Paint-Matrix um die Mitte,
+        // Gesture/toScene aber um top-left → Zoom springt vom Pinch-Punkt weg.
         clipBehavior: Clip.hardEdge,
         boundaryMargin: EdgeInsets.all(slack),
         onInteractionEnd: (_) => onInteractionEnd(),

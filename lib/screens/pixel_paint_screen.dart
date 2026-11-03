@@ -508,7 +508,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                               panEnabled: false,
                               scaleEnabled: true,
                               constrained: true,
-                              alignment: Alignment.center,
+                              // Kein alignment: sonst driftet Pinch-Zoom vom Fokuspunkt weg.
                               clipBehavior: Clip.hardEdge,
                               boundaryMargin: const EdgeInsets.all(48),
                               onInteractionEnd: (_) =>
