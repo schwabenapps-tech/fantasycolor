@@ -397,28 +397,20 @@ class SettingsScreen extends StatelessWidget {
 
   static Future<void> _openAdPrivacyChoices(BuildContext context) async {
     final consent = context.read<ConsentService>();
-    if (!consent.privacyOptionsRequired) {
+    // Status ggf. aktualisieren (kann nach Start noch „unknown“ sein).
+    await ConsentService.instance.gatherConsent();
+    if (!context.mounted) return;
+
+    if (consent.privacyOptionsRequired) {
+      final error = await consent.showPrivacyOptions();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No extra ad privacy form is required in your region. '
-            'See Privacy for details.',
-          ),
-        ),
-      );
-      return;
+      if (error == null) return;
+      // Formular fehlgeschlagen → Datenschutzseite als Fallback.
     }
 
-    final error = await consent.showPrivacyOptions();
-    if (!context.mounted) return;
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not open privacy choices: ${error.message}'),
-        ),
-      );
-    }
+    // Kinder-/TFUA-Apps: UMP verlangt oft kein Extra-Formular.
+    // Dann Datenschutz öffnen, statt einer toten Snackbar.
+    await _openUrl(context, privacyUrl);
   }
 }
 
