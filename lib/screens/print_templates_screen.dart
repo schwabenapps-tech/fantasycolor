@@ -142,6 +142,7 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
                               kind: CatalogGalleryKind.print,
                               categoryTitle: 'Print',
                               halloweenIds: halloweenIds,
+                              showEventHubs: false,
                               onOpenPage: _openPreview,
                               gridScroll: _gridScroll,
                               rowScroll: _rowScroll,

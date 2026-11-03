@@ -87,6 +87,44 @@ class EventTags {
   bool isNewPuzzle(String id, {DateTime? now}) =>
       _isNew(newSincePuzzle[id], now: now);
 
+  DateTime? coloringAddedAt(String id) => newSinceColoring[id];
+  DateTime? puzzleAddedAt(String id) => newSincePuzzle[id];
+
+  /// Zuletzt abgelaufenes Event (nach `ends_at`), sonst null.
+  ContentEvent? lastPastEvent({DateTime? now}) {
+    final past = [
+      for (final e in allEvents())
+        if (e.isPast(now: now)) e,
+    ];
+    if (past.isEmpty) return null;
+    past.sort((a, b) {
+      final ae = a.endsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final be = b.endsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return be.compareTo(ae);
+    });
+    return past.first;
+  }
+
+  /// Neueste zuerst (nach `new_since_*`), ohne Datum ans Ende.
+  List<ColoringPage> sortNewestFirst(
+    List<ColoringPage> pages, {
+    required bool coloring,
+  }) {
+    final dates = coloring ? newSinceColoring : newSincePuzzle;
+    final sorted = List<ColoringPage>.from(pages);
+    sorted.sort((a, b) {
+      final da = dates[a.id];
+      final db = dates[b.id];
+      if (da == null && db == null) return a.id.compareTo(b.id);
+      if (da == null) return 1;
+      if (db == null) return -1;
+      final cmp = db.compareTo(da);
+      if (cmp != 0) return cmp;
+      return a.id.compareTo(b.id);
+    });
+    return sorted;
+  }
+
   bool isEventPage(String id, {required bool coloring}) {
     for (final event in allEvents()) {
       if (event.idsFor(coloring: coloring).contains(id)) return true;

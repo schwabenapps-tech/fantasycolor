@@ -58,10 +58,12 @@ STICKER_DIR = ROOT / "assets/stickers"
 
 
 def normalize_name(name: str) -> str:
-    """Match Source-Map and R2 keys across spaces/underscores."""
+    """Match Source-Map and R2 keys across spaces/underscores/punctuation."""
     stem = Path(name).name
     stem = re.sub(r"\.(png|jpg|jpeg|webp)$", "", stem, flags=re.IGNORECASE)
-    stem = stem.lower().replace(" ", "_").replace("-", "_")
+    stem = stem.lower()
+    # ChatGPT desktop names keep "10." / commas; assets use underscores only.
+    stem = re.sub(r"[^a-z0-9]+", "_", stem)
     stem = re.sub(r"_+", "_", stem).strip("_")
     return stem
 

@@ -74,10 +74,15 @@ class AppStrings {
   String get updateRequired => _t('updateRequired');
   String get updateNow => _t('updateNow');
   String get forceUpdateMessage => _t('forceUpdateMessage');
+  String get home => _t('home');
   String get color => _t('color');
   String get puzzle => _t('puzzle');
   String get print => _t('print');
   String get favorites => _t('favorites');
+  String get newItems => _t('newItems');
+  String get newColor => _t('newColor');
+  String get newPuzzle => _t('newPuzzle');
+  String get lastEvent => _t('lastEvent');
   String get notifyTitle => _t('notifyTitle');
   String get notifyBody => _t('notifyBody');
   String get notifyStreakTitle => _t('notifyStreakTitle');
@@ -166,10 +171,15 @@ const _en = {
   'updateNow': 'Update now',
   'forceUpdateMessage':
       'A new version of Fairy Fantasy Color is required.\nPlease update in the store to continue playing.',
+  'home': 'Home',
   'color': 'Color',
   'puzzle': 'Puzzle',
   'print': 'Print',
   'favorites': 'Favorites',
+  'newItems': 'New',
+  'newColor': 'New color',
+  'newPuzzle': 'New puzzle',
+  'lastEvent': 'Last event',
   'notifyTitle': 'A surprise awaits ✨',
   'notifyBody': 'Your daily sticker gift is ready — come pick a box!',
   'notifyStreakTitle': 'Keep the magic going!',
@@ -242,10 +252,15 @@ const _de = {
   'updateNow': 'Jetzt updaten',
   'forceUpdateMessage':
       'Eine neue Version von Fairy Fantasy Color ist nötig.\nBitte aktualisiere im Store, um weiterzuspielen.',
+  'home': 'Home',
   'color': 'Malen',
   'puzzle': 'Puzzle',
   'print': 'Drucken',
   'favorites': 'Favoriten',
+  'newItems': 'Neu',
+  'newColor': 'Neu Malen',
+  'newPuzzle': 'Neu Puzzle',
+  'lastEvent': 'Letztes Event',
   'notifyTitle': 'Eine Überraschung wartet ✨',
   'notifyBody': 'Dein täglicher Sticker ist bereit — komm und wähle eine Box!',
   'notifyStreakTitle': 'Halte die Magie am Leben!',
@@ -318,10 +333,15 @@ const _es = {
   'updateNow': 'Actualizar ahora',
   'forceUpdateMessage':
       'Se necesita una nueva versión de Fairy Fantasy Color.\nActualiza en la tienda para seguir jugando.',
+  'home': 'Inicio',
   'color': 'Colorear',
   'puzzle': 'Puzzle',
   'print': 'Imprimir',
   'favorites': 'Favoritos',
+  'newItems': 'Nuevo',
+  'newColor': 'Nuevo colorear',
+  'newPuzzle': 'Nuevo puzzle',
+  'lastEvent': 'Último evento',
   'notifyTitle': 'Hay una sorpresa ✨',
   'notifyBody': 'Tu sticker diario está listo — ¡ven a elegir una caja!',
   'notifyStreakTitle': '¡Sigue la magia!',
@@ -394,10 +414,15 @@ const _fr = {
   'updateNow': 'Mettre à jour',
   'forceUpdateMessage':
       'Une nouvelle version de Fairy Fantasy Color est requise.\nMets à jour dans le store pour continuer.',
+  'home': 'Accueil',
   'color': 'Colorier',
   'puzzle': 'Puzzle',
   'print': 'Imprimer',
   'favorites': 'Favoris',
+  'newItems': 'Nouveau',
+  'newColor': 'Nouveau coloriage',
+  'newPuzzle': 'Nouveau puzzle',
+  'lastEvent': 'Dernier événement',
   'notifyTitle': 'Une surprise t’attend ✨',
   'notifyBody': 'Ton sticker du jour est prêt — viens choisir une boîte !',
   'notifyStreakTitle': 'Garde la magie vivante !',
@@ -470,10 +495,15 @@ const _pt = {
   'updateNow': 'Atualizar agora',
   'forceUpdateMessage':
       'É necessária uma nova versão de Fairy Fantasy Color.\nAtualiza na loja para continuar a jogar.',
+  'home': 'Início',
   'color': 'Colorir',
   'puzzle': 'Puzzle',
   'print': 'Imprimir',
   'favorites': 'Favoritos',
+  'newItems': 'Novo',
+  'newColor': 'Novo colorir',
+  'newPuzzle': 'Novo puzzle',
+  'lastEvent': 'Último evento',
   'notifyTitle': 'Uma surpresa espera ✨',
   'notifyBody': 'O teu sticker diário está pronto — vem escolher uma caixa!',
   'notifyStreakTitle': 'Mantém a magia!',
@@ -546,10 +576,15 @@ const _it = {
   'updateNow': 'Aggiorna ora',
   'forceUpdateMessage':
       'È richiesta una nuova versione di Fairy Fantasy Color.\nAggiorna nello store per continuare.',
+  'home': 'Home',
   'color': 'Colora',
   'puzzle': 'Puzzle',
   'print': 'Stampa',
   'favorites': 'Preferiti',
+  'newItems': 'Nuovo',
+  'newColor': 'Nuovo colorare',
+  'newPuzzle': 'Nuovo puzzle',
+  'lastEvent': 'Ultimo evento',
   'notifyTitle': 'Ti aspetta una sorpresa ✨',
   'notifyBody': 'Il tuo sticker giornaliero è pronto — vieni a scegliere!',
   'notifyStreakTitle': 'Tieni viva la magia!',
@@ -622,10 +657,15 @@ const _nl = {
   'updateNow': 'Nu updaten',
   'forceUpdateMessage':
       'Er is een nieuwe versie van Fairy Fantasy Color nodig.\nUpdate in de store om verder te spelen.',
+  'home': 'Home',
   'color': 'Kleuren',
   'puzzle': 'Puzzel',
   'print': 'Printen',
   'favorites': 'Favorieten',
+  'newItems': 'Nieuw',
+  'newColor': 'Nieuw kleuren',
+  'newPuzzle': 'Nieuwe puzzel',
+  'lastEvent': 'Laatste event',
   'notifyTitle': 'Er wacht een verrassing ✨',
   'notifyBody': 'Je dagelijkse sticker is klaar — kom een doos kiezen!',
   'notifyStreakTitle': 'Houd de magie levend!',
@@ -698,10 +738,15 @@ const _pl = {
   'updateNow': 'Aktualizuj teraz',
   'forceUpdateMessage':
       'Potrzebna jest nowa wersja Fairy Fantasy Color.\nZaktualizuj w sklepie, aby grać dalej.',
+  'home': 'Start',
   'color': 'Koloruj',
   'puzzle': 'Puzzle',
   'print': 'Drukuj',
   'favorites': 'Ulubione',
+  'newItems': 'Nowe',
+  'newColor': 'Nowe kolorowanie',
+  'newPuzzle': 'Nowe puzzle',
+  'lastEvent': 'Ostatnie wydarzenie',
   'notifyTitle': 'Czeka niespodzianka ✨',
   'notifyBody': 'Codzienna naklejka jest gotowa — wybierz pudełko!',
   'notifyStreakTitle': 'Utrzymaj magię!',
@@ -774,10 +819,15 @@ const _tr = {
   'updateNow': 'Şimdi güncelle',
   'forceUpdateMessage':
       'Fairy Fantasy Color’ın yeni bir sürümü gerekli.\nOynamaya devam etmek için mağazadan güncelle.',
+  'home': 'Ana sayfa',
   'color': 'Boyama',
   'puzzle': 'Yapboz',
   'print': 'Yazdır',
   'favorites': 'Favoriler',
+  'newItems': 'Yeni',
+  'newColor': 'Yeni boyama',
+  'newPuzzle': 'Yeni yapboz',
+  'lastEvent': 'Son etkinlik',
   'notifyTitle': 'Bir sürpriz seni bekliyor ✨',
   'notifyBody': 'Günlük çıkartman hazır — gel bir kutu seç!',
   'notifyStreakTitle': 'Sihri sürdürmeye devam!',

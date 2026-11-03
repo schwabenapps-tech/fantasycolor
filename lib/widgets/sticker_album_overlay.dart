@@ -160,15 +160,16 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                           final countSize = landscape ? 15.0 : 18.0;
                           final titleGap = landscape ? 4.0 : 8.0;
                           final countGap = landscape ? 4.0 : 8.0;
-                          final titleH = titleSize + 4;
-                          final countH = countSize + 4;
-                          final exportH = store.isComplete ? 40.0 : 0.0;
+                          // Text-Zeilen etwas großzügiger schätzen (Font-Metrics).
+                          final titleH = titleSize * 1.35;
+                          final countH = countSize * 1.35;
+                          final exportH = store.isComplete ? 44.0 : 0.0;
                           final chromeExtras = titleH +
                               titleGap +
                               countGap +
                               countH +
                               exportH +
-                              6; // Slack gegen Subpixel-Overflow
+                              12; // Slack gegen Subpixel-/Landscape-Overflow
 
                           final maxW = constraints.maxWidth;
                           final maxPanelH =
@@ -227,109 +228,131 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                             ],
                           );
 
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Sticker album',
-                                  textAlign: TextAlign.center,
-                                  style: titleStyle,
-                                ),
-                                SizedBox(height: titleGap),
-                                SizedBox(
-                                  width: panelW,
-                                  height: panelH,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color:
-                                          _parchment.withValues(alpha: 0.96),
-                                      borderRadius:
-                                          BorderRadius.circular(22),
-                                      border: Border.all(
-                                        color: _sepiaEdge
-                                            .withValues(alpha: 0.85),
-                                        width: 1.8,
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x66000000),
-                                          blurRadius: 28,
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(22),
-                                      child: PageView.builder(
-                                        controller: _pageController,
-                                        itemCount: pageCount,
-                                        onPageChanged: (i) {
-                                          HapticFeedback.selectionClick();
-                                          setState(() => _page = i);
-                                        },
-                                        itemBuilder: (context, page) {
-                                          final start = page * _perPage;
-                                          final slice = stickers
-                                              .skip(start)
-                                              .take(_perPage)
-                                              .toList();
-                                          return Padding(
-                                            padding: EdgeInsets.all(inset),
-                                            child: GridView.builder(
-                                              physics:
-                                                  const NeverScrollableScrollPhysics(),
-                                              gridDelegate:
-                                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                                crossAxisCount: _cols,
-                                                mainAxisSpacing: gap,
-                                                crossAxisSpacing: gap,
-                                                childAspectRatio: 1,
+                          return Column(
+                            children: [
+                              Text(
+                                'Sticker album',
+                                textAlign: TextAlign.center,
+                                style: titleStyle,
+                              ),
+                              SizedBox(height: titleGap),
+                              Expanded(
+                                child: LayoutBuilder(
+                                  builder: (context, panelConstraints) {
+                                    final fitH = panelH.clamp(
+                                      0.0,
+                                      panelConstraints.maxHeight,
+                                    );
+                                    final fitW = panelH <= 0
+                                        ? 0.0
+                                        : (panelW * (fitH / panelH)).clamp(
+                                            0.0,
+                                            panelConstraints.maxWidth,
+                                          );
+                                    return Center(
+                                      child: SizedBox(
+                                        width: fitW,
+                                        height: fitH,
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: _parchment.withValues(
+                                              alpha: 0.96,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(22),
+                                            border: Border.all(
+                                              color: _sepiaEdge.withValues(
+                                                alpha: 0.85,
                                               ),
-                                              itemCount: slice.length,
-                                              itemBuilder: (context, i) {
-                                                final s = slice[i];
-                                                final owned =
-                                                    store.owns(s.id);
-                                                return _AlbumStickerCell(
-                                                  sticker: s,
-                                                  owned: owned,
-                                                  onTap: () =>
-                                                      _openPreview(
-                                                    s,
-                                                    owned,
+                                              width: 1.8,
+                                            ),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                color: Color(0x66000000),
+                                                blurRadius: 28,
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(22),
+                                            child: PageView.builder(
+                                              controller: _pageController,
+                                              itemCount: pageCount,
+                                              onPageChanged: (i) {
+                                                HapticFeedback
+                                                    .selectionClick();
+                                                setState(() => _page = i);
+                                              },
+                                              itemBuilder: (context, page) {
+                                                final start =
+                                                    page * _perPage;
+                                                final slice = stickers
+                                                    .skip(start)
+                                                    .take(_perPage)
+                                                    .toList();
+                                                return Padding(
+                                                  padding:
+                                                      EdgeInsets.all(inset),
+                                                  child: GridView.builder(
+                                                    physics:
+                                                        const NeverScrollableScrollPhysics(),
+                                                    gridDelegate:
+                                                        SliverGridDelegateWithFixedCrossAxisCount(
+                                                      crossAxisCount:
+                                                          _cols,
+                                                      mainAxisSpacing: gap,
+                                                      crossAxisSpacing: gap,
+                                                      childAspectRatio: 1,
+                                                    ),
+                                                    itemCount: slice.length,
+                                                    itemBuilder:
+                                                        (context, i) {
+                                                      final s = slice[i];
+                                                      final owned =
+                                                          store.owns(s.id);
+                                                      return _AlbumStickerCell(
+                                                        sticker: s,
+                                                        owned: owned,
+                                                        onTap: () =>
+                                                            _openPreview(
+                                                          s,
+                                                          owned,
+                                                        ),
+                                                      );
+                                                    },
                                                   ),
                                                 );
                                               },
                                             ),
-                                          );
-                                        },
+                                          ),
+                                        ),
                                       ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              SizedBox(height: countGap),
+                              Text(
+                                '${store.ownedCount} / ${store.totalCount}',
+                                style: countStyle,
+                              ),
+                              if (store.isComplete)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: TextButton.icon(
+                                    onPressed: () => _exportPack(store),
+                                    icon: const Icon(
+                                      Icons.download_rounded,
+                                    ),
+                                    label: const Text('Sticker pack'),
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: _parchmentDeep,
+                                      foregroundColor: _ink,
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: countGap),
-                                Text(
-                                  '${store.ownedCount} / ${store.totalCount}',
-                                  style: countStyle,
-                                ),
-                                if (store.isComplete)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: TextButton.icon(
-                                      onPressed: () => _exportPack(store),
-                                      icon: const Icon(
-                                        Icons.download_rounded,
-                                      ),
-                                      label: const Text('Sticker pack'),
-                                      style: TextButton.styleFrom(
-                                        backgroundColor: _parchmentDeep,
-                                        foregroundColor: _ink,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
+                            ],
                           );
                         },
                       ),

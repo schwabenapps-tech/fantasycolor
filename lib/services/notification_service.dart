@@ -126,14 +126,13 @@ class NotificationService {
     final t = AppStrings.of(context);
     final dailyTitle = t.notifyTitle;
     final dailyBody = t.notifyBody;
-    final streakTitle = t.notifyStreakTitle;
-    final streakBody = t.notifyStreakBody;
 
     if (!_ready) await initialize();
     final allowed = await requestPermissionIfNeeded();
     if (!allowed) return;
 
     await _plugin.cancel(_dailyId);
+    // Streak-Erinnerungen abschalten — kein täglicher „Race“.
     await _plugin.cancel(_streakId);
 
     final androidDetails = AndroidNotificationDetails(
@@ -167,33 +166,6 @@ class NotificationService {
         dailyBody,
         next,
         details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-      );
-
-      var streakAt =
-          tz.TZDateTime(tz.local, now.year, now.month, now.day, 18, 45);
-      if (!streakAt.isAfter(now)) {
-        streakAt = streakAt.add(const Duration(days: 1));
-      }
-      await _plugin.zonedSchedule(
-        _streakId,
-        streakTitle,
-        streakBody,
-        streakAt,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            channelDescription: 'Soft daily reminders for Fairy Fantasy Color',
-            importance: Importance.low,
-            priority: Priority.low,
-            styleInformation: BigTextStyleInformation(streakBody),
-          ),
-          iOS: iosDetails,
-        ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,

@@ -26,6 +26,8 @@ class CatalogGalleryBody extends StatelessWidget {
     this.showDownloadButton = false,
     this.categoryTitle,
     this.halloweenIds = const {},
+    this.showEventHubs = true,
+    this.showCategoryTitle = true,
   });
 
   final GalleryCatalog catalog;
@@ -39,8 +41,33 @@ class CatalogGalleryBody extends StatelessWidget {
   final String? categoryTitle;
   /// Für Print: Halloween-Druckvorlagen-IDs. Sonst aus [tags] abgeleitet.
   final Set<String> halloweenIds;
+  /// false = flache Kachel-Liste (keine Event-Hub-Portale).
+  final bool showEventHubs;
+  final bool showCategoryTitle;
 
   List<_Entry> _entries() {
+    if (!showEventHubs) {
+      final byId = <String, ColoringPage>{};
+      for (final event in catalog.activeEvents) {
+        for (final page in event.pages) {
+          byId[page.id] = page;
+        }
+      }
+      for (final page in catalog.standard.pages) {
+        byId[page.id] = page;
+      }
+      for (final event in catalog.pastEvents) {
+        for (final page in event.pages) {
+          byId.putIfAbsent(page.id, () => page);
+        }
+      }
+      final coloring = kind == CatalogGalleryKind.coloring;
+      final sorted = tags.sortNewestFirst(
+        byId.values.toList(),
+        coloring: coloring,
+      );
+      return [for (final page in sorted) _Entry.page(page)];
+    }
     return [
       for (final event in catalog.activeEvents) _Entry.hub(event),
       for (final page in catalog.standard.pages) _Entry.page(page),
@@ -238,7 +265,7 @@ class CatalogGalleryBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GalleryCategoryTitle(title: title),
+        if (showCategoryTitle) GalleryCategoryTitle(title: title),
         Expanded(child: gallery),
       ],
     );

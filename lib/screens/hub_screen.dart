@@ -8,60 +8,36 @@ import '../data/coloring_pages_loader.dart';
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
-import '../providers/sticker_collection_store.dart';
 import '../l10n/app_strings.dart';
+import '../models/coloring_page.dart';
+import '../providers/favorites_store.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/notification_service.dart';
-import '../services/streak_service.dart';
+import '../services/remote_pack_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
-import '../widgets/event_hub_portal.dart';
+import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
-import '../widgets/streak_badge.dart';
 import '../widgets/welcome_portal_overlay.dart';
-import 'event_world_hub_screen.dart';
+import 'coloring_preview_screen.dart';
+import 'event_pack_gallery_screen.dart';
 import 'favorites_screen.dart';
-import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
-import 'puzzle_gallery_screen.dart';
+import 'puzzle_screen.dart';
 import 'settings_screen.dart';
 
-/// Zentraler Einstieg: Malen / Puzzle + Druck/Favorites + Event-Hub.
+/// Zentraler Einstieg: Tabs Home / Puzzle / Malen + Top-Aktionen.
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
-
-  /// Nur Standard-Gallery (keine Event-/Halloween-Bilder).
-  static const malenSlideshow = <String>[
-    'assets/coloring_pages/fee_clean_28.png',
-    'assets/coloring_pages/fee_clean_12.png',
-    'assets/coloring_pages/fee_clean_32.png',
-    'assets/coloring_pages/fee_clean_01.png',
-    'assets/coloring_pages/fee_clean_09.png',
-    'assets/coloring_pages/fee_clean_20.png',
-    'assets/coloring_pages/fee_clean_15.png',
-    'assets/coloring_pages/fee_clean_27.png',
-  ];
-
-  /// Nur Standard-Puzzle-Gallery.
-  static const puzzleSlideshow = <String>[
-    'assets/puzzle_images/233c320c-4dd9-4fb3-8c34-af15942026cb.png',
-    'assets/puzzle_images/chatgpt_image_18_sept_2026_10_26_05.png',
-    'assets/puzzle_images/chatgpt_image_13_sept_2026_21_09_00.png',
-    'assets/puzzle_images/chatgpt_image_18_sept_2026_09_38_35.png',
-    'assets/puzzle_images/chatgpt_image_15_sept_2026_14_57_20.png',
-    'assets/puzzle_images/chatgpt_image_14_sept_2026_20_51_13.png',
-    'assets/puzzle_images/chatgpt_image_13_sept_2026_21_21_30.png',
-    'assets/puzzle_images/a41fc2b5-8a30-4684-8560-d13fc9396cb3.png',
-  ];
-
-  /// Festes Hero-Bild für den Event-Hub (kein Slideshow).
-  static const eventHubImage = 'assets/images/halloween_event_hub.jpg';
+  static const coloringLogo = 'assets/images/malen_favorit.png';
+  static const puzzleLogo = 'assets/images/puzzle_favorit.png';
 
   @override
   State<HubScreen> createState() => _HubScreenState();
@@ -73,19 +49,28 @@ class _HubScreenState extends State<HubScreen>
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
-  bool _slideshowPrecached = false;
+
+  int _tabIndex = 0;
   bool _showWelcome = false;
   bool _showAlbum = false;
   bool _showDaily = false;
   bool _dailyChecked = false;
-  Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>?
-      _eventFuture;
+  int _heardGeneration = -1;
+
+  Future<_HubCatalog>? _catalogFuture;
+  final _homeScroll = ScrollController();
+  final _puzzleGridScroll = ScrollController();
+  final _puzzleRowScroll = ScrollController();
+  final _colorGridScroll = ScrollController();
+  final _colorRowScroll = ScrollController();
 
   @override
   void initState() {
     super.initState();
     unawaited(AudioService.instance.startAmbient());
-    _eventFuture = _loadActiveEvent();
+    _reloadCatalog();
+    _heardGeneration = RemotePackService.instance.generation;
+    RemotePackService.instance.addListener(_onRemoteChanged);
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -95,13 +80,30 @@ class _HubScreenState extends State<HubScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
-    // Nach Play-Button / Hub-Einstieg — nicht auf dem Startscreen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybeShowWelcome());
       unawaited(
         NotificationService.instance.scheduleGentleReminders(context),
       );
     });
+  }
+
+  void _onRemoteChanged() {
+    final gen = RemotePackService.instance.generation;
+    if (!mounted || gen == _heardGeneration) return;
+    _heardGeneration = gen;
+    setState(_reloadCatalog);
+  }
+
+  void _reloadCatalog() {
+    _catalogFuture = _loadCatalog();
+  }
+
+  Future<_HubCatalog> _loadCatalog() async {
+    final tags = await EventTags.load();
+    final coloring = await loadColoringCatalog(shuffle: false);
+    final puzzle = await loadPuzzleCatalog(shuffle: false);
+    return _HubCatalog(tags: tags, coloring: coloring, puzzle: puzzle);
   }
 
   Future<void> _maybeShowWelcome() async {
@@ -131,7 +133,6 @@ class _HubScreenState extends State<HubScreen>
   Future<void> _maybeShowDailyGift() async {
     if (_dailyChecked || !mounted) return;
     _dailyChecked = true;
-    // Store kann noch laden — kurz warten.
     var ready = false;
     for (var i = 0; i < 20; i++) {
       final store = context.read<StickerCollectionStore>();
@@ -143,55 +144,20 @@ class _HubScreenState extends State<HubScreen>
       if (!mounted) return;
     }
     if (!ready || !mounted) return;
-    // Hub kurz sehen lassen, dann Geschenk einblenden (nicht sofort im Gesicht).
     await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
     setState(() => _showDaily = true);
   }
 
-  Future<({GallerySection? coloring, GallerySection? puzzle, EventTags tags})>
-      _loadActiveEvent() async {
-    final tags = await EventTags.load();
-    final coloringCatalog = await loadColoringCatalog(shuffle: false);
-    final puzzleCatalog = await loadPuzzleCatalog(shuffle: false);
-    final coloring = coloringCatalog.activeEvents.isEmpty
-        ? null
-        : coloringCatalog.activeEvents.first;
-    final puzzle = puzzleCatalog.activeEvents.isEmpty
-        ? null
-        : puzzleCatalog.activeEvents.first;
-    // Prefer matching event ids when both exist.
-    GallerySection? c = coloring;
-    GallerySection? p = puzzle;
-    if (c != null && p != null && c.id != p.id) {
-      final match = puzzleCatalog.activeEvents.where((e) => e.id == c.id);
-      if (match.isNotEmpty) p = match.first;
-    }
-    return (coloring: c, puzzle: p, tags: tags);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_slideshowPrecached) return;
-    _slideshowPrecached = true;
-    final cacheW = thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
-    unawaited(
-      precacheAssetImages(
-        context,
-        [
-          ...HubScreen.malenSlideshow,
-          ...HubScreen.puzzleSlideshow,
-          HubScreen.eventHubImage,
-        ],
-        cacheWidth: cacheW,
-      ),
-    );
-  }
-
   @override
   void dispose() {
+    RemotePackService.instance.removeListener(_onRemoteChanged);
     _fadeController.dispose();
+    _homeScroll.dispose();
+    _puzzleGridScroll.dispose();
+    _puzzleRowScroll.dispose();
+    _colorGridScroll.dispose();
+    _colorRowScroll.dispose();
     super.dispose();
   }
 
@@ -203,26 +169,6 @@ class _HubScreenState extends State<HubScreen>
         settings: RouteSettings(name: world),
         builder: (_) => screen,
       ),
-    );
-  }
-
-  void _openEventHub({
-    required GallerySection coloring,
-    required GallerySection puzzle,
-    required EventTags tags,
-  }) {
-    _open(
-      EventWorldHubScreen(
-        title: coloring.title,
-        coloringSection: coloring,
-        puzzleSection: puzzle,
-        halloweenIds: {
-          ...tags.halloweenColoring,
-          ...tags.halloweenPuzzle,
-        },
-        tags: tags,
-      ),
-      world: 'event',
     );
   }
 
@@ -250,31 +196,39 @@ class _HubScreenState extends State<HubScreen>
     );
   }
 
+  void _openColoring(ColoringPage page) {
+    AnalyticsService.instance.logStartColoring(page.id);
+    Navigator.of(context).push(
+      AppPageRoute<void>(
+        builder: (_) => ColoringPreviewScreen(page: page),
+      ),
+    );
+  }
+
+  void _openPuzzle(ColoringPage page) {
+    AnalyticsService.instance.logStartPuzzle(page.id);
+    Navigator.of(context).push(
+      AppPageRoute<void>(
+        builder: (_) => PuzzleScreen(puzzle: page),
+      ),
+    );
+  }
+
+  void _selectTab(int i) {
+    if (i == _tabIndex) return;
+    setState(() => _tabIndex = i);
+    AnalyticsService.instance.logScreen(
+      switch (i) {
+        0 => 'hub_home',
+        1 => 'hub_puzzle',
+        _ => 'hub_color',
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final layout = AppLayout.of(context);
-    final gap = size.shortestSide * 0.028;
-    final portrait = layout.isPortrait;
-
-    final worlds = [
-      _WorldPortal(
-        semanticLabel: 'Color',
-        title: 'Color',
-        imageAssets: HubScreen.malenSlideshow,
-        accent: const Color(0xFFE8A0BF),
-        slideOffset: Duration.zero,
-        onTap: () => _open(const GalleryScreen(), world: 'malen'),
-      ),
-      _WorldPortal(
-        semanticLabel: 'Puzzle',
-        title: 'Puzzle',
-        imageAssets: HubScreen.puzzleSlideshow,
-        accent: const Color(0xFF7EB6E8),
-        slideOffset: const Duration(milliseconds: 1600),
-        onTap: () => _open(const PuzzleGalleryScreen(), world: 'puzzle'),
-      ),
-    ];
+    final t = AppStrings.of(context);
 
     return Scaffold(
       body: Stack(
@@ -288,119 +242,81 @@ class _HubScreenState extends State<HubScreen>
           FadeTransition(
             opacity: _fadeAnimation,
             child: SafeArea(
-              child: Stack(
+              child: Column(
                 children: [
-                  Padding(
-                    // Landscape: Hubs weiter links. Portrait: wenig Top-Inset
-                    // (Toolbar liegt als Overlay oben).
-                    padding: EdgeInsets.fromLTRB(
-                      layout.hubHorizontalPadding * (portrait ? 0.85 : 0.45),
-                      layout.hubVerticalPadding * (portrait ? 0.35 : 0.55),
-                      layout.hubHorizontalPadding * (portrait ? 0.85 : 0.55),
-                      layout.hubVerticalPadding * 0.75,
-                    ),
-                    child: Align(
-                      alignment: portrait ? Alignment.center : Alignment.centerLeft,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: layout.isTablet ? 1100 : double.infinity,
-                        ),
-                        child: FutureBuilder(
-                          future: _eventFuture,
-                          builder: (context, snapshot) {
-                            final data = snapshot.data;
-                            final hasEvent = data?.coloring != null &&
-                                data?.puzzle != null;
-                            final eventHub = !hasEvent
-                                ? null
-                                : EventHubPortal(
-                                    title: data!.coloring!.title,
-                                    imagePaths: const [HubScreen.eventHubImage],
-                                    accent: const Color(0xFFFF8C42),
-                                    isHalloween: true,
-                                    onTap: () => _openEventHub(
-                                      coloring: data.coloring!,
-                                      puzzle: data.puzzle!,
-                                      tags: data.tags,
-                                    ),
-                                  );
-
-                            if (portrait) {
-                              return Column(
-                                children: [
-                                  // Platz für die Overlay-Topbar (weiter oben).
-                                  const SizedBox(height: 48),
-                                  Expanded(
-                                    flex: 5,
-                                    child: Column(
-                                      children: [
-                                        Expanded(child: worlds[0]),
-                                        SizedBox(height: gap),
-                                        Expanded(child: worlds[1]),
-                                      ],
-                                    ),
-                                  ),
-                                  if (eventHub != null) ...[
-                                    SizedBox(height: gap),
-                                    SizedBox(
-                                      height: size.height * 0.28,
-                                      child: eventHub,
-                                    ),
-                                  ],
-                                ],
-                              );
-                            }
-
-                            return Row(
-                              children: [
-                                Expanded(
-                                  flex: 6,
-                                  child: Row(
-                                    children: [
-                                      Expanded(child: worlds[0]),
-                                      SizedBox(width: gap),
-                                      Expanded(child: worlds[1]),
-                                    ],
-                                  ),
-                                ),
-                                if (eventHub != null) ...[
-                                  SizedBox(width: gap * 1.4),
-                                  SizedBox(
-                                    width: size.width *
-                                        (layout.isTablet ? 0.24 : 0.26),
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        top: 64,
-                                        right: 4,
-                                      ),
-                                      child: eventHub,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
+                  _HubTopBar(
+                    tabIndex: _tabIndex,
+                    onSelectTab: _selectTab,
+                    onAlbum: _openAlbum,
+                    onPrint: _openPrint,
+                    onFavorites: _openFavorites,
+                    onSettings: _openSettings,
                   ),
-                  Positioned(
-                    top: 2,
-                    left: portrait ? 6 : null,
-                    right: portrait ? 6 : 10,
-                    child: portrait
-                        ? _HubPortraitTopBar(
-                            onAlbum: _openAlbum,
-                            onFavorites: _openFavorites,
-                            onPrint: _openPrint,
-                            onSettings: _openSettings,
-                          )
-                        : _HubLandscapeControls(
-                            onAlbum: _openAlbum,
-                            onFavorites: _openFavorites,
-                            onPrint: _openPrint,
-                            onSettings: _openSettings,
-                          ),
+                  Expanded(
+                    child: FutureBuilder<_HubCatalog>(
+                      key: ValueKey('hub_catalog_$_heardGeneration'),
+                      future: _catalogFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Center(
+                            child: SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Color(0xFFE8EEF8),
+                              ),
+                            ),
+                          );
+                        }
+                        final data = snapshot.data;
+                        if (data == null) {
+                          return const Center(
+                            child: Text(
+                              'No content found',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
+                            ),
+                          );
+                        }
+
+                        return IndexedStack(
+                          index: _tabIndex,
+                          children: [
+                            _HomeTab(
+                              catalog: data,
+                              scrollController: _homeScroll,
+                              onOpenColoring: _openColoring,
+                              onOpenPuzzle: _openPuzzle,
+                            ),
+                            CatalogGalleryBody(
+                              catalog: data.puzzle,
+                              tags: data.tags,
+                              kind: CatalogGalleryKind.puzzle,
+                              categoryTitle: t.puzzle,
+                              showEventHubs: false,
+                              showCategoryTitle: false,
+                              onOpenPage: _openPuzzle,
+                              gridScroll: _puzzleGridScroll,
+                              rowScroll: _puzzleRowScroll,
+                            ),
+                            CatalogGalleryBody(
+                              catalog: data.coloring,
+                              tags: data.tags,
+                              kind: CatalogGalleryKind.coloring,
+                              categoryTitle: t.color,
+                              showEventHubs: false,
+                              showCategoryTitle: false,
+                              onOpenPage: _openColoring,
+                              gridScroll: _colorGridScroll,
+                              rowScroll: _colorRowScroll,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -413,14 +329,13 @@ class _HubScreenState extends State<HubScreen>
           if (_showDaily)
             Builder(
               builder: (context) {
-                final t = AppStrings.of(context);
+                final strings = AppStrings.of(context);
                 return StickerDailyGiftOverlay(
                   isDaily: true,
-                  title: t.dailySurprise,
-                  subtitle: t.pickBoxToday,
-                  revealTitle: t.dailyReward,
+                  title: strings.dailySurprise,
+                  subtitle: strings.pickBoxToday,
+                  revealTitle: strings.dailyReward,
                   onClosed: () {
-                    unawaited(StreakService.instance.recordPlayDay());
                     if (mounted) setState(() => _showDaily = false);
                   },
                 );
@@ -438,32 +353,103 @@ class _HubScreenState extends State<HubScreen>
   }
 }
 
-/// Portrait: Album → Streak → Drucker/Stern (untereinander) → Einstellungen
-class _HubPortraitTopBar extends StatelessWidget {
-  const _HubPortraitTopBar({
+class _HubCatalog {
+  const _HubCatalog({
+    required this.tags,
+    required this.coloring,
+    required this.puzzle,
+  });
+
+  final EventTags tags;
+  final GalleryCatalog coloring;
+  final GalleryCatalog puzzle;
+}
+
+/// Oben: Album + Streak · Tabs (nur Icons) · Druck · Stern · Settings.
+class _HubTopBar extends StatelessWidget {
+  const _HubTopBar({
+    required this.tabIndex,
+    required this.onSelectTab,
     required this.onAlbum,
-    required this.onFavorites,
     required this.onPrint,
+    required this.onFavorites,
     required this.onSettings,
   });
 
+  final int tabIndex;
+  final ValueChanged<int> onSelectTab;
   final VoidCallback onAlbum;
-  final VoidCallback onFavorites;
   final VoidCallback onPrint;
+  final VoidCallback onFavorites;
   final VoidCallback onSettings;
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _tabs({
+    required AppStrings t,
+    required bool tablet,
+    required bool portrait,
+  }) {
+    final tabGap = portrait ? (tablet ? 22.0 : 18.0) : (tablet ? 18.0 : 14.0);
+    final homeSize = portrait
+        ? (tablet ? 46.0 : 40.0)
+        : (tablet ? 48.0 : 42.0);
+    final logoSize = portrait
+        ? (tablet ? 54.0 : 48.0)
+        : (tablet ? 56.0 : 50.0);
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _StickerBookButton(onPressed: onAlbum),
-        const SizedBox(width: 6),
-        const Padding(
-          padding: EdgeInsets.only(top: 4),
-          child: StreakBadge(),
+        _TopTabIcon(
+          selected: tabIndex == 0,
+          semanticLabel: t.home,
+          onTap: () => onSelectTab(0),
+          child: Icon(
+            Icons.home_rounded,
+            size: homeSize,
+            color: tabIndex == 0
+                ? const Color(0xFFFFE7A0)
+                : const Color(0xFFD0D8E8),
+            shadows: [
+              Shadow(
+                color: tabIndex == 0
+                    ? const Color(0xAAFFE7A0)
+                    : const Color(0xAA000000),
+                blurRadius: tabIndex == 0 ? 14 : 8,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: tabGap),
+        _TopTabIcon(
+          selected: tabIndex == 1,
+          semanticLabel: t.puzzle,
+          onTap: () => onSelectTab(1),
+          child: _TabLogo(
+            asset: HubScreen.puzzleLogo,
+            selected: tabIndex == 1,
+            size: logoSize,
+          ),
+        ),
+        SizedBox(width: tabGap),
+        _TopTabIcon(
+          selected: tabIndex == 2,
+          semanticLabel: t.color,
+          onTap: () => onSelectTab(2),
+          child: _TabLogo(
+            asset: HubScreen.coloringLogo,
+            selected: tabIndex == 2,
+            size: logoSize,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _actions() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
         _PlainIconButton(
           semanticLabel: 'Print',
           icon: Icons.print_rounded,
@@ -474,7 +460,6 @@ class _HubPortraitTopBar extends StatelessWidget {
           icon: Icons.star_rounded,
           onPressed: onFavorites,
         ),
-        const Spacer(),
         SilverBackButton(
           icon: Icons.settings_rounded,
           size: 40,
@@ -484,79 +469,420 @@ class _HubPortraitTopBar extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Landscape rechts: Streak | Album, darunter Settings, Drucker, Stern darunter
-class _HubLandscapeControls extends StatelessWidget {
-  const _HubLandscapeControls({
-    required this.onAlbum,
-    required this.onFavorites,
-    required this.onPrint,
-    required this.onSettings,
-  });
-
-  final VoidCallback onAlbum;
-  final VoidCallback onFavorites;
-  final VoidCallback onPrint;
-  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+    final t = AppStrings.of(context);
+    final layout = AppLayout.of(context);
+    final tablet = layout.isTablet;
+    final portrait = layout.isPortrait;
+
+    // Portrait: Aktionen oben, Tabs darunter — sonst wird alles gequetscht.
+    if (portrait) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const StreakBadge(),
-            const SizedBox(width: 8),
-            _StickerBookButton(onPressed: onAlbum),
+            Row(
+              children: [
+                _StickerBookButton(onPressed: onAlbum),
+                const Spacer(),
+                _actions(),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _tabs(t: t, tablet: tablet, portrait: true),
           ],
         ),
-        const SizedBox(height: 8),
-        SilverBackButton(
-          icon: Icons.settings_rounded,
-          size: 40,
-          iconSize: 20,
-          onPressed: onSettings,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+      child: Row(
+        children: [
+          _StickerBookButton(onPressed: onAlbum),
+          Expanded(
+            child: _tabs(t: t, tablet: tablet, portrait: false),
+          ),
+          _actions(),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopTabIcon extends StatelessWidget {
+  const _TopTabIcon({
+    required this.selected,
+    required this.semanticLabel,
+    required this.onTap,
+    required this.child,
+  });
+
+  final bool selected;
+  final String semanticLabel;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semanticLabel,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: selected
+                ? Colors.white.withValues(alpha: 0.14)
+                : Colors.transparent,
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFFFE7A0).withValues(alpha: 0.7)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: child,
         ),
-        const SizedBox(height: 6),
-        _PrintStarStack(
-          onPrint: onPrint,
-          onFavorites: onFavorites,
+      ),
+    );
+  }
+}
+
+class _TabLogo extends StatelessWidget {
+  const _TabLogo({
+    required this.asset,
+    required this.selected,
+    this.size = 50,
+  });
+
+  final String asset;
+  final bool selected;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: selected ? 1.08 : 0.94,
+      duration: const Duration(milliseconds: 160),
+      child: Opacity(
+        opacity: selected ? 1 : 0.78,
+        child: Image.asset(
+          asset,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
         ),
+      ),
+    );
+  }
+}
+
+/// Home: Neu → Puzzle-Reihe → Malen-Reihe.
+class _HomeTab extends StatefulWidget {
+  const _HomeTab({
+    required this.catalog,
+    required this.scrollController,
+    required this.onOpenColoring,
+    required this.onOpenPuzzle,
+  });
+
+  final _HubCatalog catalog;
+  final ScrollController scrollController;
+  final ValueChanged<ColoringPage> onOpenColoring;
+  final ValueChanged<ColoringPage> onOpenPuzzle;
+
+  @override
+  State<_HomeTab> createState() => _HomeTabState();
+}
+
+class _HomeTabState extends State<_HomeTab> {
+  bool _precacheDone = false;
+
+  List<ColoringPage> _flatten(GalleryCatalog catalog) {
+    final byId = <String, ColoringPage>{};
+    for (final event in catalog.activeEvents) {
+      for (final page in event.pages) {
+        byId[page.id] = page;
+      }
+    }
+    for (final page in catalog.standard.pages) {
+      byId[page.id] = page;
+    }
+    for (final event in catalog.pastEvents) {
+      for (final page in event.pages) {
+        byId.putIfAbsent(page.id, () => page);
+      }
+    }
+    return byId.values.toList();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precacheDone) return;
+    _precacheDone = true;
+    final tags = widget.catalog.tags;
+    final coloring = tags.sortNewestFirst(
+      _flatten(widget.catalog.coloring),
+      coloring: true,
+    );
+    final puzzles = tags.sortNewestFirst(
+      _flatten(widget.catalog.puzzle),
+      coloring: false,
+    );
+    final paths = <String>[
+      ...coloring.take(12).map((p) => p.assetPath),
+      ...puzzles.take(12).map((p) => p.assetPath),
+    ];
+    final cacheW = thumbCacheWidth(
+      context,
+      MediaQuery.sizeOf(context).shortestSide * 0.42,
+    );
+    unawaited(precacheAssetImages(context, paths, cacheWidth: cacheW));
+  }
+
+  List<ColoringPage> _pagesForIds(
+    List<ColoringPage> all,
+    Set<String> ids,
+  ) {
+    final byId = {for (final p in all) p.id: p};
+    return [
+      for (final id in ids)
+        if (byId.containsKey(id)) byId[id]!,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final tags = widget.catalog.tags;
+    final allColoring = tags.sortNewestFirst(
+      _flatten(widget.catalog.coloring),
+      coloring: true,
+    );
+    final allPuzzles = tags.sortNewestFirst(
+      _flatten(widget.catalog.puzzle),
+      coloring: false,
+    );
+
+    final lastEvent = tags.lastPastEvent();
+    final lastColoring = lastEvent == null
+        ? const <ColoringPage>[]
+        : _pagesForIds(allColoring, lastEvent.coloringIds);
+    final lastPuzzles = lastEvent == null
+        ? const <ColoringPage>[]
+        : _pagesForIds(allPuzzles, lastEvent.puzzleIds);
+    final lastIds = {
+      for (final p in lastColoring) p.id,
+      for (final p in lastPuzzles) p.id,
+    };
+
+    final newColoring = allColoring
+        .where((p) => tags.isNewColoring(p.id) && !lastIds.contains(p.id))
+        .toList();
+    final newPuzzles = allPuzzles
+        .where((p) => tags.isNewPuzzle(p.id) && !lastIds.contains(p.id))
+        .toList();
+    final highlightIds = {
+      ...lastIds,
+      for (final p in newColoring) p.id,
+      for (final p in newPuzzles) p.id,
+    };
+
+    final regularPuzzles =
+        allPuzzles.where((p) => !highlightIds.contains(p.id)).toList();
+    final regularColoring =
+        allColoring.where((p) => !highlightIds.contains(p.id)).toList();
+
+    final halloweenColor = tags.halloweenColoring;
+    final halloweenPuzzle = tags.halloweenPuzzle;
+
+    return ListView(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.only(bottom: 16),
+      children: [
+        if (newPuzzles.isNotEmpty || newColoring.isNotEmpty) ...[
+          _SectionHeader(title: t.newItems),
+          if (newPuzzles.isNotEmpty)
+            _HomeRow(
+              label: t.newPuzzle,
+              pages: newPuzzles,
+              isNew: (_) => true,
+              isHalloween: (id) => halloweenPuzzle.contains(id),
+              favoriteKind: FavoriteKind.puzzle,
+              onOpen: widget.onOpenPuzzle,
+            ),
+          if (newColoring.isNotEmpty)
+            _HomeRow(
+              label: t.newColor,
+              pages: newColoring,
+              isNew: (_) => true,
+              isHalloween: (id) => halloweenColor.contains(id),
+              favoriteKind: FavoriteKind.coloring,
+              onOpen: widget.onOpenColoring,
+            ),
+          const SizedBox(height: 8),
+        ],
+        if (lastColoring.isNotEmpty || lastPuzzles.isNotEmpty) ...[
+          _SectionHeader(
+            title: lastEvent?.title.isNotEmpty == true
+                ? '${t.lastEvent}: ${lastEvent!.title}'
+                : t.lastEvent,
+          ),
+          if (lastPuzzles.isNotEmpty)
+            _HomeRow(
+              label: t.puzzle,
+              pages: lastPuzzles,
+              isNew: (_) => false,
+              isHalloween: (id) => halloweenPuzzle.contains(id),
+              favoriteKind: FavoriteKind.puzzle,
+              onOpen: widget.onOpenPuzzle,
+            ),
+          if (lastColoring.isNotEmpty)
+            _HomeRow(
+              label: t.color,
+              pages: lastColoring,
+              isNew: (_) => false,
+              isHalloween: (id) => halloweenColor.contains(id),
+              favoriteKind: FavoriteKind.coloring,
+              onOpen: widget.onOpenColoring,
+            ),
+          const SizedBox(height: 8),
+        ],
+        if (regularPuzzles.isNotEmpty) ...[
+          _SectionHeader(title: t.puzzle),
+          _HomeRow(
+            pages: regularPuzzles,
+            isNew: (id) => tags.isNewPuzzle(id),
+            isHalloween: (id) => halloweenPuzzle.contains(id),
+            favoriteKind: FavoriteKind.puzzle,
+            onOpen: widget.onOpenPuzzle,
+          ),
+        ],
+        if (regularColoring.isNotEmpty) ...[
+          _SectionHeader(title: t.color),
+          _HomeRow(
+            pages: regularColoring,
+            isNew: (id) => tags.isNewColoring(id),
+            isHalloween: (id) => halloweenColor.contains(id),
+            favoriteKind: FavoriteKind.coloring,
+            onOpen: widget.onOpenColoring,
+          ),
+        ],
       ],
     );
   }
 }
 
-/// Nur Icons (kein Kreis): Drucker oben, Stern darunter.
-class _PrintStarStack extends StatelessWidget {
-  const _PrintStarStack({
-    required this.onPrint,
-    required this.onFavorites,
-  });
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
 
-  final VoidCallback onPrint;
-  final VoidCallback onFavorites;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PlainIconButton(
-          semanticLabel: 'Print',
-          icon: Icons.print_rounded,
-          onPressed: onPrint,
+    final isTablet = AppLayout.of(context).isTablet;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: const Color(0xFFFFE7A0),
+          fontSize: isTablet ? 24 : 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+          shadows: const [
+            Shadow(
+              color: Color(0xAA000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
-        _PlainIconButton(
-          semanticLabel: 'Favorites',
-          icon: Icons.star_rounded,
-          onPressed: onFavorites,
+      ),
+    );
+  }
+}
+
+class _HomeRow extends StatelessWidget {
+  const _HomeRow({
+    required this.pages,
+    required this.isNew,
+    required this.isHalloween,
+    required this.favoriteKind,
+    required this.onOpen,
+    this.label,
+  });
+
+  final List<ColoringPage> pages;
+  final String? label;
+  final bool Function(String id) isNew;
+  final bool Function(String id) isHalloween;
+  final FavoriteKind favoriteKind;
+  final ValueChanged<ColoringPage> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final layout = AppLayout.of(context);
+    // Portrait: etwas höhere Reihen (mehr Fläche), Landscape: flacher.
+    final rowHeight = layout.isLandscape
+        ? (size.height * 0.34).clamp(150.0, 240.0)
+        : (size.height * 0.20).clamp(128.0, layout.isTablet ? 220.0 : 176.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label != null && label!.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 16, 4),
+            child: Text(
+              label!,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        SizedBox(
+          height: rowHeight,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
+            itemCount: pages.length,
+            separatorBuilder: (_, _) => SizedBox(width: size.width * 0.028),
+            itemBuilder: (context, index) {
+              final page = pages[index];
+              final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
+              final tileWidth = (rowHeight * ratio).clamp(
+                rowHeight * 0.55,
+                rowHeight * 1.55,
+              );
+              return SizedBox(
+                width: tileWidth,
+                height: rowHeight,
+                child: GalleryPageTile(
+                  page: page,
+                  isHalloween: isHalloween(page.id),
+                  isNew: isNew(page.id),
+                  showFavoriteButton: true,
+                  favoriteKind: favoriteKind,
+                  onTap: () => onOpen(page),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -593,7 +919,6 @@ class _StickerBookButton extends StatelessWidget {
   }
 }
 
-/// Flaches Icon ohne Kreis-Hintergrund.
 class _PlainIconButton extends StatelessWidget {
   const _PlainIconButton({
     required this.semanticLabel,
@@ -628,200 +953,6 @@ class _PlainIconButton extends StatelessWidget {
                   offset: Offset(0, 1),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldPortal extends StatefulWidget {
-  const _WorldPortal({
-    required this.semanticLabel,
-    required this.title,
-    required this.imageAssets,
-    required this.accent,
-    required this.onTap,
-    this.slideOffset = Duration.zero,
-  });
-
-  final String semanticLabel;
-  final String title;
-  final List<String> imageAssets;
-  final Color accent;
-  final VoidCallback onTap;
-  final Duration slideOffset;
-
-  @override
-  State<_WorldPortal> createState() => _WorldPortalState();
-}
-
-class _WorldPortalState extends State<_WorldPortal> {
-  static const _slideInterval = Duration(milliseconds: 3800);
-  static const _fadeDuration = Duration(milliseconds: 900);
-
-  bool _pressed = false;
-  int _index = 0;
-  Timer? _timer;
-  Timer? _startDelay;
-  int? _portalCacheWidth;
-
-  @override
-  void initState() {
-    super.initState();
-    _startDelay = Timer(widget.slideOffset, _startSlideshow);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _portalCacheWidth ??=
-        thumbCacheWidth(context, MediaQuery.sizeOf(context).width * 0.5);
-    _warmAround(_index);
-  }
-
-  void _warmAround(int index) {
-    final assets = widget.imageAssets;
-    if (assets.isEmpty) return;
-    final cacheW = _portalCacheWidth;
-    final paths = <String>{
-      assets[index % assets.length],
-      assets[(index + 1) % assets.length],
-    };
-    unawaited(precacheAssetImages(context, paths, cacheWidth: cacheW));
-  }
-
-  void _startSlideshow() {
-    if (!mounted || widget.imageAssets.length < 2) return;
-    _timer?.cancel();
-    _timer = Timer.periodic(_slideInterval, (_) {
-      if (!mounted) return;
-      final next = (_index + 1) % widget.imageAssets.length;
-      _warmAround(next);
-      setState(() => _index = next);
-    });
-  }
-
-  @override
-  void dispose() {
-    _startDelay?.cancel();
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final assets = widget.imageAssets;
-    final current = assets.isEmpty
-        ? ''
-        : assets[_index.clamp(0, assets.length - 1)];
-
-    return Semantics(
-      button: true,
-      label: widget.semanticLabel,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.97 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.88),
-                width: 2.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.accent.withValues(alpha: 0.4),
-                  blurRadius: 22,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(26),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned.fill(
-                    child: AnimatedSwitcher(
-                      duration: _fadeDuration,
-                      switchInCurve: Curves.easeInOut,
-                      switchOutCurve: Curves.easeInOut,
-                      layoutBuilder: (currentChild, previousChildren) {
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            ...previousChildren,
-                            ?currentChild,
-                          ],
-                        );
-                      },
-                      child: SizedBox.expand(
-                        key: ValueKey<String>(current),
-                        child: Image.asset(
-                          current,
-                          fit: BoxFit.cover,
-                          alignment: const Alignment(0, -0.15),
-                          gaplessPlayback: true,
-                          filterQuality: FilterQuality.medium,
-                          cacheWidth: _portalCacheWidth,
-                          errorBuilder: (_, _, _) => ColoredBox(
-                            color: widget.accent.withValues(alpha: 0.35),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.05),
-                          Colors.black.withValues(alpha: 0.55),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-                      child: Text(
-                        widget.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: AppLayout.of(context).isTablet ? 34 : 28,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0xAA000000),
-                              blurRadius: 10,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ),
