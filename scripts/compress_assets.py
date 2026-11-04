@@ -17,11 +17,12 @@ FOLDERS = [
     "assets/images",
 ]
 
-# Ausmalbilder + UI-Bilder: keine 256-Farben-Palette (Linien/Alpha bleiben scharf).
+# Ausmalbilder + UI + Sticker: keine destruktive Palette (Linien/Alpha bleiben).
 LOSSLESS_FOLDERS = {
     "assets/coloring_pages",
     "assets/print_templates",
     "assets/images",
+    "assets/stickers",
 }
 
 
