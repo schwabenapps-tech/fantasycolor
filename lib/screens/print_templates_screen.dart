@@ -6,6 +6,7 @@ import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../data/print_templates_loader.dart';
 import '../models/coloring_page.dart';
+import '../services/ads_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/catalog_gallery_body.dart';
@@ -58,8 +59,10 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
     super.dispose();
   }
 
-  void _openPreview(ColoringPage page) {
-    Navigator.of(context).push(
+  Future<void> _openPreview(ColoringPage page) async {
+    await AdsService.showPrintTemplateInterstitial();
+    if (!mounted) return;
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => PrintPreviewScreen(page: page),
       ),

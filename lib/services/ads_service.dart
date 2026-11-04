@@ -11,8 +11,9 @@ import 'consent_service.dart';
 /// Während des Malens/Puzzles: **keine** Werbung.
 ///
 /// Timing:
-/// - Jedes **2.** Verlassen von Malen, Pixel oder Puzzle (gemeinsamer Zähler)
+/// - Jedes Verlassen von Malen/Pixel/Puzzle (Zurück **oder** nach Done)
 /// - Pixel-Modus freischalten: **einmalig**
+/// - Jede Druckvorlage öffnen: **einmalig** (vor Preview)
 ///
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
 /// Ads starten erst nach UMP-Consent ([ConsentService.gatherConsent]).
@@ -26,9 +27,6 @@ class AdsService {
   static bool _loading = false;
   static bool _showing = false;
   static bool _listeningForConsent = false;
-
-  /// Gemeinsam für Malen / Pixel / Puzzle — jedes 2. Verlassen.
-  static int _leaveCount = 0;
 
   static bool get isReady => _initialized;
 
@@ -117,29 +115,48 @@ class AdsService {
     }
   }
 
-  /// Ausmalen/Pixel ohne Done-Feier verlassen.
+  /// Ausmalen/Pixel ohne Done-Feier verlassen (Zurück) — jedes Mal.
   static Future<void> showColoringLeaveInterstitial() =>
-      _showEverySecondLeave();
+      _showLeaveOrFinishInterstitial();
 
-  /// Nach der Ausmalen-/Pixel-Feier („Done“ / „As puzzle“).
+  /// Nach der Ausmalen-/Pixel-Feier („Done“ / „As puzzle“) — jedes Mal.
   static Future<void> showColoringFinishChoiceInterstitial() =>
-      _showEverySecondLeave();
+      _showLeaveOrFinishInterstitial();
 
-  /// Puzzle verlassen / Feier schließen.
+  /// Puzzle verlassen / Feier schließen — jedes Mal.
   static Future<void> showPuzzleFinishInterstitial() =>
-      _showEverySecondLeave();
+      _showLeaveOrFinishInterstitial();
 
   /// @Deprecated — bitte spezifische Methoden nutzen.
   static Future<void> showExitInterstitial() => showColoringLeaveInterstitial();
 
-  /// Jedes 2. Verlassen (Malen, Pixel, Puzzle — ein Zähler).
-  static Future<void> _showEverySecondLeave() async {
-    _leaveCount++;
-    if (_leaveCount % 2 != 0) {
-      unawaited(preloadInterstitial());
-      return;
-    }
+  static Future<void> _showLeaveOrFinishInterstitial() async {
+    await _ensureAdReadyForGate(timeout: const Duration(seconds: 2));
     await showInterstitial();
+  }
+
+  /// Vor dem Öffnen einer Druckvorlage — jedes Mal.
+  static Future<void> showPrintTemplateInterstitial() async {
+    await _ensureAdReadyForGate(timeout: const Duration(seconds: 3));
+    await showInterstitial();
+  }
+
+  /// Kurz warten, bis eine Ad geladen ist (für Gates wie Druck).
+  static Future<void> _ensureAdReadyForGate({
+    required Duration timeout,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_initialized) return;
+    if (_interstitial != null) return;
+    if (!_loading) {
+      unawaited(preloadInterstitial());
+    }
+    final deadline = DateTime.now().add(timeout);
+    while (_interstitial == null && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   /// Zeigt ein Interstitial, falls geladen — sonst sofort return.

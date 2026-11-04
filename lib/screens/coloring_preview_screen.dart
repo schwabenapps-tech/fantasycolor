@@ -216,6 +216,15 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   }
 
   Future<void> _saveToPhotos() async {
+    // Leere Vorlage nicht speichern — nur nach dem Ausmalen (oder nach Done).
+    if (_finishedPng == null && !_session.hasPaintedContent) {
+      if (!mounted) return;
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).colorBeforeSave)),
+      );
+      return;
+    }
     try {
       final bytes = _finishedPng ?? await _session.renderColoredPng();
       if (bytes == null) return;

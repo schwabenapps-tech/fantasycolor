@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/sticker_catalog.dart';
+import '../l10n/app_strings.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../utils/image_source.dart';
@@ -576,10 +577,10 @@ class _RulesPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Sticker album',
-                        style: TextStyle(
+                        AppStrings.of(context).stickerAlbum,
+                        style: const TextStyle(
                           color: Color(0xFF4A3208),
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -596,11 +597,9 @@ class _RulesPanel extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '• Each day when you open the app you get a daily surprise — pick one of three gift boxes for a reward sticker.\n'
-                  '• Every sticker can only be unlocked once — no duplicates.\n'
-                  '• Collect them all to download the free sticker pack.',
-                  style: TextStyle(
+                Text(
+                  AppStrings.of(context).stickerRulesBody,
+                  style: const TextStyle(
                     color: Color(0xFF4A3208),
                     fontSize: 14,
                     height: 1.45,

@@ -13,9 +13,11 @@ class StickerCollectionStore extends ChangeNotifier {
   static const _ownedKey = 'sticker_owned_ids_v1';
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
   static const _coloringRewardedKey = 'sticker_coloring_rewarded_ids_v1';
+  static const _puzzleRewardedKey = 'sticker_puzzle_rewarded_ids_v1';
 
   final Set<String> _owned = <String>{};
   final Set<String> _coloringRewarded = <String>{};
+  final Set<String> _puzzleRewarded = <String>{};
   StickerCatalog? _catalog;
   bool _ready = false;
   String? _lastDailyClaimDay;
@@ -53,6 +55,9 @@ class StickerCollectionStore extends ChangeNotifier {
     _coloringRewarded
       ..clear()
       ..addAll(prefs.getStringList(_coloringRewardedKey) ?? const <String>[]);
+    _puzzleRewarded
+      ..clear()
+      ..addAll(prefs.getStringList(_puzzleRewardedKey) ?? const <String>[]);
     // Kein aggressives Prunen: Remote-IDs bleiben erhalten, falls Sync kurz fehlt.
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
     _ready = true;
@@ -72,11 +77,13 @@ class StickerCollectionStore extends ChangeNotifier {
     await _ensureReady();
     _owned.clear();
     _coloringRewarded.clear();
+    _puzzleRewarded.clear();
     _lastDailyClaimDay = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
     await prefs.remove(_dailyClaimKey);
     await prefs.remove(_coloringRewardedKey);
+    await prefs.remove(_puzzleRewardedKey);
     notifyListeners();
   }
 
@@ -184,14 +191,27 @@ class StickerCollectionStore extends ChangeNotifier {
     return offerChoices(prefer: prefer);
   }
 
-  /// Puzzle-Belohnung auf **jeder** Schwierigkeit (Easy/Medium/Pro).
+  /// Pro Ausmal-/Puzzle-Motiv: Sticker nur einmal (bis Album-Reset).
+  bool canRewardPuzzle(String puzzleId) => !_puzzleRewarded.contains(puzzleId);
+
+  Future<void> markPuzzleRewarded(String puzzleId) async {
+    if (_puzzleRewarded.contains(puzzleId)) return;
+    _puzzleRewarded.add(puzzleId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _puzzleRewardedKey,
+      _puzzleRewarded.toList(growable: false)..sort(),
+    );
+    notifyListeners();
+  }
+
+  /// Puzzle-Belohnung (UI: nur Pro/Expert). Gemappter Sticker bevorzugt.
   List<StickerEntry> choicesForPuzzle(String puzzleId) {
     final prefer = _catalog?.forPuzzleId(puzzleId);
     return offerChoices(prefer: prefer);
   }
 
-  /// Puzzle-Belohnung auf **jeder** Schwierigkeit (Easy/Medium/Pro).
-  /// Gemappter Sticker falls vorhanden, sonst zufällig aus dem unverdienten Pool.
+  /// Sofort-Unlock für Puzzle (ohne Box-Wahl).
   Future<StickerEntry?> unlockForPuzzle(String puzzleId) async {
     await _ensureReady();
     final choices = choicesForPuzzle(puzzleId);

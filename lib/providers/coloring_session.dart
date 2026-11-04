@@ -204,6 +204,12 @@ class ColoringSession extends ChangeNotifier {
   bool get meetsStickerCoverage =>
       paintedCoverageRatio() >= stickerUnlockCoverage;
 
+  /// Mindestens etwas ausgemalt (kein leeres Vorlagen-PNG speichern).
+  bool get hasPaintedContent {
+    if (_strokes.isNotEmpty) return true;
+    return paintedCoverageRatio() > 0.005;
+  }
+
   void openCategoryTray() {
     _trayMode = PaletteTrayMode.categories;
     notifyListeners();

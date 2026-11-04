@@ -10,6 +10,7 @@ import '../models/coloring_page.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
 import '../screens/favorites_screen.dart';
+import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
@@ -50,24 +51,26 @@ class EventPackGalleryScreen extends StatelessWidget {
     return _coloring ? t.isNewColoring(id) : t.isNewPuzzle(id);
   }
 
-  void _open(BuildContext context, ColoringPage page) {
+  Future<void> _open(BuildContext context, ColoringPage page) async {
     switch (kind) {
       case CatalogGalleryKind.coloring:
         AnalyticsService.instance.logStartColoring(page.id);
-        Navigator.of(context).push(
+        await Navigator.of(context).push(
           AppPageRoute<void>(
             builder: (_) => ColoringPreviewScreen(page: page),
           ),
         );
       case CatalogGalleryKind.puzzle:
         AnalyticsService.instance.logStartPuzzle(page.id);
-        Navigator.of(context).push(
+        await Navigator.of(context).push(
           AppPageRoute<void>(
             builder: (_) => PuzzleScreen(puzzle: page),
           ),
         );
       case CatalogGalleryKind.print:
-        Navigator.of(context).push(
+        await AdsService.showPrintTemplateInterstitial();
+        if (!context.mounted) return;
+        await Navigator.of(context).push(
           AppPageRoute<void>(
             builder: (_) => PrintPreviewScreen(page: page),
           ),

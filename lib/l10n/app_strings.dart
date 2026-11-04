@@ -56,6 +56,7 @@ class AppStrings {
   String get saveToPhotos => _t('saveToPhotos');
   String get done => _t('done');
   String get colorMoreForDone => _t('colorMoreForDone');
+  String get colorBeforeSave => _t('colorBeforeSave');
   String get wonderful => _t('wonderful');
   String get levelComplete => _t('levelComplete');
   String get photos => _t('photos');
@@ -68,6 +69,7 @@ class AppStrings {
   String get pickBoxToday => _t('pickBoxToday');
   String get dailyReward => _t('dailyReward');
   String get stickerAlbum => _t('stickerAlbum');
+  String get stickerRulesBody => _t('stickerRulesBody');
   String get settings => _t('settings');
   String get welcomeTitle => _t('welcomeTitle');
   String get welcomeBody => _t('welcomeBody');
@@ -154,6 +156,7 @@ const _en = {
   'saveToPhotos': 'Save to Photos',
   'done': 'Done',
   'colorMoreForDone': 'Color a bit more to finish and earn a sticker!',
+  'colorBeforeSave': 'Color a little first before saving.',
   'wonderful': 'Wonderful!',
   'levelComplete': 'Level complete',
   'photos': 'Photos',
@@ -166,6 +169,13 @@ const _en = {
   'pickBoxToday': 'Pick a box for today’s reward',
   'dailyReward': 'Daily reward!',
   'stickerAlbum': 'Sticker album',
+  'stickerRulesBody':
+      '• Finish a coloring page (about 90% painted) to earn a sticker — once per picture until you reset it.\n'
+      '• Solve a puzzle on Pro difficulty to earn a sticker — once per puzzle.\n'
+      '• Easy and Medium puzzles do not give stickers.\n'
+      '• Each day you can pick a daily surprise gift box.\n'
+      '• Every sticker unlocks only once — no duplicates.\n'
+      '• Collect them all to download the free sticker pack.',
   'settings': 'Settings',
   'welcomeTitle': 'Welcome, little\nadventurer!',
   'welcomeBody':
@@ -238,6 +248,7 @@ const _de = {
   'saveToPhotos': 'In Fotos speichern',
   'done': 'Fertig',
   'colorMoreForDone': 'Male noch etwas weiter, um fertig zu werden und einen Sticker zu verdienen!',
+  'colorBeforeSave': 'Male erst ein bisschen, bevor du speicherst.',
   'wonderful': 'Wunderbar!',
   'levelComplete': 'Level geschafft',
   'photos': 'Fotos',
@@ -250,6 +261,13 @@ const _de = {
   'pickBoxToday': 'Wähle eine Box für die heutige Belohnung',
   'dailyReward': 'Tagesbelohnung!',
   'stickerAlbum': 'Sticker-Album',
+  'stickerRulesBody':
+      '• Male ein Bild zu etwa 90 % aus, um einen Sticker zu verdienen — einmal pro Bild, bis du es zurücksetzt.\n'
+      '• Löse ein Puzzle auf Pro-Schwierigkeit für einen Sticker — einmal pro Puzzle.\n'
+      '• Easy- und Medium-Puzzles geben keine Sticker.\n'
+      '• Jeden Tag kannst du eine Überraschungs-Box öffnen.\n'
+      '• Jeder Sticker nur einmal — keine Duplikate.\n'
+      '• Sammle alle, um das Sticker-Pack herunterzuladen.',
   'settings': 'Einstellungen',
   'welcomeTitle': 'Willkommen, kleiner\nAbenteurer!',
   'welcomeBody':
@@ -322,6 +340,7 @@ const _es = {
   'saveToPhotos': 'Guardar en Fotos',
   'done': 'Listo',
   'colorMoreForDone': '¡Colorea un poco más para terminar y ganar un sticker!',
+  'colorBeforeSave': 'Colorea un poco antes de guardar.',
   'wonderful': '¡Maravilloso!',
   'levelComplete': 'Nivel completado',
   'photos': 'Fotos',
@@ -334,6 +353,13 @@ const _es = {
   'pickBoxToday': 'Elige una caja para la recompensa de hoy',
   'dailyReward': '¡Recompensa diaria!',
   'stickerAlbum': 'Álbum de stickers',
+  'stickerRulesBody':
+      '• Termina un coloreable (~90 %) para ganar un sticker — una vez por imagen hasta reiniciarla.\n'
+      '• Completa un puzzle en dificultad Pro para ganar un sticker — una vez por puzzle.\n'
+      '• Easy y Medium no dan stickers.\n'
+      '• Cada día puedes abrir una caja sorpresa.\n'
+      '• Cada sticker solo una vez — sin duplicados.\n'
+      '• Consíguelos todos para descargar el pack.',
   'settings': 'Ajustes',
   'welcomeTitle': '¡Bienvenido, pequeño\naventurero!',
   'welcomeBody':
@@ -406,6 +432,7 @@ const _fr = {
   'saveToPhotos': 'Enregistrer dans Photos',
   'done': 'Terminé',
   'colorMoreForDone': 'Colorie encore un peu pour terminer et gagner un sticker !',
+  'colorBeforeSave': 'Colorie un peu avant d’enregistrer.',
   'wonderful': 'Merveilleux !',
   'levelComplete': 'Niveau terminé',
   'photos': 'Photos',
@@ -418,6 +445,13 @@ const _fr = {
   'pickBoxToday': 'Choisis une boîte pour la récompense du jour',
   'dailyReward': 'Récompense du jour !',
   'stickerAlbum': 'Album de stickers',
+  'stickerRulesBody':
+      '• Termine un coloriage (~90 %) pour gagner un sticker — une fois par image jusqu’à reset.\n'
+      '• Finis un puzzle en difficulté Pro pour un sticker — une fois par puzzle.\n'
+      '• Easy et Medium ne donnent pas de stickers.\n'
+      '• Chaque jour, ouvre une boîte surprise.\n'
+      '• Chaque sticker une seule fois — pas de doublons.\n'
+      '• Collecte-les tous pour télécharger le pack.',
   'settings': 'Réglages',
   'welcomeTitle': 'Bienvenue, petit\naventurier !',
   'welcomeBody':
@@ -490,6 +524,7 @@ const _pt = {
   'saveToPhotos': 'Guardar nas Fotos',
   'done': 'Concluído',
   'colorMoreForDone': 'Colorir um pouco mais para terminar e ganhar um sticker!',
+  'colorBeforeSave': 'Colorir um pouco antes de guardar.',
   'wonderful': 'Maravilhoso!',
   'levelComplete': 'Nível concluído',
   'photos': 'Fotos',
@@ -502,6 +537,13 @@ const _pt = {
   'pickBoxToday': 'Escolhe uma caixa para a recompensa de hoje',
   'dailyReward': 'Recompensa diária!',
   'stickerAlbum': 'Álbum de stickers',
+  'stickerRulesBody':
+      '• Termina um colorir (~90 %) para ganhar um sticker — uma vez por imagem até reiniciar.\n'
+      '• Completa um puzzle em dificuldade Pro para um sticker — uma vez por puzzle.\n'
+      '• Easy e Medium não dão stickers.\n'
+      '• Todos os dias podes abrir uma caixa surpresa.\n'
+      '• Cada sticker só uma vez — sem duplicados.\n'
+      '• Junta todos para descarregar o pack.',
   'settings': 'Definições',
   'welcomeTitle': 'Bem-vindo, pequeno\naventureiro!',
   'welcomeBody':
@@ -574,6 +616,7 @@ const _it = {
   'saveToPhotos': 'Salva in Foto',
   'done': 'Fatto',
   'colorMoreForDone': 'Colora ancora un po’ per finire e guadagnare uno sticker!',
+  'colorBeforeSave': 'Colora un po’ prima di salvare.',
   'wonderful': 'Meraviglioso!',
   'levelComplete': 'Livello completato',
   'photos': 'Foto',
@@ -586,6 +629,13 @@ const _it = {
   'pickBoxToday': 'Scegli una scatola per la ricompensa di oggi',
   'dailyReward': 'Ricompensa del giorno!',
   'stickerAlbum': 'Album sticker',
+  'stickerRulesBody':
+      '• Completa un disegno (~90 %) per uno sticker — una volta per immagine fino al reset.\n'
+      '• Risolvi un puzzle in difficoltà Pro per uno sticker — una volta per puzzle.\n'
+      '• Easy e Medium non danno sticker.\n'
+      '• Ogni giorno puoi aprire una scatola sorpresa.\n'
+      '• Ogni sticker una sola volta — niente duplicati.\n'
+      '• Collezionali tutti per scaricare il pack.',
   'settings': 'Impostazioni',
   'welcomeTitle': 'Benvenuto, piccolo\navventuriero!',
   'welcomeBody':
@@ -658,6 +708,7 @@ const _nl = {
   'saveToPhotos': 'Opslaan in Foto’s',
   'done': 'Klaar',
   'colorMoreForDone': 'Kleur nog wat meer om klaar te zijn en een sticker te verdienen!',
+  'colorBeforeSave': 'Kleur eerst een beetje voordat je opslaat.',
   'wonderful': 'Geweldig!',
   'levelComplete': 'Level voltooid',
   'photos': 'Foto’s',
@@ -670,6 +721,13 @@ const _nl = {
   'pickBoxToday': 'Kies een doos voor de beloning van vandaag',
   'dailyReward': 'Dagelijkse beloning!',
   'stickerAlbum': 'Stickeralbum',
+  'stickerRulesBody':
+      '• Maak een kleurplaat (~90 %) af voor een sticker — één keer per plaat tot reset.\n'
+      '• Maak een puzzel op Pro-niveau af voor een sticker — één keer per puzzel.\n'
+      '• Easy en Medium geven geen stickers.\n'
+      '• Elke dag kun je een verrassingsdoos openen.\n'
+      '• Elke sticker maar één keer — geen duplicaten.\n'
+      '• Verzamel ze allemaal om het pack te downloaden.',
   'settings': 'Instellingen',
   'welcomeTitle': 'Welkom, kleine\navonturier!',
   'welcomeBody':
@@ -742,6 +800,7 @@ const _pl = {
   'saveToPhotos': 'Zapisz w Zdjęciach',
   'done': 'Gotowe',
   'colorMoreForDone': 'Pokoloruj jeszcze trochę, by skończyć i zdobyć naklejkę!',
+  'colorBeforeSave': 'Pokoloruj trochę, zanim zapiszesz.',
   'wonderful': 'Wspaniale!',
   'levelComplete': 'Poziom ukończony',
   'photos': 'Zdjęcia',
@@ -754,6 +813,13 @@ const _pl = {
   'pickBoxToday': 'Wybierz pudełko na dzisiejszą nagrodę',
   'dailyReward': 'Codzienna nagroda!',
   'stickerAlbum': 'Album naklejek',
+  'stickerRulesBody':
+      '• Ukończ kolorowankę (~90 %), by zdobyć naklejkę — raz na obraz do resetu.\n'
+      '• Ułóż puzzle na poziomie Pro, by zdobyć naklejkę — raz na puzzle.\n'
+      '• Easy i Medium nie dają naklejek.\n'
+      '• Codziennie możesz otworzyć niespodziankę.\n'
+      '• Każda naklejka tylko raz — bez duplikatów.\n'
+      '• Zbierz wszystkie, by pobrać paczkę.',
   'settings': 'Ustawienia',
   'welcomeTitle': 'Witaj, mały\npodróżniku!',
   'welcomeBody':
@@ -826,6 +892,7 @@ const _tr = {
   'saveToPhotos': 'Fotoğraflara kaydet',
   'done': 'Bitti',
   'colorMoreForDone': 'Bitirmek ve sticker kazanmak için biraz daha boya!',
+  'colorBeforeSave': 'Kaydetmeden önce biraz boya.',
   'wonderful': 'Harika!',
   'levelComplete': 'Seviye tamamlandı',
   'photos': 'Fotoğraflar',
@@ -838,6 +905,13 @@ const _tr = {
   'pickBoxToday': 'Bugünün ödülü için bir kutu seç',
   'dailyReward': 'Günlük ödül!',
   'stickerAlbum': 'Çıkartma albümü',
+  'stickerRulesBody':
+      '• Yaklaşık %90 boyayınca sticker kazanırsın — sıfırlayana kadar resim başına bir kez.\n'
+      '• Pro zorlukta puzzle bitirince sticker — puzzle başına bir kez.\n'
+      '• Easy ve Medium sticker vermez.\n'
+      '• Her gün sürpriz kutu açabilirsin.\n'
+      '• Her sticker yalnızca bir kez — kopya yok.\n'
+      '• Hepsini topla, paketi indir.',
   'settings': 'Ayarlar',
   'welcomeTitle': 'Hoş geldin, küçük\nmaceracı!',
   'welcomeBody':

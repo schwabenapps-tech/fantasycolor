@@ -8,8 +8,11 @@ import 'package:provider/provider.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../data/sticker_catalog.dart';
+import '../l10n/app_strings.dart';
 import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -19,6 +22,7 @@ import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -62,6 +66,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _revealing = false;
   bool _celebrating = false;
   bool _exitAdShown = false;
+  List<StickerEntry>? _giftChoices;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
@@ -249,6 +254,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _solved = false;
     _revealing = false;
     _celebrating = false;
+    _giftChoices = null;
     _popPiece = null;
     _shakeSlot = null;
     _hoverSlot = null;
@@ -566,10 +572,26 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     });
     await _revealController.forward(from: 0);
     if (!mounted) return;
+
+    List<StickerEntry>? choices;
+    // Sticker nur ab Pro (schwer) — einmal pro Puzzle.
+    if (_difficulty.tier == PuzzleTier.expert) {
+      final store = context.read<StickerCollectionStore>();
+      await store.load();
+      if (store.canRewardPuzzle(widget.puzzle.id)) {
+        final offered = store.choicesForPuzzle(widget.puzzle.id);
+        if (offered.isNotEmpty) choices = offered;
+      }
+    }
+
+    if (!mounted) return;
     // Fertiges Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
     if (!mounted) return;
-    setState(() => _celebrating = true);
+    setState(() {
+      _celebrating = true;
+      _giftChoices = choices;
+    });
     unawaited(AudioService.instance.playLevelComplete());
     unawaited(StreakService.instance.recordPlayDay());
     AnalyticsService.instance.logCompletePuzzle(widget.puzzle.id);
@@ -923,20 +945,36 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
           ),
-          if (_celebrating)
+          if (_celebrating && _giftChoices != null)
+            StickerDailyGiftOverlay(
+              choices: _giftChoices,
+              source: 'puzzle',
+              title: AppStrings.of(context).pickAGift,
+              subtitle: AppStrings.of(context).eachBoxDifferent,
+              revealTitle: AppStrings.of(context).newSticker,
+              onClosed: () {
+                unawaited(
+                  context
+                      .read<StickerCollectionStore>()
+                      .markPuzzleRewarded(widget.puzzle.id),
+                );
+                setState(() => _giftChoices = null);
+              },
+            ),
+          if (_celebrating && _giftChoices == null)
             LevelCompleteOverlay(
               key: _levelKey,
-              title: 'Wonderful!',
-              subtitle: 'Level complete',
+              title: AppStrings.of(context).wonderful,
+              subtitle: AppStrings.of(context).levelComplete,
               actions: [
                 LevelCompleteActionButton(
                   icon: Icons.download_rounded,
-                  label: 'Photos',
+                  label: AppStrings.of(context).photos,
                   onPressed: () => unawaited(_savePuzzleToPhotos()),
                 ),
                 LevelCompleteActionButton(
                   icon: Icons.check_rounded,
-                  label: 'Done',
+                  label: AppStrings.of(context).done,
                   filled: false,
                   onPressed: () => unawaited(_closeAfterSolve()),
                 ),
