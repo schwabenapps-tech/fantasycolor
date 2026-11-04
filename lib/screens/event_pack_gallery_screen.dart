@@ -7,13 +7,16 @@ import 'package:provider/provider.dart';
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
+import '../l10n/app_strings.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
 import '../screens/favorites_screen.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
+import '../services/event_content_gate.dart';
 import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
+import '../utils/app_page_route.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
@@ -23,7 +26,6 @@ import '../widgets/silver_back_button.dart';
 import 'coloring_preview_screen.dart';
 import 'print_preview_screen.dart';
 import 'puzzle_screen.dart';
-import '../utils/app_page_route.dart';
 
 /// Galerie nur für ein Event-Pack (nach Tippen auf den Event-Hub).
 class EventPackGalleryScreen extends StatelessWidget {
@@ -51,9 +53,25 @@ class EventPackGalleryScreen extends StatelessWidget {
     return _coloring ? t.isNewColoring(id) : t.isNewPuzzle(id);
   }
 
+  bool _requiresAdUnlock(String id) {
+    final t = tags;
+    if (t == null || _print) return false;
+    return EventContentGate.isGatedId(
+      t,
+      id,
+      kind: _coloring ? FavoriteKind.coloring : FavoriteKind.puzzle,
+    );
+  }
+
   Future<void> _open(BuildContext context, ColoringPage page) async {
     switch (kind) {
       case CatalogGalleryKind.coloring:
+        final ok = await EventContentGate.ensureUnlocked(
+          context,
+          id: page.id,
+          kind: FavoriteKind.coloring,
+        );
+        if (!ok || !context.mounted) return;
         AnalyticsService.instance.logStartColoring(page.id);
         await Navigator.of(context).push(
           AppPageRoute<void>(
@@ -61,6 +79,12 @@ class EventPackGalleryScreen extends StatelessWidget {
           ),
         );
       case CatalogGalleryKind.puzzle:
+        final ok = await EventContentGate.ensureUnlocked(
+          context,
+          id: page.id,
+          kind: FavoriteKind.puzzle,
+        );
+        if (!ok || !context.mounted) return;
         AnalyticsService.instance.logStartPuzzle(page.id);
         await Navigator.of(context).push(
           AppPageRoute<void>(
@@ -147,6 +171,8 @@ class EventPackGalleryScreen extends StatelessWidget {
                                       favoriteKind: _coloring
                                           ? FavoriteKind.coloring
                                           : FavoriteKind.puzzle,
+                                      requiresAdUnlock:
+                                          _requiresAdUnlock(page.id),
                                       onTap: () => _open(context, page),
                                     );
                                   },
@@ -186,6 +212,8 @@ class EventPackGalleryScreen extends StatelessWidget {
                                             favoriteKind: _coloring
                                                 ? FavoriteKind.coloring
                                                 : FavoriteKind.puzzle,
+                                            requiresAdUnlock:
+                                                _requiresAdUnlock(page.id),
                                             onTap: () =>
                                                 _open(context, page),
                                           ),
@@ -225,6 +253,7 @@ class GalleryPageTile extends StatelessWidget {
     this.showDownloadButton = false,
     this.favoriteKind = FavoriteKind.coloring,
     this.showFavoriteButton = true,
+    this.requiresAdUnlock = false,
   });
 
   final ColoringPage page;
@@ -234,6 +263,8 @@ class GalleryPageTile extends StatelessWidget {
   final bool showDownloadButton;
   final FavoriteKind favoriteKind;
   final bool showFavoriteButton;
+  /// Motiv aus dem letzten Event — Badge bis zur Ad-Freischaltung.
+  final bool requiresAdUnlock;
   final VoidCallback onTap;
 
   Future<void> _saveToPhotos(BuildContext context) async {
@@ -289,6 +320,7 @@ class GalleryPageTile extends StatelessWidget {
     final starSize = compact ? 34.0 : 42.0;
     final inset = compact ? 8.0 : 12.0;
     final downloadSize = compact ? 34.0 : 40.0;
+    final t = AppStrings.of(context);
 
     return Stack(
       fit: StackFit.expand,
@@ -302,7 +334,16 @@ class GalleryPageTile extends StatelessWidget {
             top: inset,
             child: const NewBadge(),
           ),
-        if (!showDownloadButton)
+        if (requiresAdUnlock)
+          Positioned(
+            left: inset,
+            bottom: inset,
+            child: AdUnlockBadge(
+              label: t.unlockWithAd,
+              compact: compact,
+            ),
+          )
+        else if (!showDownloadButton)
           Selector<ColoringProgressStore, bool>(
             selector: (_, store) => store.hasProgress(page.id),
             builder: (context, hasProgress, _) {

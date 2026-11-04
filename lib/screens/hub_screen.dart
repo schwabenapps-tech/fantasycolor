@@ -15,6 +15,7 @@ import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/event_content_gate.dart';
 import '../services/notification_service.dart';
 import '../services/remote_pack_service.dart';
 import '../utils/app_layout.dart';
@@ -197,18 +198,30 @@ class _HubScreenState extends State<HubScreen>
     );
   }
 
-  void _openColoring(ColoringPage page) {
+  Future<void> _openColoring(ColoringPage page) async {
+    final ok = await EventContentGate.ensureUnlocked(
+      context,
+      id: page.id,
+      kind: FavoriteKind.coloring,
+    );
+    if (!ok || !mounted) return;
     AnalyticsService.instance.logStartColoring(page.id);
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => ColoringPreviewScreen(page: page),
       ),
     );
   }
 
-  void _openPuzzle(ColoringPage page) {
+  Future<void> _openPuzzle(ColoringPage page) async {
+    final ok = await EventContentGate.ensureUnlocked(
+      context,
+      id: page.id,
+      kind: FavoriteKind.puzzle,
+    );
+    if (!ok || !mounted) return;
     AnalyticsService.instance.logStartPuzzle(page.id);
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => PuzzleScreen(puzzle: page),
       ),
@@ -283,16 +296,10 @@ class _HubScreenState extends State<HubScreen>
                           );
                         }
 
-                        return IndexedStack(
-                          index: _tabIndex,
-                          children: [
-                            _HomeTab(
-                              catalog: data,
-                              scrollController: _homeScroll,
-                              onOpenColoring: _openColoring,
-                              onOpenPuzzle: _openPuzzle,
-                            ),
-                            CatalogGalleryBody(
+                        // Nur aktiver Tab — IndexedStack mit 3 Galerien
+                        // macht Drehen schwer und streckt Zwischenframes.
+                        return switch (_tabIndex) {
+                          1 => CatalogGalleryBody(
                               catalog: data.puzzle,
                               tags: data.tags,
                               kind: CatalogGalleryKind.puzzle,
@@ -304,7 +311,7 @@ class _HubScreenState extends State<HubScreen>
                               gridScroll: _puzzleGridScroll,
                               rowScroll: _puzzleRowScroll,
                             ),
-                            CatalogGalleryBody(
+                          2 => CatalogGalleryBody(
                               catalog: data.coloring,
                               tags: data.tags,
                               kind: CatalogGalleryKind.coloring,
@@ -315,8 +322,13 @@ class _HubScreenState extends State<HubScreen>
                               gridScroll: _colorGridScroll,
                               rowScroll: _colorRowScroll,
                             ),
-                          ],
-                        );
+                          _ => _HomeTab(
+                              catalog: data,
+                              scrollController: _homeScroll,
+                              onOpenColoring: _openColoring,
+                              onOpenPuzzle: _openPuzzle,
+                            ),
+                        };
                       },
                     ),
                   ),
@@ -763,6 +775,8 @@ class _HomeTabState extends State<_HomeTab> {
             isHalloween: (id, kind) => kind == FavoriteKind.coloring
                 ? halloweenColor.contains(id)
                 : halloweenPuzzle.contains(id),
+            requiresAdUnlock: (id, kind) =>
+                EventContentGate.isGatedId(tags, id, kind: kind),
             onOpenColoring: widget.onOpenColoring,
             onOpenPuzzle: widget.onOpenPuzzle,
           ),
@@ -775,6 +789,11 @@ class _HomeTabState extends State<_HomeTab> {
               pages: newPuzzles,
               isNew: (_) => true,
               isHalloween: (id) => halloweenPuzzle.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.puzzle,
+              ),
               favoriteKind: FavoriteKind.puzzle,
               showDownloadButton: true,
               onOpen: widget.onOpenPuzzle,
@@ -785,6 +804,11 @@ class _HomeTabState extends State<_HomeTab> {
               pages: newColoring,
               isNew: (_) => true,
               isHalloween: (id) => halloweenColor.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.coloring,
+              ),
               favoriteKind: FavoriteKind.coloring,
               onOpen: widget.onOpenColoring,
             ),
@@ -798,6 +822,11 @@ class _HomeTabState extends State<_HomeTab> {
               pages: favPuzzles,
               isNew: (id) => tags.isNewPuzzle(id),
               isHalloween: (id) => halloweenPuzzle.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.puzzle,
+              ),
               favoriteKind: FavoriteKind.puzzle,
               showDownloadButton: true,
               onOpen: widget.onOpenPuzzle,
@@ -808,6 +837,11 @@ class _HomeTabState extends State<_HomeTab> {
               pages: favColoring,
               isNew: (id) => tags.isNewColoring(id),
               isHalloween: (id) => halloweenColor.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.coloring,
+              ),
               favoriteKind: FavoriteKind.coloring,
               onOpen: widget.onOpenColoring,
             ),
@@ -825,6 +859,7 @@ class _HomeTabState extends State<_HomeTab> {
               pages: lastPuzzles,
               isNew: (_) => false,
               isHalloween: (id) => halloweenPuzzle.contains(id),
+              requiresAdUnlock: (_) => true,
               favoriteKind: FavoriteKind.puzzle,
               showDownloadButton: true,
               onOpen: widget.onOpenPuzzle,
@@ -835,6 +870,7 @@ class _HomeTabState extends State<_HomeTab> {
               pages: lastColoring,
               isNew: (_) => false,
               isHalloween: (id) => halloweenColor.contains(id),
+              requiresAdUnlock: (_) => true,
               favoriteKind: FavoriteKind.coloring,
               onOpen: widget.onOpenColoring,
             ),
@@ -846,6 +882,11 @@ class _HomeTabState extends State<_HomeTab> {
             pages: regularPuzzles,
             isNew: (id) => tags.isNewPuzzle(id),
             isHalloween: (id) => halloweenPuzzle.contains(id),
+            requiresAdUnlock: (id) => EventContentGate.isGatedId(
+              tags,
+              id,
+              kind: FavoriteKind.puzzle,
+            ),
             favoriteKind: FavoriteKind.puzzle,
             showDownloadButton: true,
             onOpen: widget.onOpenPuzzle,
@@ -857,6 +898,11 @@ class _HomeTabState extends State<_HomeTab> {
             pages: regularColoring,
             isNew: (id) => tags.isNewColoring(id),
             isHalloween: (id) => halloweenColor.contains(id),
+            requiresAdUnlock: (id) => EventContentGate.isGatedId(
+              tags,
+              id,
+              kind: FavoriteKind.coloring,
+            ),
             favoriteKind: FavoriteKind.coloring,
             onOpen: widget.onOpenColoring,
           ),
@@ -901,6 +947,7 @@ class _HomeRecentRow extends StatelessWidget {
     required this.items,
     required this.isNew,
     required this.isHalloween,
+    required this.requiresAdUnlock,
     required this.onOpenColoring,
     required this.onOpenPuzzle,
   });
@@ -908,6 +955,7 @@ class _HomeRecentRow extends StatelessWidget {
   final List<({ColoringPage page, FavoriteKind kind})> items;
   final bool Function(String id, FavoriteKind kind) isNew;
   final bool Function(String id, FavoriteKind kind) isHalloween;
+  final bool Function(String id, FavoriteKind kind) requiresAdUnlock;
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
 
@@ -945,6 +993,7 @@ class _HomeRecentRow extends StatelessWidget {
               showFavoriteButton: true,
               showDownloadButton: kind == FavoriteKind.puzzle,
               favoriteKind: kind,
+              requiresAdUnlock: requiresAdUnlock(page.id, kind),
               onTap: () => kind == FavoriteKind.puzzle
                   ? onOpenPuzzle(page)
                   : onOpenColoring(page),
@@ -961,6 +1010,7 @@ class _HomeRow extends StatelessWidget {
     required this.pages,
     required this.isNew,
     required this.isHalloween,
+    required this.requiresAdUnlock,
     required this.favoriteKind,
     required this.onOpen,
     this.label,
@@ -971,6 +1021,7 @@ class _HomeRow extends StatelessWidget {
   final String? label;
   final bool Function(String id) isNew;
   final bool Function(String id) isHalloween;
+  final bool Function(String id) requiresAdUnlock;
   final FavoriteKind favoriteKind;
   final ValueChanged<ColoringPage> onOpen;
   final bool showDownloadButton;
@@ -1023,6 +1074,7 @@ class _HomeRow extends StatelessWidget {
                   showFavoriteButton: true,
                   showDownloadButton: showDownloadButton,
                   favoriteKind: favoriteKind,
+                  requiresAdUnlock: requiresAdUnlock(page.id),
                   onTap: () => onOpen(page),
                 ),
               );

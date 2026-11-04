@@ -32,6 +32,7 @@ class _GalleryScreenState extends State<GalleryScreen>
   late final Animation<double> _fadeAnimation;
   Future<GalleryCatalog>? _catalogFuture;
   Future<EventTags>? _tagsFuture;
+  Future<List<Object>>? _loadFuture;
   final _gridScroll = ScrollController();
   final _rowScroll = ScrollController();
   bool _thumbsPrecached = false;
@@ -65,6 +66,7 @@ class _GalleryScreenState extends State<GalleryScreen>
   void _reloadFutures() {
     _catalogFuture = loadColoringCatalog();
     _tagsFuture = EventTags.load();
+    _loadFuture = Future.wait<Object>([_catalogFuture!, _tagsFuture!]);
     _thumbsPrecached = false;
   }
 
@@ -128,10 +130,7 @@ class _GalleryScreenState extends State<GalleryScreen>
                       Expanded(
                         child: FutureBuilder<List<Object>>(
                           key: ValueKey('coloring_catalog_$_heardGeneration'),
-                          future: Future.wait([
-                            _catalogFuture!,
-                            _tagsFuture!,
-                          ]),
+                          future: _loadFuture,
                           builder: (context, snapshot) {
                             if (snapshot.connectionState !=
                                 ConnectionState.done) {

@@ -32,6 +32,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   late final Animation<double> _fadeAnimation;
   Future<GalleryCatalog>? _catalogFuture;
   Future<EventTags>? _tagsFuture;
+  Future<List<Object>>? _loadFuture;
   bool _thumbsPrecached = false;
   int _heardGeneration = -1;
 
@@ -63,6 +64,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
   void _reloadFutures() {
     _catalogFuture = loadPuzzleCatalog();
     _tagsFuture = EventTags.load();
+    _loadFuture = Future.wait<Object>([_catalogFuture!, _tagsFuture!]);
     _thumbsPrecached = false;
   }
 
@@ -124,10 +126,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                       Expanded(
                         child: FutureBuilder<List<Object>>(
                           key: ValueKey('puzzle_catalog_$_heardGeneration'),
-                          future: Future.wait([
-                            _catalogFuture!,
-                            _tagsFuture!,
-                          ]),
+                          future: _loadFuture,
                           builder: (context, snapshot) {
                             if (snapshot.connectionState !=
                                 ConnectionState.done) {

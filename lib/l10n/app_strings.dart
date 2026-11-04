@@ -86,6 +86,7 @@ class AppStrings {
   String get newColor => _t('newColor');
   String get newPuzzle => _t('newPuzzle');
   String get lastEvent => _t('lastEvent');
+  String get unlockWithAd => _t('unlockWithAd');
   String get recentlyUsed => _t('recentlyUsed');
   String get recentlyUsedEmpty => _t('recentlyUsedEmpty');
   String get notifyTitle => _t('notifyTitle');
@@ -194,6 +195,7 @@ const _en = {
   'newColor': 'New color',
   'newPuzzle': 'New puzzle',
   'lastEvent': 'Last event',
+  'unlockWithAd': 'Watch ad',
   'recentlyUsed': 'Recently used',
   'recentlyUsedEmpty': 'Open a coloring page or puzzle to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
@@ -286,6 +288,7 @@ const _de = {
   'newColor': 'Neu Malen',
   'newPuzzle': 'Neu Puzzle',
   'lastEvent': 'Letztes Event',
+  'unlockWithAd': 'Werbung',
   'recentlyUsed': 'Zuletzt benutzt',
   'recentlyUsedEmpty': 'Öffne ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',
@@ -378,6 +381,7 @@ const _es = {
   'newColor': 'Nuevo colorear',
   'newPuzzle': 'Nuevo puzzle',
   'lastEvent': 'Último evento',
+  'unlockWithAd': 'Ver anuncio',
   'recentlyUsed': 'Usado recientemente',
   'recentlyUsedEmpty': 'Abre un coloreable o puzzle para verlo aquí.',
   'notifyTitle': 'Hay una sorpresa ✨',
@@ -470,6 +474,7 @@ const _fr = {
   'newColor': 'Nouveau coloriage',
   'newPuzzle': 'Nouveau puzzle',
   'lastEvent': 'Dernier événement',
+  'unlockWithAd': 'Voir pub',
   'recentlyUsed': 'Récemment utilisé',
   'recentlyUsedEmpty': 'Ouvre un coloriage ou un puzzle pour le voir ici.',
   'notifyTitle': 'Une surprise t’attend ✨',
@@ -562,6 +567,7 @@ const _pt = {
   'newColor': 'Novo colorir',
   'newPuzzle': 'Novo puzzle',
   'lastEvent': 'Último evento',
+  'unlockWithAd': 'Ver anúncio',
   'recentlyUsed': 'Usado recentemente',
   'recentlyUsedEmpty': 'Abre um colorir ou puzzle para o ver aqui.',
   'notifyTitle': 'Uma surpresa espera ✨',
@@ -654,6 +660,7 @@ const _it = {
   'newColor': 'Nuovo colorare',
   'newPuzzle': 'Nuovo puzzle',
   'lastEvent': 'Ultimo evento',
+  'unlockWithAd': 'Guarda ads',
   'recentlyUsed': 'Usati di recente',
   'recentlyUsedEmpty': 'Apri un disegno o un puzzle per vederlo qui.',
   'notifyTitle': 'Ti aspetta una sorpresa ✨',
@@ -746,6 +753,7 @@ const _nl = {
   'newColor': 'Nieuw kleuren',
   'newPuzzle': 'Nieuwe puzzel',
   'lastEvent': 'Laatste event',
+  'unlockWithAd': 'Advertentie',
   'recentlyUsed': 'Recent gebruikt',
   'recentlyUsedEmpty': 'Open een kleurplaat of puzzel om die hier te zien.',
   'notifyTitle': 'Er wacht een verrassing ✨',
@@ -838,6 +846,7 @@ const _pl = {
   'newColor': 'Nowe kolorowanie',
   'newPuzzle': 'Nowe puzzle',
   'lastEvent': 'Ostatnie wydarzenie',
+  'unlockWithAd': 'Reklama',
   'recentlyUsed': 'Ostatnio używane',
   'recentlyUsedEmpty': 'Otwórz kolorowankę lub puzzle, by zobaczyć je tutaj.',
   'notifyTitle': 'Czeka niespodzianka ✨',
@@ -930,6 +939,7 @@ const _tr = {
   'newColor': 'Yeni boyama',
   'newPuzzle': 'Yeni yapboz',
   'lastEvent': 'Son etkinlik',
+  'unlockWithAd': 'Reklam izle',
   'recentlyUsed': 'Son kullanılanlar',
   'recentlyUsedEmpty': 'Burada görmek için bir boyama veya yapboz aç.',
   'notifyTitle': 'Bir sürpriz seni bekliyor ✨',

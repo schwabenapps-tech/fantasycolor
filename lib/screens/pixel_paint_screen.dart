@@ -528,8 +528,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                           ),
                                           fit: BoxFit.fill,
                                           filterQuality:
-                                              FilterQuality.medium,
-                                          gaplessPlayback: true,
+                                              FilterQuality.low,
+                                          gaplessPlayback: false,
                                         ),
                                       ),
                                       ColoredBox(

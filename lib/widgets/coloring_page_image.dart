@@ -55,16 +55,16 @@ class ColoringPageImage extends StatelessWidget {
         final dpr = MediaQuery.devicePixelRatioOf(context);
         final maxW = constraints.maxWidth;
         final maxH = constraints.maxHeight;
-        // Nur cacheWidth (Höhe folgt Aspect) — gleicher Key wie Precache.
+        // Nur cacheWidth (Höhe folgt Aspect). Buckets → weniger Decode bei Rotation.
         final logical = [
           if (maxW.isFinite && maxW > 0) maxW,
           if (maxH.isFinite && maxH > 0) maxH,
         ];
         final cacheW = logical.isEmpty
             ? null
-            : (logical.reduce((a, b) => a > b ? a : b) * dpr)
-                .round()
-                .clamp(64, 2048);
+            : _bucketCacheWidth(
+                logical.reduce((a, b) => a > b ? a : b) * dpr,
+              );
 
         Widget image = ColoredBox(
           color: Colors.white,
@@ -78,8 +78,9 @@ class ColoringPageImage extends StatelessWidget {
                   key: ValueKey('progress_${page.id}_$version'),
                   fit: fit,
                   alignment: alignment,
-                  filterQuality: FilterQuality.medium,
-                  gaplessPlayback: true,
+                  // gaplessPlayback false: sonst streckt Rotation das alte Thumbnail.
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: false,
                   errorBuilder: (_, _, _) => _sourceImage(cacheW),
                 )
               : _sourceImage(cacheW),
@@ -100,12 +101,18 @@ class ColoringPageImage extends StatelessWidget {
       image: ResizeImage.resizeIfNeeded(cacheWidth, null, provider),
       fit: fit,
       alignment: alignment,
-      filterQuality: FilterQuality.medium,
-      gaplessPlayback: true,
+      filterQuality: FilterQuality.low,
+      gaplessPlayback: false,
       errorBuilder: (_, _, _) => Center(
         child: Icon(Icons.broken_image_outlined, color: placeholderColor),
       ),
     );
+  }
+
+  /// Stabile Decode-Größe über Portrait/Landscape (weniger Jank beim Drehen).
+  static int _bucketCacheWidth(double px) {
+    final raw = px.round().clamp(64, 2048);
+    return ((raw + 127) ~/ 128) * 128;
   }
 }
 

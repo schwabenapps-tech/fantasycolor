@@ -6,6 +6,7 @@ import '../data/event_tags.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
 import '../screens/event_pack_gallery_screen.dart';
+import '../services/event_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/event_hub_portal.dart';
@@ -73,6 +74,17 @@ class CatalogGalleryBody extends StatelessWidget {
       for (final page in catalog.standard.pages) _Entry.page(page),
       for (final event in catalog.pastEvents) _Entry.hub(event),
     ];
+  }
+
+  bool _requiresAdUnlock(String id) {
+    if (kind == CatalogGalleryKind.print) return false;
+    return EventContentGate.isGatedId(
+      tags,
+      id,
+      kind: kind == CatalogGalleryKind.puzzle
+          ? FavoriteKind.puzzle
+          : FavoriteKind.coloring,
+    );
   }
 
   Set<String> get _halloweenIds {
@@ -204,6 +216,7 @@ class CatalogGalleryBody extends StatelessWidget {
                 showDownloadButton: showDownloadButton,
                 showFavoriteButton: _showFavoriteButton,
                 favoriteKind: _favoriteKind,
+                requiresAdUnlock: _requiresAdUnlock(page.id),
                 onTap: () => onOpenPage(page),
               );
             },
@@ -254,6 +267,7 @@ class CatalogGalleryBody extends StatelessWidget {
                       showDownloadButton: showDownloadButton,
                       showFavoriteButton: _showFavoriteButton,
                       favoriteKind: _favoriteKind,
+                      requiresAdUnlock: _requiresAdUnlock(page.id),
                       onTap: () => onOpenPage(page),
                     ),
                   );

@@ -77,7 +77,8 @@ class _StartScreenState extends State<StartScreen>
   }
 
   Future<void> _enterHub() async {
-    await SystemChrome.setPreferredOrientations(_appOrientations);
+    // Orientation nicht awaiten — sonst fühlt sich Drehen/Übergang sticky an.
+    unawaited(SystemChrome.setPreferredOrientations(_appOrientations));
     unawaited(AudioService.instance.startAmbient());
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -86,7 +87,7 @@ class _StartScreenState extends State<StartScreen>
       ),
     );
     // Back zum Start: wieder nur Landscape; Musik läuft weiter.
-    await SystemChrome.setPreferredOrientations(_startOrientations);
+    unawaited(SystemChrome.setPreferredOrientations(_startOrientations));
   }
 
   @override

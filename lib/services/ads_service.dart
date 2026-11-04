@@ -14,6 +14,7 @@ import 'consent_service.dart';
 /// - Jedes Verlassen von Malen/Pixel/Puzzle (Zurück **oder** nach Done)
 /// - Pixel-Modus freischalten: **einmalig**
 /// - Jede Druckvorlage öffnen: **einmalig** (vor Preview)
+/// - Jedes Motiv des letzten Events: **jedes Öffnen** mit Werbung
 ///
 /// Fehlt eine Ad oder schlägt sie fehl → App geht einfach weiter.
 /// Ads starten erst nach UMP-Consent ([ConsentService.gatherConsent]).
@@ -137,6 +138,12 @@ class AdsService {
 
   /// Vor dem Öffnen einer Druckvorlage — jedes Mal.
   static Future<void> showPrintTemplateInterstitial() async {
+    await _ensureAdReadyForGate(timeout: const Duration(seconds: 3));
+    await showInterstitial();
+  }
+
+  /// Motiv aus dem letzten Event freischalten — einmalig pro Bild.
+  static Future<void> showEventContentUnlockInterstitial() async {
     await _ensureAdReadyForGate(timeout: const Duration(seconds: 3));
     await showInterstitial();
   }

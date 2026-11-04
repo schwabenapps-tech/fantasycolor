@@ -8,6 +8,7 @@ import '../data/coloring_pages_loader.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../services/event_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_page_image.dart';
@@ -366,16 +367,22 @@ class FavoriteImagesScreen extends StatelessWidget {
           ? FavoritesScreen.coloringEmptyLogo
           : FavoritesScreen.puzzleEmptyLogo);
 
-  void _open(BuildContext context, ColoringPage page) {
+  Future<void> _open(BuildContext context, ColoringPage page) async {
+    final ok = await EventContentGate.ensureUnlocked(
+      context,
+      id: page.id,
+      kind: kind,
+    );
+    if (!ok || !context.mounted) return;
     if (kind == FavoriteKind.coloring) {
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         AppPageRoute<void>(
           builder: (_) => ColoringPreviewScreen(page: page),
         ),
       );
     } else {
       HapticFeedback.selectionClick();
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         AppPageRoute<void>(
           builder: (_) => PuzzleScreen(puzzle: page),
         ),

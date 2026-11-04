@@ -27,6 +27,7 @@
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:screenOrientation="fullSensor"
+            android:rotationAnimation="jumpcut"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:enableOnBackInvokedCallback="true"

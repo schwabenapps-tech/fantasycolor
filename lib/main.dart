@@ -33,6 +33,7 @@ import 'services/remote_pack_service.dart';
 import 'services/streak_service.dart';
 import 'utils/app_page_route.dart';
 import 'widgets/force_update_overlay.dart';
+import 'widgets/orientation_snap.dart';
 
 /// Hintergrund hinter dem ersten Flutter-Frame (Splash / Gaps).
 const _bootBackground = Color(0xFF12263F);
@@ -282,21 +283,23 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         builder: (context, child) {
           // ListenableBuilder statt context.watch im MaterialApp.builder —
           // zuverlässigeres Rebuild, wenn forceRequired umschaltet.
-          return ListenableBuilder(
-            listenable: AppUpdateService.instance,
-            builder: (context, _) {
-              final update = AppUpdateService.instance;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (child != null) child,
-                  if (update.forceRequired)
-                    Positioned.fill(
-                      child: ForceUpdateOverlay(message: update.message),
-                    ),
-                ],
-              );
-            },
+          return OrientationSnap(
+            child: ListenableBuilder(
+              listenable: AppUpdateService.instance,
+              builder: (context, _) {
+                final update = AppUpdateService.instance;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (child != null) child,
+                    if (update.forceRequired)
+                      Positioned.fill(
+                        child: ForceUpdateOverlay(message: update.message),
+                      ),
+                  ],
+                );
+              },
+            ),
           );
         },
         home: const StartScreen(),

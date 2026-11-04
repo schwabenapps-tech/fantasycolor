@@ -550,11 +550,12 @@ class _RulesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxH = MediaQuery.sizeOf(context).height * 0.72;
     return Material(
       color: Colors.black.withValues(alpha: 0.35),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: BoxConstraints(maxWidth: 420, maxHeight: maxH),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
             padding: const EdgeInsets.fromLTRB(20, 16, 12, 20),
@@ -571,42 +572,44 @@ class _RulesPanel extends StatelessWidget {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        AppStrings.of(context).stickerAlbum,
-                        style: const TextStyle(
-                          color: Color(0xFF4A3208),
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          AppStrings.of(context).stickerAlbum,
+                          style: const TextStyle(
+                            color: Color(0xFF4A3208),
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: onClose,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        color: Color(0xFF4A3208),
+                      IconButton(
+                        onPressed: onClose,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF4A3208),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppStrings.of(context).stickerRulesBody,
-                  style: const TextStyle(
-                    color: Color(0xFF4A3208),
-                    fontSize: 14,
-                    height: 1.45,
-                    fontWeight: FontWeight.w500,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    AppStrings.of(context).stickerRulesBody,
+                    style: const TextStyle(
+                      color: Color(0xFF4A3208),
+                      fontSize: 14,
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

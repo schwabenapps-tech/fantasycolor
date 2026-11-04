@@ -52,3 +52,65 @@ class ProgressBadge extends StatelessWidget {
     );
   }
 }
+
+/// Goldenes Play-Badge: Letztes-Event-Motiv — jedes Öffnen mit Werbung.
+class AdUnlockBadge extends StatelessWidget {
+  const AdUnlockBadge({
+    super.key,
+    required this.label,
+    this.compact = false,
+  });
+
+  final String label;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = compact ? 26.0 : 32.0;
+    final playSize = compact ? 14.0 : 17.0;
+    return Semantics(
+      label: label,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFFF2C8),
+                Color(0xFFFFC857),
+                Color(0xFFE8A020),
+              ],
+            ),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.9),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFB84D).withValues(alpha: 0.55),
+                blurRadius: 10,
+                spreadRadius: 0.5,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              Icons.play_arrow_rounded,
+              size: playSize,
+              color: const Color(0xFF3A2208),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

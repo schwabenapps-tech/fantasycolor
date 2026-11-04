@@ -1407,8 +1407,8 @@ class _PuzzleImageLayer extends StatelessWidget {
       image: imageProvider,
       fit: BoxFit.fill,
       alignment: Alignment.center,
-      filterQuality: FilterQuality.medium,
-      gaplessPlayback: true,
+      filterQuality: FilterQuality.low,
+      gaplessPlayback: false,
     );
 
     if (!rotatePortrait) return image;

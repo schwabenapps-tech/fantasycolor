@@ -13,5 +13,7 @@ Future<void> precacheAssetImages(
 
 int thumbCacheWidth(BuildContext context, double logicalWidth) {
   final dpr = MediaQuery.devicePixelRatioOf(context);
-  return (logicalWidth * dpr).round().clamp(96, 1024);
+  final raw = (logicalWidth * dpr).round().clamp(96, 1024);
+  // Bucket wie ColoringPageImage — weniger Decode-Wechsel beim Drehen.
+  return ((raw + 127) ~/ 128) * 128;
 }

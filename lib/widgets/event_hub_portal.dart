@@ -53,11 +53,16 @@ class _EventHubPortalState extends State<EventHubPortal> {
     _startDelay = Timer(widget.slideOffset, _startSlideshow);
   }
 
+  bool _initialWarmDone = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _cacheWidth ??=
         thumbCacheWidth(context, MediaQuery.sizeOf(context).shortestSide * 0.45);
+    // Nicht bei jeder Rotation neu precachen — fühlt sich sonst sticky an.
+    if (_initialWarmDone) return;
+    _initialWarmDone = true;
     _warmAround(_index);
   }
 
@@ -100,8 +105,8 @@ class _EventHubPortalState extends State<EventHubPortal> {
       alignment: widget.imagePaths.length == 1
           ? Alignment.center
           : const Alignment(0, -0.15),
-      gaplessPlayback: true,
-      filterQuality: FilterQuality.medium,
+      gaplessPlayback: false,
+      filterQuality: FilterQuality.low,
       errorBuilder: (_, _, _) => ColoredBox(
         color: widget.accent.withValues(alpha: 0.35),
       ),

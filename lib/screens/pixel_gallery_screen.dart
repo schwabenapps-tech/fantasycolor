@@ -435,7 +435,7 @@ class _PixelPageTile extends StatelessWidget {
                                 'pixel_preview_${page.id}_$progressVersion',
                               ),
                               fit: BoxFit.cover,
-                              gaplessPlayback: true,
+                              gaplessPlayback: false,
                               errorBuilder: (_, _, _) => ColoringPageImage(
                                 page: page,
                                 fit: BoxFit.cover,

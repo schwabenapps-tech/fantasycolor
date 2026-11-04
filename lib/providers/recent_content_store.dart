@@ -4,11 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'favorites_store.dart';
 
 /// Zuletzt geöffnete Ausmal-/Puzzle-Motive für Home „Zuletzt benutzt“.
+///
+/// Nach [expiry] ohne Nutzung (kein neues Öffnen) wird die Liste geleert.
 class RecentContentStore extends ChangeNotifier {
   RecentContentStore();
 
   static const _key = 'recent_content_entries_v1';
+  static const _touchedKey = 'recent_content_touched_at_v1';
   static const maxItems = 24;
+
+  /// Lange ungenutzt → Abschnitt leer, bis wieder etwas geöffnet wird.
+  static const expiry = Duration(days: 14);
 
   final List<RecentContentEntry> _entries = <RecentContentEntry>[];
   bool _ready = false;
@@ -20,6 +26,18 @@ class RecentContentStore extends ChangeNotifier {
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final touchedMs = prefs.getInt(_touchedKey);
+
+    if (touchedMs != null && now - touchedMs >= expiry.inMilliseconds) {
+      _entries.clear();
+      await prefs.remove(_key);
+      await prefs.remove(_touchedKey);
+      _ready = true;
+      notifyListeners();
+      return;
+    }
+
     final raw = prefs.getStringList(_key) ?? const <String>[];
     _entries
       ..clear()
@@ -27,6 +45,12 @@ class RecentContentStore extends ChangeNotifier {
         for (final line in raw)
           if (RecentContentEntry.tryParse(line) case final e?) e,
       ]);
+
+    // Upgrade ohne Timestamp: nicht sofort löschen, Ablauf ab jetzt.
+    if (_entries.isNotEmpty && touchedMs == null) {
+      await prefs.setInt(_touchedKey, now);
+    }
+
     _ready = true;
     notifyListeners();
   }
@@ -40,10 +64,12 @@ class RecentContentStore extends ChangeNotifier {
     }
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now().millisecondsSinceEpoch;
     await prefs.setStringList(
       _key,
       [for (final e in _entries) e.encode()],
     );
+    await prefs.setInt(_touchedKey, now);
   }
 }
 
