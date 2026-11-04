@@ -4,6 +4,7 @@
 Quellen:
 - ~/Desktop/fantasycolor_puzzle
 - ~/Desktop/fantasycolor_event_halloween  (nur Root, nicht „halloween ausmalbilder“)
+- ~/Desktop/herbstbilder feen
 
 Schreibweise: lowercase, Leerzeichen/Sonderzeichen → `_`.
 Schreibt assets/puzzle_invalidate_ids.json (entfernte + geänderte IDs).
@@ -17,12 +18,26 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
+
+_UMLAUT = str.maketrans(
+    {
+        "ä": "ae",
+        "ö": "oe",
+        "ü": "ue",
+        "Ä": "Ae",
+        "Ö": "Oe",
+        "Ü": "Ue",
+        "ß": "ss",
+    }
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIRS = [
     Path.home() / "Desktop/fantasycolor_puzzle",
     Path.home() / "Desktop/fantasycolor_event_halloween",
+    Path.home() / "Desktop/herbstbilder feen",
 ]
 DEST = ROOT / "assets/puzzle_images"
 HASH_PATH = ROOT / "assets/puzzle_source_hashes.json"
@@ -34,10 +49,11 @@ def md5(path: Path) -> str:
 
 
 def asset_filename(src_name: str) -> str:
-    """Lowercase; Bindestriche behalten; Leerzeichen/Punkte/Kommas → `_`."""
+    """Lowercase; Umlaute → ae/oe/ue; Bindestriche behalten; Rest → `_`."""
     stem, ext = Path(src_name).stem, Path(src_name).suffix.lower()
     if ext == ".jpeg":
         ext = ".jpg"
+    stem = unicodedata.normalize("NFC", stem).translate(_UMLAUT)
     stem = re.sub(r"[^a-z0-9\-]+", "_", stem.lower())
     stem = re.sub(r"_+", "_", stem).strip("_")
     return f"{stem}{ext}"
@@ -163,12 +179,23 @@ def main() -> int:
     # Neueste Halloween-Motive (24./26./27. Sept) nach Dateiname absteigend.
     halloween_puzzle = sorted(halloween_puzzle, reverse=True)
 
-    # Featured = Halloween + neuere Puzzle-Motive (ab 13. Sept / neue UUIDs).
+    herbst_dir = str((Path.home() / "Desktop/herbstbilder feen").resolve())
+    herbst_puzzle = sorted(
+        (
+            page_id(name)
+            for name, src in wanted.items()
+            if str(src.resolve()).startswith(herbst_dir)
+        ),
+        reverse=True,
+    )
+
+    # Featured = Herbst (neu) + Halloween + neuere Puzzle-Motive.
     featured_extra = sorted(
         (
             page_id(name)
             for name in wanted
             if page_id(name) not in set(halloween_puzzle)
+            and page_id(name) not in set(herbst_puzzle)
             and (
                 re.search(r"chatgpt_image_(1[3-9]|2\d)_sept", name) is not None
                 or name.startswith("chatgpt-bild_2")
@@ -177,7 +204,7 @@ def main() -> int:
         ),
         reverse=True,
     )
-    featured_puzzle = halloween_puzzle + featured_extra
+    featured_puzzle = herbst_puzzle + halloween_puzzle + featured_extra
 
     tags_path = ROOT / "assets/event_tags.json"
     tags: dict[str, object] = {}

@@ -214,116 +214,6 @@
       "path": "assets/coloring_pages/fee_clean_43.png",
       "width": 1200,
       "height": 1099
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_44.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_45.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_46.png",
-      "width": 1200,
-      "height": 1095
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_47.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_48.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_49.png",
-      "width": 1095,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_50.png",
-      "width": 960,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_51.png",
-      "width": 1095,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_52.png",
-      "width": 1095,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_53.png",
-      "width": 1200,
-      "height": 1095
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_54.png",
-      "width": 1200,
-      "height": 800
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_55.png",
-      "width": 1200,
-      "height": 800
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_56.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_57.png",
-      "width": 1200,
-      "height": 1004
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_58.png",
-      "width": 1200,
-      "height": 675
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_59.png",
-      "width": 1200,
-      "height": 800
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_60.png",
-      "width": 1200,
-      "height": 800
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_61.png",
-      "width": 960,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_62.png",
-      "width": 1200,
-      "height": 799
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_63.png",
-      "width": 1200,
-      "height": 800
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_64.png",
-      "width": 1095,
-      "height": 1200
-    },
-    {
-      "path": "assets/coloring_pages/fee_clean_65.png",
-      "width": 1200,
-      "height": 1096
     }
   ],
   "print_templates": [
@@ -545,6 +435,11 @@
   ],
   "puzzle_images": [
     {
+      "path": "assets/puzzle_images/09f9da2d-69c2-400b-936c-cb621277dc74.png",
+      "width": 1024,
+      "height": 1280
+    },
+    {
       "path": "assets/puzzle_images/16bbd873-27af-440b-9516-c510f8dca873.png",
       "width": 960,
       "height": 1200
@@ -575,6 +470,16 @@
       "height": 1280
     },
     {
+      "path": "assets/puzzle_images/32d0b347-6fb5-49f2-a8f6-ae940686d834.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/33a781ce-0ad4-41b1-9595-c1f5ef383863.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
       "path": "assets/puzzle_images/33db7076-50a8-4c69-abd9-f417c34dee4a.png",
       "width": 960,
       "height": 1200
@@ -588,6 +493,11 @@
       "path": "assets/puzzle_images/5750fa33-e2de-4f1f-825b-bb4210e45989.png",
       "width": 960,
       "height": 1200
+    },
+    {
+      "path": "assets/puzzle_images/5e84dbf6-362a-45d3-aa6d-26f23601090a.png",
+      "width": 1024,
+      "height": 1536
     },
     {
       "path": "assets/puzzle_images/5edc5c99-68a0-4b6c-984f-89aa7631abb0.png",
@@ -660,6 +570,11 @@
       "height": 1200
     },
     {
+      "path": "assets/puzzle_images/aa99f016-7770-46db-be86-679df97ebec4.png",
+      "width": 1169,
+      "height": 1280
+    },
+    {
       "path": "assets/puzzle_images/ad74ed40-6a45-47e3-b14e-fb82bb6fe88b.png",
       "width": 960,
       "height": 1200
@@ -673,6 +588,16 @@
       "path": "assets/puzzle_images/b1e1615e-2e37-4b34-9d21-b86757c3ca10.png",
       "width": 799,
       "height": 1200
+    },
+    {
+      "path": "assets/puzzle_images/brueder_entdecken_lustige_fensterzeichnungen.png",
+      "width": 1169,
+      "height": 1280
+    },
+    {
+      "path": "assets/puzzle_images/bruederliche_herbstwanderung_im_zauberwald.png",
+      "width": 1280,
+      "height": 853
     },
     {
       "path": "assets/puzzle_images/cbd864e1-46a2-48c2-9ed0-1ed405a4f425.png",
@@ -915,6 +840,41 @@
       "height": 1200
     },
     {
+      "path": "assets/puzzle_images/e789a772-cb9a-4183-94d9-b37577bce227.png",
+      "width": 1280,
+      "height": 1169
+    },
+    {
+      "path": "assets/puzzle_images/feen_geleiten_schmetterlinge_ins_gewaechshaus.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/feenbrueder_im_herbstlaub.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/feenjunge_zeichnet_bruedergesichter_ins_beschlagene_fenster.png",
+      "width": 1169,
+      "height": 1280
+    },
+    {
+      "path": "assets/puzzle_images/herbstliche_buecherfee_mit_zwei_eichhoernchen.png",
+      "width": 1280,
+      "height": 1169
+    },
+    {
+      "path": "assets/puzzle_images/herbsttee_im_feenatelier_mit_schwarzer_katze.png",
+      "width": 1280,
+      "height": 1071
+    },
+    {
+      "path": "assets/puzzle_images/herbstzauber_mit_drei_fluegelwesen.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
       "path": "assets/puzzle_images/img_1875.jpg",
       "width": 784,
       "height": 1168
@@ -948,6 +908,51 @@
       "path": "assets/puzzle_images/img_1951.jpg",
       "width": 861,
       "height": 1280
+    },
+    {
+      "path": "assets/puzzle_images/kastanienbraune_rosalia_und_die_schlafende_hummel.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/kristallfee_mit_schwebendem_ahornkristall.png",
+      "width": 1024,
+      "height": 1280
+    },
+    {
+      "path": "assets/puzzle_images/lichtfee_begleitet_tiere_auf_einem_waldweg.png",
+      "width": 1169,
+      "height": 1280
+    },
+    {
+      "path": "assets/puzzle_images/malerfee_malt_das_goldene_herbstfeld.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/schmetterlingsfreundschaft_im_herbstwald.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/sternenfeen_im_goldenen_herbstwind.png",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "path": "assets/puzzle_images/vier_feen_beim_herbstpicknick.png",
+      "width": 1280,
+      "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/wasserfee_mit_schwebenden_herbstblaettern.png",
+      "width": 1280,
+      "height": 1169
+    },
+    {
+      "path": "assets/puzzle_images/zuckerfee_mit_rosafarbenen_augen.png",
+      "width": 1280,
+      "height": 853
     }
   ]
 }
