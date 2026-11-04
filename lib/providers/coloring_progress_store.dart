@@ -92,12 +92,22 @@ class ColoringProgressStore extends ChangeNotifier {
             return legacy.split('|');
           }();
       final previousSet = previous.toSet();
-      final newlyListed = <String>[
+      // Einmaliger Global-Reset (z. B. nach Asset-Kompression/Resize).
+      final resetTokens = [
         for (final id in list)
-          if (!previousSet.contains(id)) id,
+          if (id.startsWith('__reset_all__:') && !previousSet.contains(id)) id,
       ];
-      if (newlyListed.isNotEmpty) {
-        toClear.addAll(newlyListed);
+      if (resetTokens.isNotEmpty) {
+        await clearAllProgress();
+      } else {
+        final newlyListed = <String>[
+          for (final id in list)
+            if (!previousSet.contains(id) && !id.startsWith('__reset_all__:'))
+              id,
+        ];
+        if (newlyListed.isNotEmpty) {
+          toClear.addAll(newlyListed);
+        }
       }
       // Immer aktuellen Stand merken (auch wenn Diff leer).
       await prefs.setStringList(

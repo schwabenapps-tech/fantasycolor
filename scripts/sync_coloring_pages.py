@@ -4,6 +4,7 @@
 Quellen:
 - ~/Desktop/bilder_fantasycolor/einfachere bilder
 - ~/Desktop/fantasycolor_event_halloween/halloween ausmalbilder
+- ~/Desktop/herbstbilder feen
 
 Schreibt außerdem:
 - assets/coloring_asset_hashes.json
@@ -18,12 +19,19 @@ import json
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
+
+
+def _norm_name(name: str) -> str:
+    """macOS speichert oft NFD — ORDER/JSON nutzen NFC."""
+    return unicodedata.normalize("NFC", name)
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIRS = [
     Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder",
     Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
+    Path.home() / "Desktop/herbstbilder feen",
 ]
 DEST = ROOT / "assets/coloring_pages"
 MAP_PATH = ROOT / "assets/coloring_source_map.json"
@@ -80,6 +88,29 @@ ORDER = [
     "ChatGPT-Bild 30. Sept. 2026, 23_00_17.png",
     "ChatGPT-Bild 30. Sept. 2026, 23_48_21.png",
     "DA68D204-2D9D-411F-B112-5F03F1961B2B.png",
+    # Herbstbilder Feen (Desktop/herbstbilder feen)
+    "Brüderliche Herbstwanderung im Zauberwald.png",
+    "Feenbrüder im Herbstlaub.png",
+    "Wasserfee mit schwebenden Herbstblättern.png",
+    "Kastanienbraune Rosalia und die schlafende Hummel.png",
+    "Zuckerfee mit rosafarbenen Augen.png",
+    "Lichtfee begleitet Tiere auf einem Waldweg.png",
+    "Kristallfee mit schwebendem Ahornkristall.png",
+    "Feenjunge zeichnet Brüdergesichter ins beschlagene Fenster.png",
+    "Brüder entdecken lustige Fensterzeichnungen.png",
+    "Herbstliche Bücherfee mit zwei Eichhörnchen.png",
+    "Feen geleiten Schmetterlinge ins Gewächshaus.png",
+    "Schmetterlingsfreundschaft im Herbstwald.png",
+    "Malerfee malt das goldene Herbstfeld.png",
+    "Herbsttee im Feenatelier mit schwarzer Katze.png",
+    "Sternenfeen im goldenen Herbstwind.png",
+    "Herbstzauber mit drei Flügelwesen.png",
+    "Vier Feen beim Herbstpicknick.png",
+    "09F9DA2D-69C2-400B-936C-CB621277DC74.png",
+    "32D0B347-6FB5-49F2-A8F6-AE940686D834.png",
+    "33A781CE-0AD4-41B1-9595-C1F5EF383863.png",
+    "AA99F016-7770-46DB-BE86-679DF97EBEC4.png",
+    "E789A772-CB9A-4183-94D9-B37577BCE227.png",
 ]
 
 
@@ -94,26 +125,28 @@ def collect_desktop() -> dict[str, Path]:
             print(f"Missing source folder: {folder}", file=sys.stderr)
             continue
         for f in folder.glob("*.png"):
-            if f.name in found:
+            key = _norm_name(f.name)
+            if key in found:
                 print(
-                    f"Name collision: {f} and {found[f.name]}",
+                    f"Name collision: {f} and {found[key]}",
                     file=sys.stderr,
                 )
                 raise SystemExit(1)
-            found[f.name] = f
+            found[key] = f
     return found
 
 
 def resolve_order(desk: dict[str, Path]) -> list[str]:
     """ORDER bereinigen + neue Desktop-Dateien anhängen."""
-    kept = [n for n in ORDER if n in desk]
+    order_nfc = [_norm_name(n) for n in ORDER]
+    kept = [n for n in order_nfc if n in desk]
     known = set(kept)
     extras = sorted(n for n in desk if n not in known)
     if extras:
         print("Appending new desktop files:")
         for n in extras:
             print(f"  + {n}")
-    removed = [n for n in ORDER if n not in desk]
+    removed = [n for n in order_nfc if n not in desk]
     if removed:
         print("Removed (not on desktop anymore):")
         for n in removed:
