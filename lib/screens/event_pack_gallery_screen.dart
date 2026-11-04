@@ -54,8 +54,10 @@ class EventPackGalleryScreen extends StatelessWidget {
   }
 
   bool _requiresAdUnlock(String id) {
+    // Druckvorlagen: jedes Öffnen braucht Werbung.
+    if (_print) return true;
     final t = tags;
-    if (t == null || _print) return false;
+    if (t == null) return false;
     return EventContentGate.isGatedId(
       t,
       id,

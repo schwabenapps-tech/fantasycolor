@@ -77,7 +77,8 @@ class CatalogGalleryBody extends StatelessWidget {
   }
 
   bool _requiresAdUnlock(String id) {
-    if (kind == CatalogGalleryKind.print) return false;
+    // Druckvorlagen: jedes Öffnen braucht Werbung.
+    if (kind == CatalogGalleryKind.print) return true;
     return EventContentGate.isGatedId(
       tags,
       id,

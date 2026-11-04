@@ -103,10 +103,12 @@ class AdUnlockBadge extends StatelessWidget {
             ],
           ),
           child: Center(
-            child: Icon(
-              Icons.play_arrow_rounded,
-              size: playSize,
-              color: const Color(0xFF3A2208),
+            child: Text(
+              '🎬',
+              style: TextStyle(
+                fontSize: playSize,
+                height: 1,
+              ),
             ),
           ),
         ),

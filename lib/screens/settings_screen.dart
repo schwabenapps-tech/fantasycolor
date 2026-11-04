@@ -9,7 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_version.dart';
 import '../l10n/app_strings.dart';
-import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/consent_service.dart';
@@ -147,21 +146,6 @@ class SettingsScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const _SectionTitle('Stickers'),
-                                _SettingsTile(
-                                  icon: Icons.restart_alt_rounded,
-                                  title: t.resetStickers,
-                                  subtitle: t.resetStickersSub,
-                                  onTap: () => _resetStickers(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _SettingsCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
                                 const _SectionTitle('About'),
                                 _SettingsTile(
                                   icon: Icons.palette_outlined,
@@ -218,33 +202,6 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  static Future<void> _resetStickers(BuildContext context) async {
-    final t = AppStrings.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.resetStickersTitle),
-        content: Text(t.resetStickersBody),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.cancel),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.reset),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !context.mounted) return;
-    await context.read<StickerCollectionStore>().resetCollection();
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t.stickersReset)),
     );
   }
 

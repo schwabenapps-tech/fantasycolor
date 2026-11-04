@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/paint_catalog.dart';
+import '../l10n/app_strings.dart';
 import '../utils/app_layout.dart';
 
 /// Rechte Farbleiste für Pixel-/Malen-nach-Zahlen.
@@ -26,6 +27,7 @@ class PixelPaintRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     final railWidth = widthOf(context);
     return Container(
       width: railWidth,
@@ -40,9 +42,9 @@ class PixelPaintRail extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
           child: Column(
             children: [
-              const Text(
-                'Bildfarben',
-                style: TextStyle(
+              Text(
+                t.imageColors,
+                style: const TextStyle(
                   color: Color(0xFFFFE7A0),
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
@@ -50,7 +52,7 @@ class PixelPaintRail extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Nummer wählen',
+                t.pickNumber,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.55),
                   fontSize: 10,

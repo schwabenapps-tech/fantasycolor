@@ -11,8 +11,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import 'l10n/app_strings.dart';
-
 import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
@@ -255,18 +253,11 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         navigatorObservers: [
           if (Firebase.apps.isNotEmpty) AnalyticsService.instance.observer,
         ],
-        localeResolutionCallback: (locale, supported) {
-          if (locale == null) return const Locale('en');
-          for (final code in AppStrings.supported) {
-            if (locale.languageCode.toLowerCase() == code) {
-              return Locale(code);
-            }
-          }
-          return const Locale('en');
-        },
-        supportedLocales: [
-          for (final code in AppStrings.supported) Locale(code),
-        ],
+        // App-UI bewusst Englisch (Store/Produkt). Übersetzungs-Tabellen
+        // bleiben für später; Gerätelocale steuert die UI vorerst nicht.
+        locale: const Locale('en'),
+        localeResolutionCallback: (locale, supported) => const Locale('en'),
+        supportedLocales: const [Locale('en')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,

@@ -507,7 +507,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                 children: [
                                   Expanded(
                                     child: _FantasyDialogButton(
-                                      label: 'Back',
+                                      label: AppStrings.of(context).back,
                                       filled: false,
                                       onPressed: () =>
                                           Navigator.pop(context, false),
@@ -516,7 +516,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _FantasyDialogButton(
-                                      label: 'Los geht\'s!',
+                                      label: AppStrings.of(context).letsGo,
                                       filled: true,
                                       onPressed: () =>
                                           Navigator.pop(context, true),

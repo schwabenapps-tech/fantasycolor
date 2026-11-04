@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import 'ads_config.dart';
+import 'audio_service.dart';
 import 'consent_service.dart';
 
 /// Interstitials für Fantasy Color (Kids-Mode / kindgerechte Ads).
@@ -186,6 +187,7 @@ class AdsService {
         ad.dispose();
         _showing = false;
         unawaited(preloadInterstitial());
+        unawaited(AudioService.instance.resumeAfterInterruption());
         if (!done.isCompleted) done.complete();
       },
       onAdFailedToShowFullScreenContent: (ad, error) {
@@ -193,6 +195,7 @@ class AdsService {
         ad.dispose();
         _showing = false;
         unawaited(preloadInterstitial());
+        unawaited(AudioService.instance.resumeAfterInterruption());
         if (!done.isCompleted) done.complete();
       },
     );
@@ -208,6 +211,7 @@ class AdsService {
       ad.dispose();
       _showing = false;
       unawaited(preloadInterstitial());
+      unawaited(AudioService.instance.resumeAfterInterruption());
     }
   }
 }

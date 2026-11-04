@@ -102,6 +102,14 @@ class AppStrings {
   String get artworkInfoBody => _t('artworkInfoBody');
   String get feedbackHint => _t('feedbackHint');
   String get send => _t('send');
+  String get back => _t('back');
+  String get imageColors => _t('imageColors');
+  String get pickNumber => _t('pickNumber');
+  String get templateSaved => _t('templateSaved');
+  String get saveFailed => _t('saveFailed');
+  String get sharingFailed => _t('sharingFailed');
+  String get printTemplate => _t('printTemplate');
+  String get shareAndPrint => _t('shareAndPrint');
 
   String streakSemantics(int n) =>
       _t('streakSemantics').replaceAll('{n}', '$n');
@@ -213,6 +221,14 @@ const _en = {
       'Every coloring page, puzzle image, and print template in Fairy Fantasy Color is an original creation made for this app. Thank you for coloring with us!',
   'feedbackHint': 'Tell us what you think…',
   'send': 'Send',
+  'back': 'Back',
+  'imageColors': 'Image colors',
+  'pickNumber': 'Pick a number',
+  'templateSaved': 'Template saved to Photos',
+  'saveFailed': 'Could not save',
+  'sharingFailed': 'Sharing failed',
+  'printTemplate': 'Print template',
+  'shareAndPrint': 'Share & Print',
   'streakSemantics': '{n} day streak',
   'versionLabel': 'Version {v}\nSchwaben Apps',
 };
@@ -306,6 +322,14 @@ const _de = {
       'Jedes Ausmalbild, Puzzle und jede Druckvorlage in Fairy Fantasy Color ist eine Originalkreation für diese App. Danke, dass du mit uns malst!',
   'feedbackHint': 'Erzähl uns, was du denkst…',
   'send': 'Senden',
+  'back': 'Zurück',
+  'imageColors': 'Bildfarben',
+  'pickNumber': 'Nummer wählen',
+  'templateSaved': 'Vorlage in Fotos gespeichert',
+  'saveFailed': 'Speichern hat nicht geklappt',
+  'sharingFailed': 'Teilen fehlgeschlagen',
+  'printTemplate': 'Druckvorlage',
+  'shareAndPrint': 'Teilen & Drucken',
   'streakSemantics': '{n}-Tage-Streak',
   'versionLabel': 'Version {v}\nSchwaben Apps',
 };
@@ -400,7 +424,15 @@ const _es = {
   'feedbackHint': 'Cuéntanos qué piensas…',
   'send': 'Enviar',
   'streakSemantics': 'Racha de {n} días',
-  'versionLabel': 'Versión {v}\nSchwaben Apps',
+    'back': 'Atrás',
+  'imageColors': 'Colores de la imagen',
+  'pickNumber': 'Elige un número',
+  'templateSaved': 'Plantilla guardada en Fotos',
+  'saveFailed': 'No se pudo guardar',
+  'sharingFailed': 'Error al compartir',
+  'printTemplate': 'Plantilla para imprimir',
+  'shareAndPrint': 'Compartir e imprimir',
+'versionLabel': 'Versión {v}\nSchwaben Apps',
 };
 
 const _fr = {
@@ -493,7 +525,15 @@ const _fr = {
   'feedbackHint': 'Dis-nous ce que tu penses…',
   'send': 'Envoyer',
   'streakSemantics': 'Série de {n} jours',
-  'versionLabel': 'Version {v}\nSchwaben Apps',
+    'back': 'Retour',
+  'imageColors': 'Couleurs de l’image',
+  'pickNumber': 'Choisis un numéro',
+  'templateSaved': 'Modèle enregistré dans Photos',
+  'saveFailed': 'Échec de l’enregistrement',
+  'sharingFailed': 'Échec du partage',
+  'printTemplate': 'Modèle d’impression',
+  'shareAndPrint': 'Partager et imprimer',
+'versionLabel': 'Version {v}\nSchwaben Apps',
 };
 
 const _pt = {
@@ -586,7 +626,15 @@ const _pt = {
   'feedbackHint': 'Diz-nos o que pensas…',
   'send': 'Enviar',
   'streakSemantics': 'Sequência de {n} dias',
-  'versionLabel': 'Versão {v}\nSchwaben Apps',
+    'back': 'Voltar',
+  'imageColors': 'Cores da imagem',
+  'pickNumber': 'Escolhe um número',
+  'templateSaved': 'Modelo guardado nas Fotos',
+  'saveFailed': 'Não foi possível guardar',
+  'sharingFailed': 'Falha ao partilhar',
+  'printTemplate': 'Modelo para imprimir',
+  'shareAndPrint': 'Partilhar e imprimir',
+'versionLabel': 'Versão {v}\nSchwaben Apps',
 };
 
 const _it = {
@@ -679,7 +727,15 @@ const _it = {
   'feedbackHint': 'Dicci cosa ne pensi…',
   'send': 'Invia',
   'streakSemantics': 'Serie di {n} giorni',
-  'versionLabel': 'Versione {v}\nSchwaben Apps',
+    'back': 'Indietro',
+  'imageColors': 'Colori dell’immagine',
+  'pickNumber': 'Scegli un numero',
+  'templateSaved': 'Modello salvato in Foto',
+  'saveFailed': 'Salvataggio non riuscito',
+  'sharingFailed': 'Condivisione non riuscita',
+  'printTemplate': 'Modello di stampa',
+  'shareAndPrint': 'Condividi e stampa',
+'versionLabel': 'Versione {v}\nSchwaben Apps',
 };
 
 const _nl = {
@@ -772,7 +828,15 @@ const _nl = {
   'feedbackHint': 'Vertel ons wat je denkt…',
   'send': 'Versturen',
   'streakSemantics': '{n}-dagenreeks',
-  'versionLabel': 'Versie {v}\nSchwaben Apps',
+    'back': 'Terug',
+  'imageColors': 'Afbeeldingskleuren',
+  'pickNumber': 'Kies een nummer',
+  'templateSaved': 'Sjabloon opgeslagen in Foto’s',
+  'saveFailed': 'Opslaan mislukt',
+  'sharingFailed': 'Delen mislukt',
+  'printTemplate': 'Printsjabloon',
+  'shareAndPrint': 'Delen & printen',
+'versionLabel': 'Versie {v}\nSchwaben Apps',
 };
 
 const _pl = {
@@ -865,7 +929,15 @@ const _pl = {
   'feedbackHint': 'Powiedz nam, co myślisz…',
   'send': 'Wyślij',
   'streakSemantics': 'Seria {n} dni',
-  'versionLabel': 'Wersja {v}\nSchwaben Apps',
+    'back': 'Wstecz',
+  'imageColors': 'Kolory obrazu',
+  'pickNumber': 'Wybierz numer',
+  'templateSaved': 'Szablon zapisany w Zdjęciach',
+  'saveFailed': 'Nie udało się zapisać',
+  'sharingFailed': 'Udostępnianie nie powiodło się',
+  'printTemplate': 'Szablon do druku',
+  'shareAndPrint': 'Udostępnij i drukuj',
+'versionLabel': 'Wersja {v}\nSchwaben Apps',
 };
 
 const _tr = {
@@ -958,5 +1030,13 @@ const _tr = {
   'feedbackHint': 'Ne düşündüğünü söyle…',
   'send': 'Gönder',
   'streakSemantics': '{n} günlük seri',
-  'versionLabel': 'Sürüm {v}\nSchwaben Apps',
+    'back': 'Geri',
+  'imageColors': 'Görsel renkleri',
+  'pickNumber': 'Bir numara seç',
+  'templateSaved': 'Şablon Fotoğraflar’a kaydedildi',
+  'saveFailed': 'Kaydedilemedi',
+  'sharingFailed': 'Paylaşım başarısız',
+  'printTemplate': 'Yazdırma şablonu',
+  'shareAndPrint': 'Paylaş ve yazdır',
+'versionLabel': 'Sürüm {v}\nSchwaben Apps',
 };

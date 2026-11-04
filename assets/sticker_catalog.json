@@ -214,6 +214,18 @@
       "id": "sticker_43",
       "asset": "assets/stickers/dcd6f724-4d11-4270-b206-39caf0763124.png",
       "coloringId": "fee_clean_43"
+    },
+    {
+      "id": "sticker_44",
+      "asset": "assets/stickers/14ef9156-5bb1-4465-8403-c0b25de2f42b.png"
+    },
+    {
+      "id": "sticker_45",
+      "asset": "assets/stickers/b7607948-4977-45e4-81d9-9e7181cb5997.png"
+    },
+    {
+      "id": "sticker_46",
+      "asset": "assets/stickers/9a6b56d7-1579-41ef-a839-c8df6af18ffd.png"
     }
   ]
 }

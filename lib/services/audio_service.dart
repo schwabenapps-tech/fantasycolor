@@ -19,6 +19,9 @@ class AudioService extends ChangeNotifier {
 
   static const _prefsMutedKey = 'audio_muted';
 
+  /// Hintergrundmusik — vorher 0.28 wirkte „weg“ / zu leise.
+  static const _ambientVolume = 0.52;
+
   static const calmTracks = <String>[
     'sounds/ambient_01_nymphs.mp3',
     'sounds/ambient_02_moon.mp3',
@@ -55,6 +58,7 @@ class AudioService extends ChangeNotifier {
 
   Future<void> _musicGate = Future<void>.value();
   Timer? _ambientDebounce;
+  Timer? _keepAlive;
 
   bool get muted => _muted;
   bool get isReady => _ready;
@@ -122,7 +126,7 @@ class AudioService extends ChangeNotifier {
     await _music!.setAudioContext(ctx);
     await _sfx!.setAudioContext(ctx);
     await _music!.setReleaseMode(ReleaseMode.stop);
-    await _music!.setVolume(0.28);
+    await _music!.setVolume(_ambientVolume);
     await _music!.setPlayerMode(PlayerMode.mediaPlayer);
     await _sfx!.setReleaseMode(ReleaseMode.stop);
     await _sfx!.setVolume(0.7);
@@ -207,6 +211,7 @@ class AudioService extends ChangeNotifier {
   Future<void> _startAmbientUnlocked() async {
     final firstStart = !_musicWanted;
     _musicWanted = true;
+    _armKeepAlive();
 
     if (!firstStart) {
       if (_muted) return;
@@ -222,6 +227,8 @@ class AudioService extends ChangeNotifier {
 
   Future<void> stopAmbient() async {
     _ambientDebounce?.cancel();
+    _keepAlive?.cancel();
+    _keepAlive = null;
     await _enqueueMusic(() async {
       _musicWanted = false;
       _currentAsset = null;
@@ -229,6 +236,53 @@ class AudioService extends ChangeNotifier {
         await _music?.stop();
       } catch (_) {}
     });
+  }
+
+  /// Nach Interstitial / Audio-Unterbrechung wieder anfahren.
+  Future<void> resumeAfterInterruption() async {
+    if (!_musicWanted || _muted) return;
+    try {
+      await initialize();
+    } catch (e, st) {
+      debugPrint('AudioService.resumeAfterInterruption init failed: $e\n$st');
+      return;
+    }
+    if (!_ready) return;
+    await _enqueueMusic(() async {
+      await _reassertAudioContext();
+      await _ensurePlayingUnlocked(force: true);
+    });
+  }
+
+  void _armKeepAlive() {
+    _keepAlive?.cancel();
+    // Falls Track-Ende oder Ads die Musik still beenden: sanft neu starten.
+    _keepAlive = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (!_musicWanted || _muted || !_ready) return;
+      final player = _music;
+      if (player == null) return;
+      final state = player.state;
+      if (state == PlayerState.playing) return;
+      unawaited(
+        _enqueueMusic(() => _ensurePlayingUnlocked(force: false)),
+      );
+    });
+  }
+
+  Future<void> _reassertAudioContext() async {
+    final ctx = AudioContextConfig(
+      route: AudioContextConfigRoute.system,
+      focus: AudioContextConfigFocus.gain,
+      respectSilence: false,
+      stayAwake: false,
+    ).build();
+    try {
+      await AudioPlayer.global.setAudioContext(ctx);
+      await _music?.setAudioContext(ctx);
+      await _music?.setVolume(_ambientVolume);
+    } catch (e, st) {
+      debugPrint('AudioService reassert context failed: $e\n$st');
+    }
   }
 
   /// App im Hintergrund / Display aus → Musik pausieren.
@@ -393,7 +447,7 @@ class AudioService extends ChangeNotifier {
     _music = AudioPlayer();
     await _music!.setAudioContext(ctx);
     await _music!.setReleaseMode(ReleaseMode.stop);
-    await _music!.setVolume(0.28);
+    await _music!.setVolume(_ambientVolume);
     await _music!.setPlayerMode(PlayerMode.mediaPlayer);
     _attachMusicCompleteHandlers(_music!);
   }
@@ -401,6 +455,7 @@ class AudioService extends ChangeNotifier {
   @override
   void dispose() {
     _ambientDebounce?.cancel();
+    _keepAlive?.cancel();
     unawaited(_musicCompleteSub?.cancel());
     unawaited(_musicStateSub?.cancel());
     unawaited(_music?.dispose());

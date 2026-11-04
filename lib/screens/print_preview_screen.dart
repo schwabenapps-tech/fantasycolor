@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../services/print_template_export.dart';
 import '../widgets/silver_back_button.dart';
@@ -26,13 +27,13 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
     try {
       await PrintTemplateExport.saveToPhotos(widget.page);
       if (!mounted) return;
-      _toast('Template saved to Photos');
+      _toast(AppStrings.of(context).templateSaved);
     } on PrintTemplateExportException catch (e) {
       if (!mounted) return;
       _toast(e.message);
     } catch (_) {
       if (!mounted) return;
-      _toast('Speichern hat nicht geklappt');
+      _toast(AppStrings.of(context).saveFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -55,7 +56,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      _toast('Sharing failed');
+      _toast(AppStrings.of(context).sharingFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -74,6 +75,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
   @override
   Widget build(BuildContext context) {
     final page = widget.page;
+    final t = AppStrings.of(context);
 
     return Scaffold(
       body: Stack(
@@ -97,7 +99,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Print template',
+                          t.printTemplate,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -151,7 +153,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                       Expanded(
                         child: _PreviewActionButton(
                           icon: Icons.photo_library_rounded,
-                          label: 'Save to Photos',
+                          label: t.saveToPhotos,
                           color: const Color(0xFF7AD7A8),
                           enabled: !_busy,
                           onPressed: _saveToPhotos,
@@ -162,7 +164,7 @@ class _PrintPreviewScreenState extends State<PrintPreviewScreen> {
                         child: _PreviewActionButton(
                           key: _shareButtonKey,
                           icon: Icons.print_rounded,
-                          label: 'Share & Print',
+                          label: t.shareAndPrint,
                           color: const Color(0xFF9EC8FF),
                           enabled: !_busy,
                           onPressed: _shareOrPrint,
