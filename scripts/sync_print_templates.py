@@ -3,7 +3,7 @@
 
 Quellen (nur einfache Motive, inkl. Halloween):
 - ~/Desktop/bilder_fantasycolor/einfachere bilder
-- ~/Desktop/fantasycolor_event_halloween/halloween ausmalbilder
+- ~/Desktop/fantasycolor_puzzle/fantasycolor_event_halloween/halloween ausmalbilder
 
 Schwierige Root-Motive aus bilder_fantasycolor werden nicht übernommen.
 """
@@ -21,7 +21,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIRS = [
     Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder",
-    Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
+    Path.home()
+    / "Desktop/fantasycolor_puzzle/fantasycolor_event_halloween/halloween ausmalbilder",
 ]
 DEST = ROOT / "assets/print_templates"
 HASH_PATH = ROOT / "assets/print_source_hashes.json"

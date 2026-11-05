@@ -20,6 +20,10 @@ class RemotePackService extends ChangeNotifier {
   static const cdnBase = 'https://cdn.schwabenapps.com';
   static const _prefsManifestVersion = 'remote_packs_manifest_version';
   static const _prefsPackVersions = 'remote_packs_versions_json';
+  static const _prefsNewSince = 'remote_packs_new_since_json';
+
+  /// Wie [EventTags.newBadgeDuration] — hier lokal, um Zyklen zu vermeiden.
+  static const newBadgeDuration = Duration(days: 14);
 
   bool _syncing = false;
   bool get isSyncing => _syncing;
@@ -29,6 +33,9 @@ class RemotePackService extends ChangeNotifier {
 
   List<RemotePack> _packs = const [];
   List<RemotePack> get packs => List.unmodifiable(_packs);
+
+  /// Remote-Seiten-ID → Datum, ab dem sie als „neu“ gelten.
+  Map<String, DateTime> _newSince = {};
 
   bool _indexLoaded = false;
 
@@ -43,6 +50,7 @@ class RemotePackService extends ChangeNotifier {
 
       final prefs = await SharedPreferences.getInstance();
       final packVersions = _readPackVersions(prefs);
+      _newSince = _readNewSince(prefs);
       final root = await _packsRoot();
       var changed = false;
       final beforeSignature = _packsSignature(_packs);
@@ -50,6 +58,8 @@ class RemotePackService extends ChangeNotifier {
       for (final pack in remote.packs) {
         final localVersion = packVersions[pack.id] ?? 0;
         if (localVersion >= pack.version && await _packComplete(root, pack)) {
+          // Auch ohne Download: released_at / bekannte Seiten als neu merken.
+          _rememberNewPages(pack);
           continue;
         }
         // Neue Pack-Version: alte Dateien entfernen, sonst bleiben stale PNGs.
@@ -60,6 +70,7 @@ class RemotePackService extends ChangeNotifier {
           }
         }
         await _downloadPack(root, pack);
+        _rememberNewPages(pack, forceFresh: localVersion < pack.version);
         packVersions[pack.id] = pack.version;
         changed = true;
       }
@@ -78,6 +89,13 @@ class RemotePackService extends ChangeNotifier {
 
       await prefs.setInt(_prefsManifestVersion, remote.version);
       await prefs.setString(_prefsPackVersions, jsonEncode(packVersions));
+      await prefs.setString(
+        _prefsNewSince,
+        jsonEncode({
+          for (final e in _newSince.entries)
+            e.key: e.value.toIso8601String().split('T').first,
+        }),
+      );
       await _cacheManifest(remote);
 
       _packs = remote.packs;
@@ -95,10 +113,50 @@ class RemotePackService extends ChangeNotifier {
     }
   }
 
+  /// Home/Galerie: Remote-Motiv innerhalb von [newBadgeDuration] als neu.
+  bool isNewPage(String pageId, {DateTime? now}) {
+    final stored = _newSince[pageId];
+    if (_isWithinNewBadge(stored, now: now)) return true;
+
+    for (final pack in _packs) {
+      final released = pack.releasedAt;
+      if (!_isWithinNewBadge(released, now: now)) continue;
+      for (final relative in pack.files) {
+        if (!_isGalleryFile(relative)) continue;
+        if (remotePageId(pack.id, relative) == pageId) return true;
+      }
+    }
+    return false;
+  }
+
+  void _rememberNewPages(RemotePack pack, {bool forceFresh = false}) {
+    final released = pack.releasedAt ?? DateTime.now();
+    final day = DateTime(released.year, released.month, released.day);
+    for (final relative in pack.files) {
+      if (!_isGalleryFile(relative)) continue;
+      final id = remotePageId(pack.id, relative);
+      if (forceFresh) {
+        _newSince[id] = day;
+      } else {
+        _newSince.putIfAbsent(id, () => day);
+      }
+    }
+  }
+
+  static bool _isGalleryFile(String relative) =>
+      relative.contains('/coloring/') || relative.contains('/puzzle/');
+
+  static bool _isWithinNewBadge(DateTime? since, {DateTime? now}) {
+    if (since == null) return false;
+    final n = now ?? DateTime.now();
+    final age = n.difference(since);
+    return !age.isNegative && age <= newBadgeDuration;
+  }
+
   static String _packsSignature(List<RemotePack> packs) {
     return [
       for (final p in packs)
-        '${p.id}:${p.version}:${p.files.length}:${p.startsAt}:${p.endsAt}',
+        '${p.id}:${p.version}:${p.files.length}:${p.startsAt}:${p.endsAt}:${p.releasedAt}',
     ].join('|');
   }
 
@@ -256,6 +314,8 @@ class RemotePackService extends ChangeNotifier {
     if (cached != null) {
       _packs = cached.packs;
     }
+    final prefs = await SharedPreferences.getInstance();
+    _newSince = _readNewSince(prefs);
     _indexLoaded = true;
   }
 
@@ -289,6 +349,9 @@ class RemotePackService extends ChangeNotifier {
                 'starts_at': p.startsAt!.toIso8601String().split('T').first,
               if (p.endsAt != null)
                 'ends_at': p.endsAt!.toIso8601String().split('T').first,
+              if (p.releasedAt != null)
+                'released_at':
+                    p.releasedAt!.toIso8601String().split('T').first,
             },
         ],
       }),
@@ -366,6 +429,23 @@ class RemotePackService extends ChangeNotifier {
     }
   }
 
+  Map<String, DateTime> _readNewSince(SharedPreferences prefs) {
+    final raw = prefs.getString(_prefsNewSince);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return {};
+      final out = <String, DateTime>{};
+      for (final e in json.entries) {
+        final parsed = ContentEvent.parseDate(e.value.toString());
+        if (parsed != null) out[e.key.toString()] = parsed;
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<(double, double)> _pngSize(File file) async {
     try {
       final bytes = await loadImageBytes(file.path);
@@ -399,6 +479,7 @@ class RemotePack {
     required this.files,
     this.startsAt,
     this.endsAt,
+    this.releasedAt,
   });
 
   final String id;
@@ -407,6 +488,9 @@ class RemotePack {
   final List<String> files;
   final DateTime? startsAt;
   final DateTime? endsAt;
+
+  /// Ab diesem Datum gelten Pack-Motive als „neu“ (Home / Badges).
+  final DateTime? releasedAt;
 
   factory RemotePack.fromJson(Map<String, dynamic> json) {
     final files = <String>[];
@@ -423,6 +507,7 @@ class RemotePack {
       files: files,
       startsAt: ContentEvent.parseDate(json['starts_at']),
       endsAt: ContentEvent.parseDate(json['ends_at']),
+      releasedAt: ContentEvent.parseDate(json['released_at']),
     );
   }
 }

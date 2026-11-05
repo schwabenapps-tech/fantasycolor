@@ -26,6 +26,7 @@ import 'services/app_update_service.dart';
 import 'services/audio_service.dart';
 import 'services/consent_service.dart';
 import 'services/deep_link_service.dart';
+import 'services/device_id_service.dart';
 import 'services/notification_service.dart';
 import 'services/remote_pack_service.dart';
 import 'services/streak_service.dart';
@@ -40,6 +41,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final firebaseReady = await _initFirebaseBestEffort();
+  // Anonyme Geräte-ID lokal erzeugen/laden; bei Deinstallation weg.
+  await DeviceIdService.instance.ensureInitialized(bindFirebase: firebaseReady);
   if (firebaseReady) {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
@@ -196,6 +199,11 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         unawaited(AudioService.instance.resumeFromBackground());
         unawaited(WakelockPlus.enable());
         unawaited(AppUpdateService.instance.check(forceRefresh: true));
+        // Neue Remote-Packs (Coloring/Puzzle/Stickers) ohne App-Neustart ziehen.
+        unawaited(() async {
+          await RemotePackService.instance.sync();
+          await _stickers.reloadCatalog();
+        }());
     }
   }
 

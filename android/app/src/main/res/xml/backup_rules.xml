@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto-Backup (API < 31): Geräte-ID-Datei nicht sichern,
+  sonst käme nach Neuinstallation dieselbe ID zurück.
+-->
+<full-backup-content>
+    <exclude
+        domain="file"
+        path="device_install_id_v1.txt" />
+</full-backup-content>

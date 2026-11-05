@@ -318,6 +318,7 @@ def upsert_manifest(
     files: list[str],
     starts_at: str | None,
     ends_at: str | None,
+    released_at: str | None = None,
 ) -> dict:
     packs = list(manifest.get("packs") or [])
     # Drop empty packs and rebuild this pack.
@@ -339,6 +340,8 @@ def upsert_manifest(
             entry["starts_at"] = starts_at
         if ends_at:
             entry["ends_at"] = ends_at
+        if released_at:
+            entry["released_at"] = released_at
         packs.append(entry)
     manifest["packs"] = packs
     manifest["version"] = int(manifest.get("version") or 0) + 1
@@ -384,6 +387,11 @@ def main() -> int:
     )
     parser.add_argument("--starts-at", default=None, help="Event start YYYY-MM-DD")
     parser.add_argument("--ends-at", default=None, help="Event end YYYY-MM-DD")
+    parser.add_argument(
+        "--released-at",
+        default=None,
+        help="Home/New badge start date YYYY-MM-DD (defaults to today)",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -464,6 +472,9 @@ def main() -> int:
                             except subprocess.CalledProcessError:
                                 pass
 
+        from datetime import date
+
+        released_at = args.released_at or date.today().isoformat()
         manifest = upsert_manifest(
             manifest,
             args.pack_id,
@@ -471,6 +482,7 @@ def main() -> int:
             files,
             args.starts_at,
             args.ends_at,
+            released_at=released_at,
         )
 
         local_manifest = Path(tmp) / "manifest.json"

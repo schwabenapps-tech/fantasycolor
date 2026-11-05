@@ -12,6 +12,7 @@ import '../l10n/app_strings.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/consent_service.dart';
+import '../services/device_id_service.dart';
 import '../services/store_config.dart';
 import '../utils/app_layout.dart';
 import '../widgets/silver_back_button.dart';
@@ -126,6 +127,16 @@ class SettingsScreen extends StatelessWidget {
                                 ),
                                 const Divider(height: 8),
                                 _SettingsTile(
+                                  icon: Icons.fingerprint_rounded,
+                                  title: t.deviceId,
+                                  subtitle:
+                                      '${DeviceIdService.instance.id}\n${t.deviceIdSub}',
+                                  trailingIcon: Icons.copy_rounded,
+                                  compactSubtitle: true,
+                                  onTap: () => _copyDeviceId(context),
+                                ),
+                                const Divider(height: 8),
+                                _SettingsTile(
                                   icon: Icons.feedback_outlined,
                                   title: t.sendFeedback,
                                   subtitle: t.sendFeedbackSub,
@@ -205,11 +216,24 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  static Future<void> _copyDeviceId(BuildContext context) async {
+    final id = DeviceIdService.instance.id;
+    if (id.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: id));
+    if (!context.mounted) return;
+    final t = AppStrings.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t.deviceIdCopied)),
+    );
+  }
+
   static Future<void> _openSupportMail(BuildContext context) async {
+    final deviceId = DeviceIdService.instance.id;
     await _sendMail(
       context,
       subject: 'Fairy Fantasy Color Support',
-      body: 'App version: $appVersion\n\n'
+      body: 'App version: $appVersion\n'
+          'Device ID: $deviceId\n\n'
           'Issue:\n\n'
           'Message:\n',
     );
@@ -223,10 +247,12 @@ class SettingsScreen extends StatelessWidget {
     );
     if (message == null || message.trim().isEmpty) return;
     if (!context.mounted) return;
+    final deviceId = DeviceIdService.instance.id;
     await _sendMail(
       context,
       subject: 'Fairy Fantasy Color Feedback',
-      body: 'App version: $appVersion\n\n${message.trim()}',
+      body: 'App version: $appVersion\n'
+          'Device ID: $deviceId\n\n${message.trim()}',
     );
   }
 
@@ -664,12 +690,16 @@ class _SettingsTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.trailingIcon,
+    this.compactSubtitle = false,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final IconData? trailingIcon;
+  final bool compactSubtitle;
   final VoidCallback? onTap;
 
   @override
@@ -691,12 +721,14 @@ class _SettingsTile extends StatelessWidget {
               style: TextStyle(
                 color: const Color(0xFF2A2410).withValues(alpha: 0.65),
                 height: 1.25,
+                fontSize: compactSubtitle ? 12 : null,
+                fontFamily: compactSubtitle ? 'monospace' : null,
               ),
             ),
       trailing: onTap == null
           ? null
           : Icon(
-              Icons.chevron_right_rounded,
+              trailingIcon ?? Icons.chevron_right_rounded,
               color: const Color(0xFF2A2410).withValues(alpha: 0.45),
             ),
     );

@@ -43,7 +43,12 @@ Future<List<ColoringPage>> loadColoringPages({
     ..sort();
 
   final bundlePages = paths.map(dimensions.pageFromPath).toList();
-  final sourceKeys = await _coloringSourceKeys();
+  // Bundle-Dateinamen + Source-Map-Werte — Remote-Packs mit gleichem Stem überspringen.
+  final sourceKeys = await _coloringSourceKeys(
+    bundleFileNames: [
+      for (final path in paths) path.split('/').last,
+    ],
+  );
   final remotePages = await RemotePackService.instance.coloringPages(
     bundleSourceKeys: sourceKeys,
   );
@@ -62,14 +67,21 @@ Future<List<ColoringPage>> loadColoringPages({
   );
 }
 
-Future<Set<String>> _coloringSourceKeys() async {
+Future<Set<String>> _coloringSourceKeys({
+  List<String> bundleFileNames = const [],
+}) async {
+  final keys = <String>{
+    for (final name in bundleFileNames) normalizeImageKey(name),
+  };
   try {
     final raw = await rootBundle.loadString('assets/coloring_source_map.json');
     final json = jsonDecode(raw) as Map<String, dynamic>;
-    return {
-      for (final value in json.values) normalizeImageKey(value.toString()),
-    };
-  } catch (_) {
-    return {};
-  }
+    for (final value in json.values) {
+      keys.add(normalizeImageKey(value.toString()));
+    }
+    for (final key in json.keys) {
+      keys.add(normalizeImageKey(key.toString()));
+    }
+  } catch (_) {}
+  return keys;
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cloud-Backup / Device-Transfer (API 31+): Geräte-ID nicht mitnehmen.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude
+            domain="file"
+            path="device_install_id_v1.txt" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude
+            domain="file"
+            path="device_install_id_v1.txt" />
+    </device-transfer>
+</data-extraction-rules>

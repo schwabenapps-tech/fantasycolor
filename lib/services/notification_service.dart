@@ -26,9 +26,27 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _ready = false;
+  Future<void>? _initFuture;
 
   Future<void> initialize() async {
     if (_ready) return;
+    // Parallel-Aufrufe (main + Hub) dürfen initialize nicht doppelt starten —
+    // sonst PlatformException auf dem MethodChannel.
+    final inFlight = _initFuture;
+    if (inFlight != null) return inFlight;
+
+    final future = _doInitialize();
+    _initFuture = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_initFuture, future)) {
+        _initFuture = null;
+      }
+    }
+  }
+
+  Future<void> _doInitialize() async {
     try {
       tzdata.initializeTimeZones();
       _setLocalTimezoneFromOffset();
@@ -123,43 +141,45 @@ class NotificationService {
 
   /// Plant eine ruhige tägliche Erinnerung (~16:30 Ortszeit).
   Future<void> scheduleGentleReminders(BuildContext context) async {
-    final t = AppStrings.of(context);
-    final dailyTitle = t.notifyTitle;
-    final dailyBody = t.notifyBody;
-
-    if (!_ready) await initialize();
-    final allowed = await requestPermissionIfNeeded();
-    if (!allowed) return;
-
-    await _plugin.cancel(_dailyId);
-    // Streak-Erinnerungen abschalten — kein täglicher „Race“.
-    await _plugin.cancel(_streakId);
-
-    final androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
-      channelDescription: 'Soft daily reminders for Fairy Fantasy Color',
-      importance: Importance.low,
-      priority: Priority.low,
-      styleInformation: BigTextStyleInformation(dailyBody),
-    );
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: false,
-      presentSound: true,
-    );
-    final details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    final now = tz.TZDateTime.now(tz.local);
-    var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, 16, 30);
-    if (!next.isAfter(now)) {
-      next = next.add(const Duration(days: 1));
-    }
-
+    // Gesamte Schedule-Pipeline abfangen: uncaught PlatformException landet
+    // sonst über PlatformDispatcher.onError als fataler Crashlytics-Crash.
     try {
+      final t = AppStrings.of(context);
+      final dailyTitle = t.notifyTitle;
+      final dailyBody = t.notifyBody;
+
+      if (!_ready) await initialize();
+      final allowed = await requestPermissionIfNeeded();
+      if (!allowed) return;
+
+      await _plugin.cancel(_dailyId);
+      // Streak-Erinnerungen abschalten — kein täglicher „Race“.
+      await _plugin.cancel(_streakId);
+
+      final androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: 'Soft daily reminders for Fairy Fantasy Color',
+        importance: Importance.low,
+        priority: Priority.low,
+        styleInformation: BigTextStyleInformation(dailyBody),
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: false,
+        presentSound: true,
+      );
+      final details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      final now = tz.TZDateTime.now(tz.local);
+      var next = tz.TZDateTime(tz.local, now.year, now.month, now.day, 16, 30);
+      if (!next.isAfter(now)) {
+        next = next.add(const Duration(days: 1));
+      }
+
       await _plugin.zonedSchedule(
         _dailyId,
         dailyTitle,

@@ -3,7 +3,7 @@
 
 Quellen:
 - ~/Desktop/bilder_fantasycolor/einfachere bilder
-- ~/Desktop/fantasycolor_event_halloween/halloween ausmalbilder
+- ~/Desktop/fantasycolor_puzzle/fantasycolor_event_halloween/halloween ausmalbilder
 
 Schreibt außerdem:
 - assets/coloring_asset_hashes.json
@@ -29,7 +29,8 @@ def _norm_name(name: str) -> str:
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIRS = [
     Path.home() / "Desktop/bilder_fantasycolor/einfachere bilder",
-    Path.home() / "Desktop/fantasycolor_event_halloween/halloween ausmalbilder",
+    Path.home()
+    / "Desktop/fantasycolor_puzzle/fantasycolor_event_halloween/halloween ausmalbilder",
 ]
 DEST = ROOT / "assets/coloring_pages"
 MAP_PATH = ROOT / "assets/coloring_source_map.json"

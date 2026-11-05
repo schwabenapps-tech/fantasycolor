@@ -214,6 +214,66 @@
       "path": "assets/coloring_pages/fee_clean_43.png",
       "width": 1310,
       "height": 1201
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_44.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_45.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_46.png",
+      "width": 1247,
+      "height": 1261
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_47.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_48.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_49.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_50.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_51.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_52.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_53.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_54.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_55.png",
+      "width": 1122,
+      "height": 1402
     }
   ],
   "print_templates": [
@@ -301,6 +361,11 @@
       "path": "assets/print_templates/chatgpt-bild_30_sept_2026_23_48_21.png",
       "width": 1280,
       "height": 1169
+    },
+    {
+      "path": "assets/print_templates/chatgpt-bild_4_nov_2026_12_10_57.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/print_templates/chatgpt_image_10_sept_2026_21_49_51.png",
@@ -423,14 +488,69 @@
       "height": 1280
     },
     {
+      "path": "assets/print_templates/chibi-feenjunge_als_malvorlage_daumen_hoch.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/print_templates/chibi-herzfee_mit_fro_hlich_geschlossenen_augen.png",
+      "width": 1247,
+      "height": 1261
+    },
+    {
+      "path": "assets/print_templates/chibi-schmetterlingsfee_zum_ausmalen.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
       "path": "assets/print_templates/da68d204-2d9d-411f-b112-5f03f1961b2b.png",
       "width": 1280,
       "height": 1173
     },
     {
+      "path": "assets/print_templates/feen-malvorlage_mit_zuckerwatte_und_flu_geln.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/print_templates/fu_nf_fliegende_drachen_zum_ausmalen.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "path": "assets/print_templates/ma_rchenfee_mit_blu_tenhaarreif.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/print_templates/mutmacher-malbild_mit_offenen_augen.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/print_templates/schlafende_sternenfee_auf_der_mondsichel.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/print_templates/schmetterlingsfee_mit_fro_hlichen_augenbrauen.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/print_templates/unterwasserfee_mit_bettafisch_zum_ausmalen.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
       "path": "assets/print_templates/wasserfee_vereinfacht.png",
       "width": 1024,
       "height": 1280
+    },
+    {
+      "path": "assets/print_templates/winkende_chibi-lichtfee_mit_schmetterlingsflu_geln.png",
+      "width": 1122,
+      "height": 1402
     }
   ],
   "puzzle_images": [
@@ -453,6 +573,11 @@
       "path": "assets/puzzle_images/23907050-b1b0-48dd-a31b-c88fd66dd0ac.png",
       "width": 1200,
       "height": 1095
+    },
+    {
+      "path": "assets/puzzle_images/29b02f1a-295b-4e77-8c33-07e259324e99.png",
+      "width": 1024,
+      "height": 1536
     },
     {
       "path": "assets/puzzle_images/2bc41579-5cad-4e43-b584-585e93f4c5a2.png",
@@ -486,8 +611,8 @@
     },
     {
       "path": "assets/puzzle_images/37ecd5ea-2050-4526-8288-d25a712b3591.png",
-      "width": 1200,
-      "height": 1004
+      "width": 1371,
+      "height": 1148
     },
     {
       "path": "assets/puzzle_images/5750fa33-e2de-4f1f-825b-bb4210e45989.png",
@@ -503,6 +628,11 @@
       "path": "assets/puzzle_images/5edc5c99-68a0-4b6c-984f-89aa7631abb0.png",
       "width": 960,
       "height": 1200
+    },
+    {
+      "path": "assets/puzzle_images/5f1c0ad0-68da-467f-aa23-d8dc359a41b5.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/puzzle_images/648c4d0d-70a0-4521-a930-59c802a34da0.png",
@@ -521,8 +651,8 @@
     },
     {
       "path": "assets/puzzle_images/75cb9b01-b259-4b3d-8d65-fd8cab2c98da.png",
-      "width": 1200,
-      "height": 1095
+      "width": 1312,
+      "height": 1199
     },
     {
       "path": "assets/puzzle_images/7a8e54bf-337c-46c4-a1a1-f0b236b83cc3.png",
@@ -531,8 +661,8 @@
     },
     {
       "path": "assets/puzzle_images/7c33e133-ce4f-4bb0-bcd3-1257cdd23ce6.png",
-      "width": 1200,
-      "height": 1095
+      "width": 1312,
+      "height": 1199
     },
     {
       "path": "assets/puzzle_images/7ff08153-2c3e-465e-814f-df41d674f49e.png",
@@ -843,6 +973,11 @@
       "path": "assets/puzzle_images/e789a772-cb9a-4183-94d9-b37577bce227.png",
       "width": 1280,
       "height": 1169
+    },
+    {
+      "path": "assets/puzzle_images/feac43e7-2dc2-436c-b129-02a8cfe62af3.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/puzzle_images/feen_geleiten_schmetterlinge_ins_gewaechshaus.png",

@@ -32,6 +32,9 @@ class AppStrings {
   String get music => _t('music');
   String get contactSupport => _t('contactSupport');
   String get contactSupportSub => _t('contactSupportSub');
+  String get deviceId => _t('deviceId');
+  String get deviceIdSub => _t('deviceIdSub');
+  String get deviceIdCopied => _t('deviceIdCopied');
   String get sendFeedback => _t('sendFeedback');
   String get sendFeedbackSub => _t('sendFeedbackSub');
   String get rateApp => _t('rateApp');
@@ -138,6 +141,9 @@ const _en = {
   'music': 'Music',
   'contactSupport': 'Contact support',
   'contactSupportSub': 'Report an issue and get help',
+  'deviceId': 'Device ID',
+  'deviceIdSub': 'Tap to copy — include this in support messages',
+  'deviceIdCopied': 'Device ID copied',
   'sendFeedback': 'Send feedback',
   'sendFeedbackSub': 'Share ideas or report a problem',
   'rateApp': 'Rate Fairy Fantasy Color',
@@ -239,6 +245,9 @@ const _de = {
   'music': 'Musik',
   'contactSupport': 'Support kontaktieren',
   'contactSupportSub': 'Problem melden und Hilfe bekommen',
+  'deviceId': 'Geräte-ID',
+  'deviceIdSub': 'Tippen zum Kopieren — bei Support-Anfragen mit angeben',
+  'deviceIdCopied': 'Geräte-ID kopiert',
   'sendFeedback': 'Feedback senden',
   'sendFeedbackSub': 'Ideen teilen oder ein Problem melden',
   'rateApp': 'Fairy Fantasy Color bewerten',

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
-/// Leichte Analytics-Hülle — keine User-IDs, nur App-Nutzung.
+import 'device_id_service.dart';
+
+/// Leichte Analytics-Hülle — anonyme Geräte-ID via [DeviceIdService].
 class AnalyticsService {
   AnalyticsService._();
 
@@ -17,6 +19,11 @@ class AnalyticsService {
   Future<void> initialize() async {
     try {
       await _analytics.setAnalyticsCollectionEnabled(true);
+      // Nach Collection-Enable erneut binden (Reihenfolge robust).
+      final id = DeviceIdService.instance.id;
+      if (id.isNotEmpty) {
+        await _analytics.setUserId(id: id);
+      }
     } catch (e, st) {
       debugPrint('AnalyticsService.initialize failed: $e\n$st');
     }

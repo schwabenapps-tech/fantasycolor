@@ -82,10 +82,12 @@ class EventTags {
   bool isFeaturedPuzzle(String id) => featuredPuzzle.contains(id);
 
   bool isNewColoring(String id, {DateTime? now}) =>
-      _isNew(newSinceColoring[id], now: now);
+      _isNew(newSinceColoring[id], now: now) ||
+      RemotePackService.instance.isNewPage(id, now: now);
 
   bool isNewPuzzle(String id, {DateTime? now}) =>
-      _isNew(newSincePuzzle[id], now: now);
+      _isNew(newSincePuzzle[id], now: now) ||
+      RemotePackService.instance.isNewPage(id, now: now);
 
   DateTime? coloringAddedAt(String id) => newSinceColoring[id];
   DateTime? puzzleAddedAt(String id) => newSincePuzzle[id];

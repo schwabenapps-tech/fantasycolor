@@ -3,7 +3,8 @@
 
 Quellen:
 - ~/Desktop/fantasycolor_puzzle
-- ~/Desktop/fantasycolor_event_halloween  (nur Root, nicht „halloween ausmalbilder“)
+- ~/Desktop/fantasycolor_puzzle/fantasycolor_event_halloween
+  (nur Root, nicht „halloween ausmalbilder“)
 - ~/Desktop/herbstbilder feen
 
 Schreibweise: lowercase, Leerzeichen/Sonderzeichen → `_`.
@@ -36,7 +37,7 @@ _UMLAUT = str.maketrans(
 ROOT = Path(__file__).resolve().parents[1]
 SRC_DIRS = [
     Path.home() / "Desktop/fantasycolor_puzzle",
-    Path.home() / "Desktop/fantasycolor_event_halloween",
+    Path.home() / "Desktop/fantasycolor_puzzle/fantasycolor_event_halloween",
     Path.home() / "Desktop/herbstbilder feen",
 ]
 DEST = ROOT / "assets/puzzle_images"
@@ -168,7 +169,10 @@ def main() -> int:
     )
 
     halloween_dir = str(
-        (Path.home() / "Desktop/fantasycolor_event_halloween").resolve()
+        (
+            Path.home()
+            / "Desktop/fantasycolor_puzzle/fantasycolor_event_halloween"
+        ).resolve()
     )
     halloween_puzzle = sorted(
         page_id(name)
