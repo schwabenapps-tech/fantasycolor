@@ -211,10 +211,16 @@ class AdsService {
       );
     } catch (e, st) {
       debugPrint('AdsService.showInterstitial failed: $e\n$st');
-      ad.dispose();
-      _showing = false;
+      try {
+        ad.dispose();
+      } catch (_) {}
       unawaited(preloadInterstitial());
-      unawaited(AudioService.instance.resumeAfterInterruption());
+    } finally {
+      // Timeout / Abbruch: Musik nicht dauerhaft stumm lassen.
+      if (_showing) {
+        _showing = false;
+        unawaited(AudioService.instance.resumeAfterInterruption());
+      }
     }
   }
 }
