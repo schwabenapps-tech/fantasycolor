@@ -87,6 +87,30 @@ ORDER = [
     "ChatGPT-Bild 30. Sept. 2026, 23_00_17.png",
     "ChatGPT-Bild 30. Sept. 2026, 23_48_21.png",
     "DA68D204-2D9D-411F-B112-5F03F1961B2B.png",
+    # Herbst / Nov 2026 — IDs fee_clean_44…55 stabil halten
+    "ChatGPT-Bild 4. Nov. 2026, 12_10_57.png",
+    "Chibi-Feenjunge als Malvorlage, Daumen hoch.png",
+    "Chibi-Herzfee mit fröhlich geschlossenen Augen.png",
+    "Chibi-Schmetterlingsfee zum Ausmalen.png",
+    "Feen-Malvorlage mit Zuckerwatte und Flügeln.png",
+    "Fünf fliegende Drachen zum Ausmalen.png",
+    "Mutmacher-Malbild mit offenen Augen.png",
+    "Märchenfee mit Blütenhaarreif.png",
+    "Schlafende Sternenfee auf der Mondsichel.png",
+    "Schmetterlingsfee mit fröhlichen Augenbrauen.png",
+    "Unterwasserfee mit Bettafisch zum Ausmalen.png",
+    "Winkende Chibi-Lichtfee mit Schmetterlingsflügeln.png",
+    # Neu 6. Nov. 2026 — fee_clean_56…65
+    "15C770B5-1393-4373-BCFD-2CD428659990.png",
+    "25BD8A64-4448-40E6-82D9-18D27071D584.png",
+    "340FF59D-FD60-4E2C-AF14-5389D5DBE352.png",
+    "43BB333E-D7DC-4083-8D8B-EE34E54A5053.png",
+    "52FDD18D-D985-476D-BB7E-E151DEE275AF.png",
+    "5A0FCCFC-6855-4275-A719-013BA6E79439.png",
+    "65A972A4-BEFC-4DBB-9211-3CF8DA12AACE.png",
+    "818D04DD-8263-4BD4-A275-78805286ED99.png",
+    "D34F3A4D-6512-4418-81EE-62B9A899594D.png",
+    "Elian mit fröhlich geschlossenen Augen.png",
 ]
 
 
@@ -113,11 +137,35 @@ def collect_desktop() -> dict[str, Path]:
 
 
 def resolve_order(desk: dict[str, Path]) -> list[str]:
-    """ORDER bereinigen + neue Desktop-Dateien anhängen."""
+    """ORDER bereinigen + neue Desktop-Dateien anhängen.
+
+    Extras: zuerst bekannte source_map-Reihenfolge (stabile IDs), dann
+    alphabetisch — verhindert, dass neue Dateien fee_clean_XX umnummerieren.
+    """
     order_nfc = [_norm_name(n) for n in ORDER]
     kept = [n for n in order_nfc if n in desk]
     known = set(kept)
-    extras = sorted(n for n in desk if n not in known)
+    extras = [n for n in desk if n not in known]
+
+    map_order: list[str] = []
+    if MAP_PATH.exists():
+        try:
+            raw = json.loads(MAP_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                for key in sorted(
+                    raw,
+                    key=lambda k: int(str(k).split("_")[-1])
+                    if str(k).startswith("fee_clean_")
+                    else 10**9,
+                ):
+                    name = _norm_name(str(raw[key]))
+                    if name in extras and name not in map_order:
+                        map_order.append(name)
+        except (json.JSONDecodeError, OSError, ValueError):
+            map_order = []
+    rest = sorted(n for n in extras if n not in set(map_order))
+    extras = map_order + rest
+
     if extras:
         print("Appending new desktop files:")
         for n in extras:

@@ -274,13 +274,103 @@
       "path": "assets/coloring_pages/fee_clean_55.png",
       "width": 1122,
       "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_56.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_57.png",
+      "width": 1210,
+      "height": 1300
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_58.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_59.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_60.png",
+      "width": 1226,
+      "height": 1283
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_61.png",
+      "width": 1144,
+      "height": 1375
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_62.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_63.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_64.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_65.png",
+      "width": 1332,
+      "height": 1181
     }
   ],
   "print_templates": [
     {
+      "path": "assets/print_templates/15c770b5-1393-4373-bcfd-2cd428659990.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
       "path": "assets/print_templates/227f10e2-c21e-43be-8187-a571e6bf30a4.png",
       "width": 1254,
       "height": 1254
+    },
+    {
+      "path": "assets/print_templates/25bd8a64-4448-40e6-82d9-18d27071d584.png",
+      "width": 1210,
+      "height": 1300
+    },
+    {
+      "path": "assets/print_templates/340ff59d-fd60-4e2c-af14-5389d5dbe352.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/print_templates/43bb333e-d7dc-4083-8d8b-ee34e54a5053.png",
+      "width": 1145,
+      "height": 1374
+    },
+    {
+      "path": "assets/print_templates/52fdd18d-d985-476d-bb7e-e151dee275af.png",
+      "width": 1226,
+      "height": 1283
+    },
+    {
+      "path": "assets/print_templates/5a0fccfc-6855-4275-a719-013ba6e79439.png",
+      "width": 1144,
+      "height": 1375
+    },
+    {
+      "path": "assets/print_templates/65a972a4-befc-4dbb-9211-3cf8da12aace.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "path": "assets/print_templates/818d04dd-8263-4bd4-a275-78805286ed99.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/print_templates/chatgpt-bild_11_okt_2026_09_11_35.png",
@@ -503,9 +593,19 @@
       "height": 1254
     },
     {
+      "path": "assets/print_templates/d34f3a4d-6512-4418-81ee-62b9a899594d.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
       "path": "assets/print_templates/da68d204-2d9d-411f-b112-5f03f1961b2b.png",
       "width": 1280,
       "height": 1173
+    },
+    {
+      "path": "assets/print_templates/elian_mit_fro_hlich_geschlossenen_augen.png",
+      "width": 1332,
+      "height": 1181
     },
     {
       "path": "assets/print_templates/feen-malvorlage_mit_zuckerwatte_und_flu_geln.png",
