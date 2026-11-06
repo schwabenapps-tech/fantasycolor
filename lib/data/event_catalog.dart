@@ -113,10 +113,15 @@ class GalleryCatalog {
   bool get isEmpty => orderedSections.every((s) => s.pages.isEmpty);
 }
 
+/// Stem-Key für Bundle/CDN-Dedup — analog zu `scripts/upload_r2_pack.py`.
 String normalizeImageKey(String name) {
   var stem = name.split('/').last;
-  stem = stem.replaceAll(RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false), '');
-  stem = stem.toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+  stem = stem.replaceAll(
+    RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false),
+    '',
+  );
+  stem = stem.toLowerCase();
+  stem = stem.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
   stem = stem.replaceAll(RegExp(r'_+'), '_');
   return stem.replaceAll(RegExp(r'^_|_$'), '');
 }

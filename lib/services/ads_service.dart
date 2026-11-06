@@ -182,6 +182,9 @@ class AdsService {
     _showing = true;
     final done = Completer<void>();
 
+    // Musik vor Fullscreen stoppen — verhindert Android MEDIA_ERROR -38.
+    await AudioService.instance.pauseForInterruption();
+
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (ad) {
         ad.dispose();

@@ -36,7 +36,13 @@ python3 scripts/upload_r2_pack.py \
   --ends-at 2026-11-02
 ```
 
-Images already in the app bundle (`coloring_source_map.json` / `puzzle_images/` / `assets/stickers/`) are **skipped** (no duplicates).
+Images already in the app bundle are **skipped** (no duplicates):
+
+- Coloring: `assets/coloring_pages/*` **and** `coloring_source_map.json` keys+values
+- Puzzle: `assets/puzzle_images/*`
+- Stickers: `assets/stickers/*`
+
+**Wichtig:** CDN kann Bundle-Bilder **nicht ersetzen**. Gleicher Stem (`fee_clean_50.png`) wird in der App verworfen — sichtbare Änderungen brauchen ein Store-Update mit neuem Asset. CDN nur für **neue** Dateinamen, die noch nicht im Bundle liegen.
 
 Always uses Wrangler `--remote`.
 

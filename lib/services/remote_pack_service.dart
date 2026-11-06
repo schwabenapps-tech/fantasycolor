@@ -135,10 +135,14 @@ class RemotePackService extends ChangeNotifier {
     for (final relative in pack.files) {
       if (!_isGalleryFile(relative)) continue;
       final id = remotePageId(pack.id, relative);
-      if (forceFresh) {
-        _newSince[id] = day;
-      } else {
-        _newSince.putIfAbsent(id, () => day);
+      // Auch Bundle-Stem (fee_clean_50), falls Remote wegen Dedup verworfen wird.
+      final stem = normalizeImageKey(relative.split('/').last);
+      for (final key in {id, if (stem.isNotEmpty) stem}) {
+        if (forceFresh) {
+          _newSince[key] = day;
+        } else {
+          _newSince.putIfAbsent(key, () => day);
+        }
       }
     }
   }
@@ -288,7 +292,11 @@ class RemotePackService extends ChangeNotifier {
       for (final relative in pack.files) {
         if (!relative.contains('/$section/')) continue;
         final fileName = relative.split('/').last;
-        if (bundleSourceKeys.contains(normalizeImageKey(fileName))) {
+        final key = normalizeImageKey(fileName);
+        if (bundleSourceKeys.contains(key)) {
+          debugPrint(
+            'RemotePackService: skip $relative (already in bundle as $key)',
+          );
           continue;
         }
         final file = File('${root.path}/${pack.id}/$section/$fileName');

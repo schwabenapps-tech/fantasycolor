@@ -49,6 +49,9 @@ class AudioService extends ChangeNotifier {
   String? _currentAsset;
   Future<void>? _initFuture;
 
+  /// Interstitial / Fullscreen-Ad — KeepAlive darf nicht neu starten.
+  bool _interruptedByAd = false;
+
   /// Verhindert Doppel-Advance (complete + state-change).
   bool _advancing = false;
 
@@ -238,8 +241,19 @@ class AudioService extends ChangeNotifier {
     });
   }
 
+  /// Vor Interstitial: Musik pausieren (ohne Ambient abzuschalten).
+  Future<void> pauseForInterruption() async {
+    _interruptedByAd = true;
+    await _enqueueMusic(() async {
+      try {
+        await _music?.pause();
+      } catch (_) {}
+    });
+  }
+
   /// Nach Interstitial / Audio-Unterbrechung wieder anfahren.
   Future<void> resumeAfterInterruption() async {
+    _interruptedByAd = false;
     if (!_musicWanted || _muted) return;
     try {
       await initialize();
@@ -258,7 +272,7 @@ class AudioService extends ChangeNotifier {
     _keepAlive?.cancel();
     // Falls Track-Ende oder Ads die Musik still beenden: sanft neu starten.
     _keepAlive = Timer.periodic(const Duration(seconds: 12), (_) {
-      if (!_musicWanted || _muted || !_ready) return;
+      if (!_musicWanted || _muted || !_ready || _interruptedByAd) return;
       final player = _music;
       if (player == null) return;
       final state = player.state;
@@ -330,7 +344,7 @@ class AudioService extends ChangeNotifier {
   }
 
   Future<void> _ensurePlayingUnlocked({required bool force}) async {
-    if (_muted || !_musicWanted) return;
+    if (_muted || !_musicWanted || _interruptedByAd) return;
     final player = _music;
     if (player == null) return;
 

@@ -135,10 +135,25 @@ def fetch_remote_manifest() -> dict:
 
 
 def load_bundle_names() -> tuple[set[str], set[str]]:
+    """Keys must match app dedup in coloring_pages_loader / RemotePackService.
+
+    The app skips remote coloring when the stem matches:
+      - assets/coloring_pages/*.png filename
+      - coloring_source_map.json keys (fee_clean_N)
+      - coloring_source_map.json values (original titles)
+    Upload used to only check map *values*, so fee_clean_44.png etc. were
+    uploaded, downloaded on device, then silently dropped in the gallery.
+    """
     coloring: set[str] = set()
+    coloring_dir = ROOT / "assets/coloring_pages"
+    if coloring_dir.is_dir():
+        for path in coloring_dir.iterdir():
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTS:
+                coloring.add(normalize_name(path.name))
     if SOURCE_MAP.is_file():
         data = json.loads(SOURCE_MAP.read_text(encoding="utf-8"))
-        for value in data.values():
+        for key, value in data.items():
+            coloring.add(normalize_name(str(key)))
             coloring.add(normalize_name(str(value)))
     puzzle: set[str] = set()
     if PUZZLE_DIR.is_dir():
