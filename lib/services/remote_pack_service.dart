@@ -71,7 +71,15 @@ class RemotePackService extends ChangeNotifier {
         }
         await _downloadPack(root, pack);
         _rememberNewPages(pack, forceFresh: localVersion < pack.version);
-        packVersions[pack.id] = pack.version;
+        // Version erst merken, wenn alle Dateien da sind — sonst bleibt der
+        // Sync bei Resume hängen und Stickers fehlen still.
+        if (await _packComplete(root, pack)) {
+          packVersions[pack.id] = pack.version;
+        } else {
+          debugPrint(
+            'RemotePackService: pack ${pack.id} incomplete — retry next sync',
+          );
+        }
         changed = true;
       }
 
@@ -122,22 +130,41 @@ class RemotePackService extends ChangeNotifier {
       final released = pack.releasedAt;
       if (!_isWithinNewBadge(released, now: now)) continue;
       for (final relative in pack.files) {
-        if (!_isGalleryFile(relative)) continue;
-        if (remotePageId(pack.id, relative) == pageId) return true;
+        if (!_isTrackedRemoteFile(relative)) continue;
+        if (_matchesRemotePageId(pack.id, relative, pageId)) return true;
       }
     }
     return false;
+  }
+
+  /// raw Stem-ID, normalisierte Stem-ID oder nackter normalize-Key.
+  static bool _matchesRemotePageId(
+    String packId,
+    String relative,
+    String pageId,
+  ) {
+    if (remotePageId(packId, relative) == pageId) return true;
+    final stem = normalizeImageKey(relative.split('/').last);
+    if (stem.isEmpty) return false;
+    return pageId == stem || pageId == 'remote_${packId}_$stem';
   }
 
   void _rememberNewPages(RemotePack pack, {bool forceFresh = false}) {
     final released = pack.releasedAt ?? DateTime.now();
     final day = DateTime(released.year, released.month, released.day);
     for (final relative in pack.files) {
-      if (!_isGalleryFile(relative)) continue;
-      final id = remotePageId(pack.id, relative);
+      if (!_isTrackedRemoteFile(relative)) continue;
+      final rawId = remotePageId(pack.id, relative);
       // Auch Bundle-Stem (fee_clean_50), falls Remote wegen Dedup verworfen wird.
       final stem = normalizeImageKey(relative.split('/').last);
-      for (final key in {id, if (stem.isNotEmpty) stem}) {
+      // Sticker-Katalog-IDs: remote_{pack}_{normalizeImageKey} (Upload-Script).
+      final normalizedId =
+          stem.isEmpty ? null : 'remote_${pack.id}_$stem';
+      for (final key in {
+        rawId,
+        if (stem.isNotEmpty) stem,
+        ?normalizedId,
+      }) {
         if (forceFresh) {
           _newSince[key] = day;
         } else {
@@ -147,8 +174,50 @@ class RemotePackService extends ChangeNotifier {
     }
   }
 
-  static bool _isGalleryFile(String relative) =>
-      relative.contains('/coloring/') || relative.contains('/puzzle/');
+  /// Coloring/Puzzle/Stickers (ohne catalog.json).
+  static bool _isTrackedRemoteFile(String relative) {
+    if (relative.endsWith('/catalog.json') || relative.endsWith('catalog.json')) {
+      return false;
+    }
+    return relative.contains('/coloring/') ||
+        relative.contains('/puzzle/') ||
+        relative.contains('/stickers/');
+  }
+
+  /// Alias für Stickers — gleiche New-Badge-Fenster wie Galerie.
+  bool isNewSticker(String stickerId, {DateTime? now}) =>
+      isNewPage(stickerId, now: now);
+
+  DateTime? stickerAddedAt(String stickerId) => pageAddedAt(stickerId);
+
+  /// Datum für Sortierung „neueste zuerst“ (Prefs + Pack `released_at`).
+  DateTime? pageAddedAt(String pageId) {
+    final stored = _newSince[pageId];
+    if (stored != null) return stored;
+    DateTime? best;
+    for (final pack in _packs) {
+      final released = pack.releasedAt;
+      if (released == null) continue;
+      for (final relative in pack.files) {
+        if (!_isTrackedRemoteFile(relative)) continue;
+        if (!_matchesRemotePageId(pack.id, relative, pageId)) continue;
+        if (best == null || released.isAfter(best)) {
+          best = DateTime(released.year, released.month, released.day);
+        }
+      }
+    }
+    return best;
+  }
+
+  /// CDN-URL mit korrektem Path-Encoding (Kommas, Spaces, Unicode).
+  static Uri cdnUriFor(String relative) {
+    final base = Uri.parse(cdnBase);
+    final segments = <String>[
+      ...base.pathSegments.where((s) => s.isNotEmpty),
+      ...relative.split('/').where((s) => s.isNotEmpty),
+    ];
+    return base.replace(pathSegments: segments);
+  }
 
   static bool _isWithinNewBadge(DateTime? since, {DateTime? now}) {
     if (since == null) return false;
@@ -188,10 +257,13 @@ class RemotePackService extends ChangeNotifier {
     final root = await _packsRoot();
     final out = <StickerEntry>[];
     final seenIds = <String>{};
-    for (final pack in _packs) {
+    // Neueste Packs zuerst — neue Stickers landen vorne im Album.
+    final packsNewestFirst = _packs.reversed.toList(growable: false);
+    for (final pack in packsNewestFirst) {
       final stickerDir = Directory('${root.path}/${pack.id}/stickers');
       if (!await stickerDir.exists()) continue;
 
+      var loadedFromCatalog = 0;
       final catalogFile = File('${stickerDir.path}/catalog.json');
       if (await catalogFile.exists()) {
         try {
@@ -206,8 +278,8 @@ class RemotePackService extends ChangeNotifier {
                 final assetName = map['asset']?.toString();
                 if (id == null || id.isEmpty || assetName == null) continue;
                 final fileName = assetName.split('/').last;
-                final file = File('${stickerDir.path}/$fileName');
-                if (!await file.exists()) continue;
+                final file = await _resolveStickerFile(stickerDir, fileName);
+                if (file == null) continue;
                 if (!seenIds.add(id)) continue;
                 out.add(
                   StickerEntry(
@@ -217,8 +289,8 @@ class RemotePackService extends ChangeNotifier {
                     puzzleId: map['puzzleId'] as String?,
                   ),
                 );
+                loadedFromCatalog++;
               }
-              continue;
             }
           }
         } catch (e) {
@@ -226,7 +298,9 @@ class RemotePackService extends ChangeNotifier {
         }
       }
 
-      // Fallback: jede Bilddatei ohne catalog.json.
+      // Fallback wenn kein Katalog oder Katalog 0 Treffer (Name-Mismatch).
+      if (loadedFromCatalog > 0) continue;
+
       final images = stickerDir
           .listSync()
           .whereType<File>()
@@ -238,18 +312,45 @@ class RemotePackService extends ChangeNotifier {
                 n.endsWith('.webp');
           })
           .toList()
-        ..sort((a, b) => a.path.compareTo(b.path));
+        ..sort((a, b) => b.path.compareTo(a.path));
       for (final file in images) {
-        final stem = file.uri.pathSegments.last.replaceAll(
-          RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false),
-          '',
-        );
-        final id = 'remote_${pack.id}_$stem';
+        final name = file.uri.pathSegments.last;
+        final id = 'remote_${pack.id}_${normalizeImageKey(name)}';
         if (!seenIds.add(id)) continue;
         out.add(StickerEntry(id: id, assetPath: file.path));
       }
     }
     return out;
+  }
+
+  /// Direkter Dateiname, Space→`_`, oder normalizeImageKey-Match.
+  Future<File?> _resolveStickerFile(Directory stickerDir, String fileName) async {
+    final candidates = <String>{
+      fileName,
+      fileName.replaceAll(' ', '_'),
+      fileName.replaceAll(' ', '-'),
+    };
+    for (final name in candidates) {
+      final file = File('${stickerDir.path}/$name');
+      if (await file.exists()) return file;
+    }
+    final want = normalizeImageKey(fileName);
+    if (want.isEmpty) return null;
+    try {
+      for (final entity in stickerDir.listSync()) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        final lower = name.toLowerCase();
+        if (!(lower.endsWith('.png') ||
+            lower.endsWith('.jpg') ||
+            lower.endsWith('.jpeg') ||
+            lower.endsWith('.webp'))) {
+          continue;
+        }
+        if (normalizeImageKey(name) == want) return entity;
+      }
+    } catch (_) {}
+    return null;
   }
 
   List<ContentEvent> remoteEvents() {
@@ -399,7 +500,7 @@ class RemotePackService extends ChangeNotifier {
       final dest = File('${root.path}/${pack.id}/$section/$fileName');
       if (await dest.exists()) continue;
       await dest.parent.create(recursive: true);
-      final uri = Uri.parse('$cdnBase/$relative');
+      final uri = cdnUriFor(relative);
       final response =
           await http.get(uri).timeout(const Duration(seconds: 60));
       if (response.statusCode != 200) {

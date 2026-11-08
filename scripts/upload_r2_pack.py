@@ -40,12 +40,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import mimetypes
 import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -58,14 +60,48 @@ STICKER_DIR = ROOT / "assets/stickers"
 
 
 def normalize_name(name: str) -> str:
-    """Match Source-Map and R2 keys across spaces/underscores/punctuation."""
+    """Match Source-Map and R2 keys across spaces/underscores/punctuation.
+
+    NFKD + strip combining marks so NFC/NFD Umlaute (ö/ö) denselben Key ergeben.
+    """
     stem = Path(name).name
     stem = re.sub(r"\.(png|jpg|jpeg|webp)$", "", stem, flags=re.IGNORECASE)
+    stem = unicodedata.normalize("NFKD", stem)
+    stem = "".join(c for c in stem if not unicodedata.combining(c))
     stem = stem.lower()
     # ChatGPT desktop names keep "10." / commas; assets use underscores only.
     stem = re.sub(r"[^a-z0-9]+", "_", stem)
     stem = re.sub(r"_+", "_", stem).strip("_")
     return stem
+
+
+def file_md5(path: Path) -> str:
+    h = hashlib.md5()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def load_bundle_content_hashes() -> tuple[set[str], set[str], set[str]]:
+    """MD5 der Bundle-PNGs — fängt gleiche Bilder mit anderem Dateinamen."""
+    coloring: set[str] = set()
+    coloring_dir = ROOT / "assets/coloring_pages"
+    if coloring_dir.is_dir():
+        for path in coloring_dir.iterdir():
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTS:
+                coloring.add(file_md5(path))
+    puzzle: set[str] = set()
+    if PUZZLE_DIR.is_dir():
+        for path in PUZZLE_DIR.iterdir():
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTS:
+                puzzle.add(file_md5(path))
+    stickers: set[str] = set()
+    if STICKER_DIR.is_dir():
+        for path in STICKER_DIR.iterdir():
+            if path.is_file() and path.suffix.lower() in IMAGE_EXTS:
+                stickers.add(file_md5(path))
+    return coloring, puzzle, stickers
 
 
 def run_wrangler(args: list[str]) -> None:
@@ -210,7 +246,15 @@ def resolve_sections(
 
 
 def sanitize_name(name: str) -> str:
-    return name.replace(" ", "_")
+    """ASCII-sichere CDN-Dateinamen (keine Spaces/Kommas/Umlaute in Keys)."""
+    path = Path(name)
+    ext = path.suffix.lower()
+    if ext not in IMAGE_EXTS:
+        ext = ".png"
+    stem = normalize_name(path.name)
+    if not stem:
+        stem = "sticker"
+    return f"{stem}{ext}"
 
 
 def load_bundle_sticker_names() -> set[str]:
@@ -227,25 +271,100 @@ def filter_duplicates(
 ) -> tuple[dict[str, list[Path]], list[str]]:
     coloring_bundle, puzzle_bundle = load_bundle_names()
     sticker_bundle = load_bundle_sticker_names()
+    coloring_hash, puzzle_hash, sticker_hash = load_bundle_content_hashes()
     kept: dict[str, list[Path]] = {"coloring": [], "puzzle": [], "stickers": []}
     skipped: list[str] = []
     for section, files in sections.items():
         if section == "coloring":
-            bundle = coloring_bundle
+            bundle, hashes = coloring_bundle, coloring_hash
         elif section == "puzzle":
-            bundle = puzzle_bundle
+            bundle, hashes = puzzle_bundle, puzzle_hash
         elif section == "stickers":
-            bundle = sticker_bundle
+            bundle, hashes = sticker_bundle, sticker_hash
         else:
-            bundle = set()
+            bundle, hashes = set(), set()
         for path in files:
             key = normalize_name(path.name)
             if key in bundle:
                 skipped.append(f"{section}/{path.name}")
                 print(f"  skipped duplicate: {section}/{path.name}")
-            else:
-                kept[section].append(path)
+                continue
+            digest = file_md5(path)
+            if digest in hashes:
+                skipped.append(f"{section}/{path.name}")
+                print(f"  skipped duplicate (same pixels): {section}/{path.name}")
+                continue
+            kept[section].append(path)
     return kept, skipped
+
+
+def fetch_remote_sticker_catalog(pack_id: str) -> dict | None:
+    """Bestehenden CDN-Sticker-Katalog laden (für inkrementelle Uploads)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        dest = Path(tmp) / "catalog.json"
+        try:
+            run_wrangler(
+                [
+                    "r2",
+                    "object",
+                    "get",
+                    f"{BUCKET}/packs/{pack_id}/stickers/catalog.json",
+                    f"--file={dest}",
+                    "--remote",
+                ]
+            )
+        except subprocess.CalledProcessError:
+            return None
+        try:
+            data = json.loads(dest.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if isinstance(data, dict) and isinstance(data.get("stickers"), list):
+            return data
+        return None
+
+
+def merge_remote_sticker_catalog(pack_id: str, new_catalog: dict) -> dict:
+    """Alte CDN-Einträge behalten, neue IDs/Assets überschreiben bzw. anhängen."""
+    existing = fetch_remote_sticker_catalog(pack_id)
+    if not existing:
+        return new_catalog
+    by_id: dict[str, dict] = {}
+    by_asset: dict[str, str] = {}
+    for item in existing.get("stickers") or []:
+        if not isinstance(item, dict):
+            continue
+        sid = str(item.get("id") or "")
+        # Bestehende CDN-Namen unverändert lassen (alte Keys können Kommas haben).
+        asset = Path(str(item.get("asset") or "")).name
+        if not sid or not asset:
+            continue
+        entry = {"id": sid, "asset": asset}
+        if item.get("coloringId"):
+            entry["coloringId"] = str(item["coloringId"])
+        if item.get("puzzleId"):
+            entry["puzzleId"] = str(item["puzzleId"])
+        by_id[sid] = entry
+        by_asset[normalize_name(asset)] = sid
+    for item in new_catalog.get("stickers") or []:
+        if not isinstance(item, dict):
+            continue
+        sid = str(item.get("id") or "")
+        asset = sanitize_name(str(item.get("asset") or ""))
+        if not sid or not asset:
+            continue
+        # Gleiches Motiv (Dateiname-Key) → alten Eintrag ersetzen.
+        old_id = by_asset.get(normalize_name(asset))
+        if old_id and old_id != sid:
+            by_id.pop(old_id, None)
+        entry = {"id": sid, "asset": asset}
+        if item.get("coloringId"):
+            entry["coloringId"] = str(item["coloringId"])
+        if item.get("puzzleId"):
+            entry["puzzleId"] = str(item["puzzleId"])
+        by_id[sid] = entry
+        by_asset[normalize_name(asset)] = sid
+    return {"stickers": list(by_id.values())}
 
 
 def build_sticker_catalog(
@@ -462,6 +581,19 @@ def main() -> int:
 
     files: list[str] = []
     with tempfile.TemporaryDirectory() as tmp:
+        manifest = fetch_remote_manifest()
+        existing_files: list[str] = []
+        for pack in manifest.get("packs") or []:
+            if pack.get("id") == args.pack_id:
+                existing_files = list(pack.get("files") or [])
+                break
+
+        # Stickers: Katalog mit bestehendem CDN-Katalog mergen (inkrementell).
+        if sticker_catalog_key and sticker_catalog_data is not None and not args.cleanup_stale:
+            sticker_catalog_data = merge_remote_sticker_catalog(
+                args.pack_id, sticker_catalog_data
+            )
+
         extra: list[tuple[str, Path]] = []
         if sticker_catalog_key and sticker_catalog_data is not None:
             catalog_path = Path(tmp) / "catalog.json"
@@ -474,8 +606,14 @@ def main() -> int:
         if planned:
             files = upload_pack(args.pack_id, sections, extra_files=extra)
 
-        manifest = fetch_remote_manifest()
-        # If everything was duplicate, remove empty pack from CDN.
+        # Ohne --cleanup-stale: bestehende Pack-Dateien behalten + neue dazu.
+        if not args.cleanup_stale and existing_files:
+            merged = list(dict.fromkeys([*existing_files, *files]))
+            if sticker_catalog_key and sticker_catalog_key not in merged:
+                merged.append(sticker_catalog_key)
+            files = merged
+            print(f"Merged with existing pack files → {len(files)} total")
+
         if args.cleanup_stale or not files:
             for pack in list(manifest.get("packs") or []):
                 if pack.get("id") == args.pack_id:

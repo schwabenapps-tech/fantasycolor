@@ -64,6 +64,7 @@ Future<List<ColoringPage>> loadColoringPages({
     featuredOrder: tags.featuredColoring,
     shuffleRest: shuffle,
     random: random,
+    coloring: true,
   );
 }
 

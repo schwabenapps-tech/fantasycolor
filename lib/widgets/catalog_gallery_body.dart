@@ -69,6 +69,8 @@ class CatalogGalleryBody extends StatelessWidget {
       );
       return [for (final page in sorted) _Entry.page(page)];
     }
+    // Reihenfolge kommt aus buildCatalog: Neu → Featured → Rest.
+    // Hier nicht nochmal sortNewestFirst — sonst springen alte new_since-Daten vor.
     return [
       for (final event in catalog.activeEvents) _Entry.hub(event),
       for (final page in catalog.standard.pages) _Entry.page(page),

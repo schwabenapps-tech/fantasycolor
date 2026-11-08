@@ -95,6 +95,8 @@ class _HubScreenState extends State<HubScreen>
     if (!mounted || gen == _heardGeneration) return;
     _heardGeneration = gen;
     setState(_reloadCatalog);
+    // Stickers liegen nicht im Hub-Katalog — nach CDN-Sync extra neu mergen.
+    unawaited(context.read<StickerCollectionStore>().reloadCatalog());
   }
 
   void _reloadCatalog() {

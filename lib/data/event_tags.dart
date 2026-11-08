@@ -107,16 +107,15 @@ class EventTags {
     return past.first;
   }
 
-  /// Neueste zuerst (nach `new_since_*`), ohne Datum ans Ende.
+  /// Neueste zuerst — Bundle-`new_since_*` + Remote-Pack-Daten.
   List<ColoringPage> sortNewestFirst(
     List<ColoringPage> pages, {
     required bool coloring,
   }) {
-    final dates = coloring ? newSinceColoring : newSincePuzzle;
     final sorted = List<ColoringPage>.from(pages);
     sorted.sort((a, b) {
-      final da = dates[a.id];
-      final db = dates[b.id];
+      final da = addedAt(a.id, coloring: coloring);
+      final db = addedAt(b.id, coloring: coloring);
       if (da == null && db == null) return a.id.compareTo(b.id);
       if (da == null) return 1;
       if (db == null) return -1;
@@ -125,6 +124,15 @@ class EventTags {
       return a.id.compareTo(b.id);
     });
     return sorted;
+  }
+
+  /// Effektives „seit“-Datum für Sortierung / Neu-Logik.
+  DateTime? addedAt(String id, {required bool coloring}) {
+    final fromTags = coloring ? newSinceColoring[id] : newSincePuzzle[id];
+    final fromRemote = RemotePackService.instance.pageAddedAt(id);
+    if (fromTags == null) return fromRemote;
+    if (fromRemote == null) return fromTags;
+    return fromTags.isAfter(fromRemote) ? fromTags : fromRemote;
   }
 
   bool isEventPage(String id, {required bool coloring}) {
@@ -197,14 +205,51 @@ class EventTags {
 
     final featuredOrder = coloring ? featuredColoring : featuredPuzzle;
     final restIds = byId.keys.where((id) => !claimed.contains(id)).toList();
-    final front = <ColoringPage>[
+
+    bool isNewId(String id) =>
+        coloring ? isNewColoring(id) : isNewPuzzle(id);
+
+    // Innerhalb von Event-Hubs ebenfalls neueste zuerst.
+    for (var i = 0; i < active.length; i++) {
+      final s = active[i];
+      active[i] = GallerySection(
+        id: s.id,
+        title: s.title,
+        pages: List.unmodifiable(sortNewestFirst(s.pages, coloring: coloring)),
+        isEvent: s.isEvent,
+        isActiveEvent: s.isActiveEvent,
+        isPastEvent: s.isPastEvent,
+      );
+    }
+    for (var i = 0; i < past.length; i++) {
+      final s = past[i];
+      past[i] = GallerySection(
+        id: s.id,
+        title: s.title,
+        pages: List.unmodifiable(sortNewestFirst(s.pages, coloring: coloring)),
+        isEvent: s.isEvent,
+        isActiveEvent: s.isActiveEvent,
+        isPastEvent: s.isPastEvent,
+      );
+    }
+
+    // Standard: NEU zuerst → Featured → Rest.
+    final newPages = sortNewestFirst(
+      [
+        for (final id in restIds)
+          if (isNewId(id)) byId[id]!,
+      ],
+      coloring: coloring,
+    );
+    final newIds = {for (final p in newPages) p.id};
+    final featuredPages = <ColoringPage>[
       for (final id in featuredOrder)
-        if (restIds.contains(id)) byId[id]!,
+        if (restIds.contains(id) && !newIds.contains(id)) byId[id]!,
     ];
-    final frontIds = {for (final p in front) p.id};
+    final featuredIds = {for (final p in featuredPages) p.id};
     final rest = [
       for (final id in restIds)
-        if (!frontIds.contains(id)) byId[id]!,
+        if (!newIds.contains(id) && !featuredIds.contains(id)) byId[id]!,
     ];
     if (shuffleStandard) {
       rest.shuffle(random ?? Random());
@@ -217,7 +262,7 @@ class EventTags {
       standard: GallerySection(
         id: 'standard',
         title: 'Gallery',
-        pages: List.unmodifiable([...front, ...rest]),
+        pages: List.unmodifiable([...newPages, ...featuredPages, ...rest]),
       ),
       pastEvents: List.unmodifiable(past),
     );
@@ -230,14 +275,25 @@ class EventTags {
     return !age.isNegative && age <= newBadgeDuration;
   }
 
-  /// Featured zuerst (Reihenfolge aus JSON), Rest optional gemischt.
+  /// Neu zuerst → Featured → Rest (optional gemischt).
   List<ColoringPage> prioritize(
     List<ColoringPage> pages, {
     required List<String> featuredOrder,
     bool shuffleRest = true,
     Random? random,
+    bool coloring = true,
   }) {
     final byId = {for (final p in pages) p.id: p};
+    final newPages = sortNewestFirst(
+      [
+        for (final p in pages)
+          if (coloring ? isNewColoring(p.id) : isNewPuzzle(p.id)) p,
+      ],
+      coloring: coloring,
+    );
+    for (final p in newPages) {
+      byId.remove(p.id);
+    }
     final front = <ColoringPage>[
       for (final id in featuredOrder)
         if (byId.containsKey(id)) byId.remove(id)!,
@@ -248,7 +304,7 @@ class EventTags {
     } else {
       rest.sort((a, b) => a.id.compareTo(b.id));
     }
-    return List<ColoringPage>.unmodifiable([...front, ...rest]);
+    return List<ColoringPage>.unmodifiable([...newPages, ...front, ...rest]);
   }
 
   static Set<String> _stringSet(Object? value) {

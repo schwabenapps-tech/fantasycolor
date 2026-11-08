@@ -58,6 +58,7 @@ Future<List<ColoringPage>> loadPuzzleImages({
     featuredOrder: tags.featuredPuzzle,
     shuffleRest: shuffle,
     random: random,
+    coloring: false,
   );
 }
 

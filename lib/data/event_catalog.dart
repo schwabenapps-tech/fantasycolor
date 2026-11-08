@@ -114,16 +114,42 @@ class GalleryCatalog {
 }
 
 /// Stem-Key für Bundle/CDN-Dedup — analog zu `scripts/upload_r2_pack.py`.
+/// NFKD + Combining-Marks entfernen, damit NFC/NFD-Umlaute denselben Key haben.
 String normalizeImageKey(String name) {
   var stem = name.split('/').last;
   stem = stem.replaceAll(
     RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false),
     '',
   );
-  stem = stem.toLowerCase();
+  stem = _stripCombining(stem.toLowerCase());
   stem = stem.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
   stem = stem.replaceAll(RegExp(r'_+'), '_');
   return stem.replaceAll(RegExp(r'^_|_$'), '');
+}
+
+String _stripCombining(String input) {
+  // NFC-Umlaute + NFD Combining Marks → ASCII (wie Python NFKD).
+  const map = {
+    'ä': 'a',
+    'ö': 'o',
+    'ü': 'u',
+    'ß': 'ss',
+    'á': 'a',
+    'à': 'a',
+    'é': 'e',
+    'è': 'e',
+    'í': 'i',
+    'ó': 'o',
+    'ú': 'u',
+  };
+  final buf = StringBuffer();
+  for (final rune in input.runes) {
+    // Combining Diaeresis / accents (Mn) — skip.
+    if (rune >= 0x0300 && rune <= 0x036F) continue;
+    final ch = String.fromCharCode(rune);
+    buf.write(map[ch] ?? ch);
+  }
+  return buf.toString();
 }
 
 /// Debug/Serialize helper.

@@ -78,7 +78,11 @@ python3 scripts/upload_r2_pack.py \
 }
 ```
 
-Ohne Katalog vergibt das Script IDs wie `remote_fairy-stickers_<dateiname>`. Nach dem Upload lädt die App beim nächsten Start das Manifest und merged die Stickers ins Album / Daily Gift.
+Ohne Katalog vergibt das Script IDs wie `remote_fairy-stickers_<dateiname>`. Dateinamen werden beim Upload zu ASCII-Slugs normalisiert (keine Spaces/Kommas/Umlaute in CDN-Keys).
+
+Inkrementelle Uploads **mergen** mit dem bestehenden Pack (Katalog + Manifest). Nur mit `--cleanup-stale` werden alte Pack-Dateien gelöscht.
+
+Nach dem Upload lädt die App beim nächsten Start das Manifest und merged die Stickers ins Album / Daily Gift — **neue** Remote-Stickers erscheinen vorn im Album.
 
 ## Manifest
 

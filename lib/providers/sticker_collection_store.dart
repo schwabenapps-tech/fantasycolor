@@ -116,7 +116,12 @@ class StickerCollectionStore extends ChangeNotifier {
   Future<void> _loadCatalogMerged() async {
     final remote = await RemotePackService.instance.remoteStickerEntries();
     StickerCatalog.clearCache();
-    _catalog = await StickerCatalog.load(remote: remote);
+    final packs = RemotePackService.instance;
+    _catalog = await StickerCatalog.load(
+      remote: remote,
+      isNew: packs.isNewSticker,
+      addedAt: packs.stickerAddedAt,
+    );
   }
 
   String _todayKey() {
