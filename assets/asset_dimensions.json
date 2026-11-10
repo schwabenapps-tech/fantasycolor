@@ -324,6 +324,41 @@
       "path": "assets/coloring_pages/fee_clean_65.png",
       "width": 1332,
       "height": 1181
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_66.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_67.png",
+      "width": 1213,
+      "height": 1296
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_68.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_69.png",
+      "width": 1182,
+      "height": 1330
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_70.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_71.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_72.png",
+      "width": 1254,
+      "height": 1254
     }
   ],
   "print_templates": [
@@ -715,6 +750,11 @@
       "height": 1148
     },
     {
+      "path": "assets/puzzle_images/5654ad77_36c1_4d7b_a25a_19f9ed23f2a8.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
       "path": "assets/puzzle_images/5750fa33-e2de-4f1f-825b-bb4210e45989.png",
       "width": 960,
       "height": 1200
@@ -818,6 +858,11 @@
       "path": "assets/puzzle_images/b1e1615e-2e37-4b34-9d21-b86757c3ca10.png",
       "width": 799,
       "height": 1200
+    },
+    {
+      "path": "assets/puzzle_images/bruder_basteln_im_warmen_herbstlicht.png",
+      "width": 1199,
+      "height": 1312
     },
     {
       "path": "assets/puzzle_images/brueder_entdecken_lustige_fensterzeichnungen.png",
@@ -1080,6 +1125,11 @@
       "height": 1024
     },
     {
+      "path": "assets/puzzle_images/fee_mit_ahornblatt_auf_der_nase.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
       "path": "assets/puzzle_images/feen_geleiten_schmetterlinge_ins_gewaechshaus.png",
       "width": 1280,
       "height": 853
@@ -1095,9 +1145,29 @@
       "height": 1280
     },
     {
+      "path": "assets/puzzle_images/feenkunstlerin_und_phonix_im_herbstwald.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/puzzle_images/geflugelte_krieger_im_herbstregen.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "path": "assets/puzzle_images/geiger_am_fenster_mit_zwei_stiefeln.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
       "path": "assets/puzzle_images/herbstliche_buecherfee_mit_zwei_eichhoernchen.png",
       "width": 1280,
       "height": 1169
+    },
+    {
+      "path": "assets/puzzle_images/herbstliche_teestunde_im_kristallpavillon.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/puzzle_images/herbsttee_im_feenatelier_mit_schwarzer_katze.png",
@@ -1160,9 +1230,29 @@
       "height": 1280
     },
     {
+      "path": "assets/puzzle_images/lichtfee_im_herbstteich.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "path": "assets/puzzle_images/lilia_tanzt_im_herbstregen.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
       "path": "assets/puzzle_images/malerfee_malt_das_goldene_herbstfeld.png",
       "width": 1280,
       "height": 853
+    },
+    {
+      "path": "assets/puzzle_images/musikalische_freude_mit_goldenen_flugeln.png",
+      "width": 1199,
+      "height": 1312
+    },
+    {
+      "path": "assets/puzzle_images/rosalia_schutzt_die_letzten_rosen_im_frost.png",
+      "width": 1536,
+      "height": 1024
     },
     {
       "path": "assets/puzzle_images/schmetterlingsfreundschaft_im_herbstwald.png",

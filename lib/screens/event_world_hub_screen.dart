@@ -168,12 +168,39 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
                                     Expanded(child: portals[1]),
                                   ],
                                 )
-                              : Row(
-                                  children: [
-                                    Expanded(child: portals[0]),
-                                    SizedBox(width: gap),
-                                    Expanded(child: portals[1]),
-                                  ],
+                              : Align(
+                                  // Landscape: gleiche feste Kachelhöhe wie Galerie,
+                                  // Color + Puzzle nebeneinander (seitlich).
+                                  alignment: const Alignment(0, 0.15),
+                                  child: Builder(
+                                    builder: (context) {
+                                      final tileH = layout.galleryTileHeight;
+                                      final hubW = (tileH * 0.92).clamp(
+                                        tileH * 0.78,
+                                        tileH * 1.12,
+                                      );
+                                      return SizedBox(
+                                        height: tileH,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            SizedBox(
+                                              width: hubW,
+                                              height: tileH,
+                                              child: portals[0],
+                                            ),
+                                            SizedBox(width: gap),
+                                            SizedBox(
+                                              width: hubW,
+                                              height: tileH,
+                                              child: portals[1],
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                         ),
                       ],

@@ -73,6 +73,13 @@
     "fee_clean_35",
     "fee_clean_34",
     "fee_clean_33",
+    "fee_clean_72",
+    "fee_clean_71",
+    "fee_clean_70",
+    "fee_clean_69",
+    "fee_clean_68",
+    "fee_clean_67",
+    "fee_clean_66",
     "fee_clean_65",
     "fee_clean_64",
     "fee_clean_63",
@@ -131,6 +138,17 @@
     "7a8e54bf-337c-46c4-a1a1-f0b236b83cc3"
   ],
   "featured_puzzle": [
+    "geflugelte_krieger_im_herbstregen",
+    "lilia_tanzt_im_herbstregen",
+    "lichtfee_im_herbstteich",
+    "musikalische_freude_mit_goldenen_flugeln",
+    "bruder_basteln_im_warmen_herbstlicht",
+    "feenkunstlerin_und_phonix_im_herbstwald",
+    "herbstliche_teestunde_im_kristallpavillon",
+    "fee_mit_ahornblatt_auf_der_nase",
+    "geiger_am_fenster_mit_zwei_stiefeln",
+    "rosalia_schutzt_die_letzten_rosen_im_frost",
+    "5654ad77_36c1_4d7b_a25a_19f9ed23f2a8",
     "zuckerfee_mit_rosafarbenen_augen",
     "wasserfee_mit_schwebenden_herbstblaettern",
     "vier_feen_beim_herbstpicknick",
@@ -261,7 +279,14 @@
     "fee_clean_62": "2026-11-06",
     "fee_clean_63": "2026-11-06",
     "fee_clean_64": "2026-11-06",
-    "fee_clean_65": "2026-11-06"
+    "fee_clean_65": "2026-11-06",
+    "fee_clean_66": "2026-11-10",
+    "fee_clean_67": "2026-11-10",
+    "fee_clean_68": "2026-11-10",
+    "fee_clean_69": "2026-11-10",
+    "fee_clean_70": "2026-11-10",
+    "fee_clean_71": "2026-11-10",
+    "fee_clean_72": "2026-11-10"
   },
   "new_since_puzzle": {
     "chatgpt_image_18_sept_2026_10_39_04": "2026-10-10",
@@ -370,6 +395,17 @@
     "feac43e7-2dc2-436c-b129-02a8cfe62af3": "2026-11-05",
     "37ecd5ea-2050-4526-8288-d25a712b3591": "2026-11-05",
     "75cb9b01-b259-4b3d-8d65-fd8cab2c98da": "2026-11-05",
-    "7c33e133-ce4f-4bb0-bcd3-1257cdd23ce6": "2026-11-05"
+    "7c33e133-ce4f-4bb0-bcd3-1257cdd23ce6": "2026-11-05",
+    "lilia_tanzt_im_herbstregen": "2026-11-10",
+    "lichtfee_im_herbstteich": "2026-11-10",
+    "herbstliche_teestunde_im_kristallpavillon": "2026-11-10",
+    "fee_mit_ahornblatt_auf_der_nase": "2026-11-10",
+    "geiger_am_fenster_mit_zwei_stiefeln": "2026-11-10",
+    "bruder_basteln_im_warmen_herbstlicht": "2026-11-10",
+    "feenkunstlerin_und_phonix_im_herbstwald": "2026-11-10",
+    "geflugelte_krieger_im_herbstregen": "2026-11-10",
+    "musikalische_freude_mit_goldenen_flugeln": "2026-11-10",
+    "rosalia_schutzt_die_letzten_rosen_im_frost": "2026-11-10",
+    "5654ad77_36c1_4d7b_a25a_19f9ed23f2a8": "2026-11-10"
   }
 }

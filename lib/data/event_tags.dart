@@ -92,18 +92,39 @@ class EventTags {
   DateTime? coloringAddedAt(String id) => newSinceColoring[id];
   DateTime? puzzleAddedAt(String id) => newSincePuzzle[id];
 
-  /// Zuletzt abgelaufenes Event (nach `ends_at`), sonst null.
-  ContentEvent? lastPastEvent({DateTime? now}) {
+  /// Laufende Events (nicht upcoming, nicht past), neueste zuerst.
+  List<ContentEvent> activeEvents({DateTime? now}) {
+    final active = [
+      for (final e in allEvents())
+        if (e.isActive(now: now) && !e.isUpcoming(now: now) && !e.isPast(now: now))
+          e,
+    ];
+    active.sort((a, b) {
+      final as = a.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bs = b.startsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bs.compareTo(as);
+    });
+    return active;
+  }
+
+  /// Abgelaufene Events, neueste zuerst (nach `ends_at`).
+  List<ContentEvent> pastEvents({DateTime? now}) {
     final past = [
       for (final e in allEvents())
         if (e.isPast(now: now)) e,
     ];
-    if (past.isEmpty) return null;
     past.sort((a, b) {
       final ae = a.endsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       final be = b.endsAt ?? DateTime.fromMillisecondsSinceEpoch(0);
       return be.compareTo(ae);
     });
+    return past;
+  }
+
+  /// Zuletzt abgelaufenes Event (nach `ends_at`), sonst null.
+  ContentEvent? lastPastEvent({DateTime? now}) {
+    final past = pastEvents(now: now);
+    if (past.isEmpty) return null;
     return past.first;
   }
 

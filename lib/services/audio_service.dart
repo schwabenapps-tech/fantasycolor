@@ -188,10 +188,41 @@ class AudioService extends ChangeNotifier {
         try {
           await player.pause();
         } catch (_) {}
-      } else if (_musicWanted) {
-        await _ensurePlayingUnlocked(force: true);
+        return;
+      }
+
+      // Unmute nach längerer Pause: Session oft weg / Ad-Flag kann hängen.
+      _interruptedByAd = false;
+      if (!_musicWanted) {
+        _musicWanted = true;
+        _refillShuffleBag(avoid: _currentAsset);
+      }
+      _armKeepAlive();
+      await _reassertAudioContext();
+
+      var ok = await _restartCurrentOrNextUnlocked();
+      if (!ok) {
+        debugPrint('AudioService unmute: recreate player and retry');
+        await _recreateMusicPlayer();
+        await _reassertAudioContext();
+        ok = await _restartCurrentOrNextUnlocked();
+      }
+      if (!ok) {
+        debugPrint('AudioService unmute: still not playing');
       }
     });
+  }
+
+  /// Aktuellen Track hart neu starten, sonst nächsten aus dem Beutel.
+  Future<bool> _restartCurrentOrNextUnlocked() async {
+    if (_muted || !_musicWanted) return false;
+    final current = _currentAsset;
+    if (current != null) {
+      final ok = await _playAssetUnlocked(current);
+      if (ok) return true;
+    }
+    await _playNextTrackUnlocked(avoidRepeat: current);
+    return _currentAsset != null;
   }
 
   Future<void> toggleMuted() => setMuted(!_muted);

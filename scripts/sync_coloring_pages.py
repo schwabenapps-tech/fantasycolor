@@ -111,6 +111,14 @@ ORDER = [
     "818D04DD-8263-4BD4-A275-78805286ED99.png",
     "D34F3A4D-6512-4418-81EE-62B9A899594D.png",
     "Elian mit fröhlich geschlossenen Augen.png",
+    # Remote einfache-bilder → lokal fee_clean_66…72
+    "51A24B18-C2CF-4D80-A729-0DA28808297F.png",
+    "727B5D5E-EB93-417A-A85C-D28D61427F7D.png",
+    "C612F2B7-46D5-4BE8-9A64-1A0595CA7115.png",
+    "Elian und Casian mit Flügeln.png",
+    "F852A578-3E7A-4FCD-BE7F-261F05382432.png",
+    "F8CBF316-96BF-4807-8B7D-BF65F98805BA.png",
+    "FA4449EC-6920-40D6-9906-60E71B19422B.png",
 ]
 
 

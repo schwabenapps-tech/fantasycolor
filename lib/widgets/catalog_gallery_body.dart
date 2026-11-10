@@ -29,6 +29,7 @@ class CatalogGalleryBody extends StatelessWidget {
     this.halloweenIds = const {},
     this.showEventHubs = true,
     this.showCategoryTitle = true,
+    this.includePastEventPages = true,
   });
 
   final GalleryCatalog catalog;
@@ -45,6 +46,8 @@ class CatalogGalleryBody extends StatelessWidget {
   /// false = flache Kachel-Liste (keine Event-Hub-Portale).
   final bool showEventHubs;
   final bool showCategoryTitle;
+  /// false = abgelaufene Event-Motive nur im Events-Tab (nicht in Malen/Puzzle).
+  final bool includePastEventPages;
 
   List<_Entry> _entries() {
     if (!showEventHubs) {
@@ -57,9 +60,11 @@ class CatalogGalleryBody extends StatelessWidget {
       for (final page in catalog.standard.pages) {
         byId[page.id] = page;
       }
-      for (final event in catalog.pastEvents) {
-        for (final page in event.pages) {
-          byId.putIfAbsent(page.id, () => page);
+      if (includePastEventPages) {
+        for (final event in catalog.pastEvents) {
+          for (final page in event.pages) {
+            byId.putIfAbsent(page.id, () => page);
+          }
         }
       }
       final coloring = kind == CatalogGalleryKind.coloring;

@@ -22,24 +22,27 @@ import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
+import '../widgets/event_hub_portal.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 import '../widgets/welcome_portal_overlay.dart';
 import 'coloring_preview_screen.dart';
 import 'event_pack_gallery_screen.dart';
+import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
 import 'print_templates_screen.dart';
 import 'puzzle_screen.dart';
 import 'settings_screen.dart';
 
-/// Zentraler Einstieg: Tabs Home / Puzzle / Malen + Top-Aktionen.
+/// Zentraler Einstieg: Tabs Home / Puzzle / Malen / Events + Top-Aktionen.
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
   static const coloringLogo = 'assets/images/malen_favorit.png';
   static const puzzleLogo = 'assets/images/puzzle_favorit.png';
+  static const eventsLogo = 'assets/images/events-button.png';
 
   @override
   State<HubScreen> createState() => _HubScreenState();
@@ -237,8 +240,31 @@ class _HubScreenState extends State<HubScreen>
       switch (i) {
         0 => 'hub_home',
         1 => 'hub_puzzle',
-        _ => 'hub_color',
+        2 => 'hub_color',
+        _ => 'hub_events',
       },
+    );
+  }
+
+  void _openEventWorld({
+    required ContentEvent event,
+    required GallerySection coloring,
+    required GallerySection puzzle,
+    required EventTags tags,
+  }) {
+    Navigator.of(context).push(
+      AppPageRoute<void>(
+        builder: (_) => EventWorldHubScreen(
+          title: event.title,
+          coloringSection: coloring,
+          puzzleSection: puzzle,
+          halloweenIds: {
+            ...tags.halloweenColoring,
+            ...tags.halloweenPuzzle,
+          },
+          tags: tags,
+        ),
+      ),
     );
   }
 
@@ -298,7 +324,7 @@ class _HubScreenState extends State<HubScreen>
                           );
                         }
 
-                        // Nur aktiver Tab — IndexedStack mit 3 Galerien
+                        // Nur aktiver Tab — IndexedStack mit vielen Galerien
                         // macht Drehen schwer und streckt Zwischenframes.
                         return switch (_tabIndex) {
                           1 => CatalogGalleryBody(
@@ -308,6 +334,7 @@ class _HubScreenState extends State<HubScreen>
                               categoryTitle: t.puzzle,
                               showEventHubs: false,
                               showCategoryTitle: false,
+                              includePastEventPages: false,
                               showDownloadButton: true,
                               onOpenPage: _openPuzzle,
                               gridScroll: _puzzleGridScroll,
@@ -320,15 +347,35 @@ class _HubScreenState extends State<HubScreen>
                               categoryTitle: t.color,
                               showEventHubs: false,
                               showCategoryTitle: false,
+                              includePastEventPages: false,
                               onOpenPage: _openColoring,
                               gridScroll: _colorGridScroll,
                               rowScroll: _colorRowScroll,
+                            ),
+                          3 => _EventsTab(
+                              catalog: data,
+                              onOpenEvent: (event, coloring, puzzle) {
+                                _openEventWorld(
+                                  event: event,
+                                  coloring: coloring,
+                                  puzzle: puzzle,
+                                  tags: data.tags,
+                                );
+                              },
                             ),
                           _ => _HomeTab(
                               catalog: data,
                               scrollController: _homeScroll,
                               onOpenColoring: _openColoring,
                               onOpenPuzzle: _openPuzzle,
+                              onOpenEvent: (event, coloring, puzzle) {
+                                _openEventWorld(
+                                  event: event,
+                                  coloring: coloring,
+                                  puzzle: puzzle,
+                                  tags: data.tags,
+                                );
+                              },
                             ),
                         };
                       },
@@ -404,13 +451,13 @@ class _HubTopBar extends StatelessWidget {
     required bool tablet,
     required bool portrait,
   }) {
-    final tabGap = portrait ? (tablet ? 22.0 : 18.0) : (tablet ? 18.0 : 14.0);
+    final tabGap = portrait ? (tablet ? 16.0 : 12.0) : (tablet ? 14.0 : 10.0);
     final homeSize = portrait
-        ? (tablet ? 46.0 : 40.0)
-        : (tablet ? 48.0 : 42.0);
+        ? (tablet ? 42.0 : 36.0)
+        : (tablet ? 44.0 : 38.0);
     final logoSize = portrait
-        ? (tablet ? 54.0 : 48.0)
-        : (tablet ? 56.0 : 50.0);
+        ? (tablet ? 48.0 : 42.0)
+        : (tablet ? 50.0 : 44.0);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -455,6 +502,17 @@ class _HubTopBar extends StatelessWidget {
           child: _TabLogo(
             asset: HubScreen.coloringLogo,
             selected: tabIndex == 2,
+            size: logoSize,
+          ),
+        ),
+        SizedBox(width: tabGap),
+        _TopTabIcon(
+          selected: tabIndex == 3,
+          semanticLabel: t.events,
+          onTap: () => onSelectTab(3),
+          child: _TabLogo(
+            asset: HubScreen.eventsLogo,
+            selected: tabIndex == 3,
             size: logoSize,
           ),
         ),
@@ -612,19 +670,237 @@ class _TabLogo extends StatelessWidget {
   }
 }
 
-/// Home: Zuletzt → Neu → Favoriten → Letztes Event → Puzzle → Malen.
+GallerySection? _gallerySectionForEvent(GalleryCatalog catalog, String eventId) {
+  for (final section in catalog.pastEvents) {
+    if (section.id == eventId) return section;
+  }
+  for (final section in catalog.activeEvents) {
+    if (section.id == eventId) return section;
+  }
+  return null;
+}
+
+/// Events: laufende Hubs vorne, danach Letztes Event / Archiv.
+class _EventsTab extends StatelessWidget {
+  const _EventsTab({
+    required this.catalog,
+    required this.onOpenEvent,
+  });
+
+  final _HubCatalog catalog;
+  final void Function(
+    ContentEvent event,
+    GallerySection coloring,
+    GallerySection puzzle,
+  ) onOpenEvent;
+
+  List<({ContentEvent event, GallerySection coloring, GallerySection puzzle})>
+      _entriesFor(Iterable<ContentEvent> events) {
+    final out =
+        <({ContentEvent event, GallerySection coloring, GallerySection puzzle})>[];
+    for (final event in events) {
+      final coloring = _gallerySectionForEvent(catalog.coloring, event.id);
+      final puzzle = _gallerySectionForEvent(catalog.puzzle, event.id);
+      if (coloring == null || puzzle == null) continue;
+      if (coloring.pages.isEmpty && puzzle.pages.isEmpty) continue;
+      out.add((event: event, coloring: coloring, puzzle: puzzle));
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final layout = AppLayout.of(context);
+    final live = _entriesFor(catalog.tags.activeEvents());
+    final past = _entriesFor(catalog.tags.pastEvents());
+
+    if (live.isEmpty && past.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            t.eventsEmpty,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: layout.isTablet ? 18 : 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final size = MediaQuery.sizeOf(context);
+    // Gleiche feste Höhe wie Galerie-Kacheln — egal Portrait/Landscape.
+    final tileHeight = layout.isLandscape
+        ? layout.galleryTileHeight
+        : (size.width * 0.72).clamp(210.0, 300.0);
+    final hubWidth = layout.isLandscape
+        ? (tileHeight * 0.92).clamp(tileHeight * 0.78, tileHeight * 1.12)
+        : (tileHeight * 1.05).clamp(tileHeight * 0.9, size.width * 0.88);
+
+    Widget sectionTitle(String title) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        child: Text(
+          title,
+          style: TextStyle(
+            color: const Color(0xFFFFE7A0),
+            fontSize: layout.isTablet ? 24 : 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.4,
+            shadows: const [
+              Shadow(color: Color(0xAA000000), blurRadius: 8),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget portalFor(
+      ({ContentEvent event, GallerySection coloring, GallerySection puzzle})
+          entry, {
+      String? subtitle,
+      int index = 0,
+    }) {
+      return SizedBox(
+        width: hubWidth,
+        height: tileHeight,
+        child: EventHubPortal(
+          title: entry.event.title,
+          subtitle: subtitle,
+          imagePaths: [
+            for (final p in entry.coloring.pages) p.assetPath,
+            for (final p in entry.puzzle.pages) p.assetPath,
+          ],
+          accent: entry.event.id.toLowerCase().contains('halloween')
+              ? const Color(0xFFFF8C42)
+              : const Color(0xFFE8A0BF),
+          isHalloween: entry.event.id.toLowerCase().contains('halloween'),
+          brightenImage: true,
+          slideOffset: Duration(milliseconds: 400 * index),
+          onTap: () => onOpenEvent(
+            entry.event,
+            entry.coloring,
+            entry.puzzle,
+          ),
+        ),
+      );
+    }
+
+    // Vorne: laufende Events, danach zuletzt beendete → ältere.
+    final rowItems = <({
+      ({ContentEvent event, GallerySection coloring, GallerySection puzzle})
+          entry,
+      String subtitle,
+    })>[
+      for (final e in live) (entry: e, subtitle: t.events),
+      if (past.isNotEmpty) ...[
+        (entry: past.first, subtitle: t.lastEvent),
+        for (final e in past.skip(1)) (entry: e, subtitle: t.eventsArchive),
+      ],
+    ];
+
+    if (layout.isLandscape) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          sectionTitle(t.events),
+          Expanded(
+            child: Align(
+              alignment: const Alignment(0, 0.15),
+              child: SizedBox(
+                height: tileHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
+                  itemCount: rowItems.length,
+                  separatorBuilder: (_, _) =>
+                      SizedBox(width: size.width * 0.03),
+                  itemBuilder: (context, index) {
+                    final item = rowItems[index];
+                    return portalFor(
+                      item.entry,
+                      subtitle: item.subtitle,
+                      index: index,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        layout.hubHorizontalPadding * 0.55,
+        8,
+        layout.hubHorizontalPadding * 0.55,
+        20,
+      ),
+      children: [
+        if (live.isNotEmpty) ...[
+          sectionTitle(t.events),
+          for (var i = 0; i < live.length; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            Center(
+              child: portalFor(live[i], subtitle: t.events, index: i),
+            ),
+          ],
+          if (past.isNotEmpty) const SizedBox(height: 18),
+        ],
+        if (past.isNotEmpty) ...[
+          sectionTitle(t.lastEvent),
+          Center(
+            child: portalFor(
+              past.first,
+              subtitle: t.lastEvent,
+              index: live.length,
+            ),
+          ),
+          if (past.length > 1) ...[
+            const SizedBox(height: 18),
+            sectionTitle(t.eventsArchive),
+            for (var i = 1; i < past.length; i++) ...[
+              if (i > 1) const SizedBox(height: 14),
+              Center(
+                child: portalFor(
+                  past[i],
+                  subtitle: t.eventsArchive,
+                  index: live.length + i,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+/// Home: Zuletzt → (aktive Events) → Neu → Favoriten → Puzzle → Malen.
 class _HomeTab extends StatefulWidget {
   const _HomeTab({
     required this.catalog,
     required this.scrollController,
     required this.onOpenColoring,
     required this.onOpenPuzzle,
+    required this.onOpenEvent,
   });
 
   final _HubCatalog catalog;
   final ScrollController scrollController;
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
+  final void Function(
+    ContentEvent event,
+    GallerySection coloring,
+    GallerySection puzzle,
+  ) onOpenEvent;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -720,26 +996,41 @@ class _HomeTabState extends State<_HomeTab> {
       favorites.puzzleIds(),
     );
 
-    final lastEvent = tags.lastPastEvent();
-    final lastColoring = lastEvent == null
-        ? const <ColoringPage>[]
-        : _pagesForIds(allColoring, lastEvent.coloringIds);
-    final lastPuzzles = lastEvent == null
-        ? const <ColoringPage>[]
-        : _pagesForIds(allPuzzles, lastEvent.puzzleIds);
-    final lastIds = {
-      for (final p in lastColoring) p.id,
-      for (final p in lastPuzzles) p.id,
+    // Event-Motive: aktiv → eigener Home-Slot; abgelaufen → Events-Tab.
+    final liveEvents = <({
+      ContentEvent event,
+      GallerySection coloring,
+      GallerySection puzzle,
+    })>[];
+    for (final event in tags.activeEvents()) {
+      final coloring = _gallerySectionForEvent(
+        widget.catalog.coloring,
+        event.id,
+      );
+      final puzzle = _gallerySectionForEvent(widget.catalog.puzzle, event.id);
+      if (coloring == null || puzzle == null) continue;
+      if (coloring.pages.isEmpty && puzzle.pages.isEmpty) continue;
+      liveEvents.add((event: event, coloring: coloring, puzzle: puzzle));
+    }
+    final eventPageIds = <String>{
+      for (final event in tags.activeEvents()) ...[
+        ...event.coloringIds,
+        ...event.puzzleIds,
+      ],
+      for (final event in tags.pastEvents()) ...[
+        ...event.coloringIds,
+        ...event.puzzleIds,
+      ],
     };
 
     final newColoring = allColoring
-        .where((p) => tags.isNewColoring(p.id) && !lastIds.contains(p.id))
+        .where((p) => tags.isNewColoring(p.id) && !eventPageIds.contains(p.id))
         .toList();
     final newPuzzles = allPuzzles
-        .where((p) => tags.isNewPuzzle(p.id) && !lastIds.contains(p.id))
+        .where((p) => tags.isNewPuzzle(p.id) && !eventPageIds.contains(p.id))
         .toList();
     final highlightIds = {
-      ...lastIds,
+      ...eventPageIds,
       for (final p in newColoring) p.id,
       for (final p in newPuzzles) p.id,
     };
@@ -750,6 +1041,21 @@ class _HomeTabState extends State<_HomeTab> {
         allColoring.where((p) => !highlightIds.contains(p.id)).toList();
     final halloweenColor = tags.halloweenColoring;
     final halloweenPuzzle = tags.halloweenPuzzle;
+
+    final size = MediaQuery.sizeOf(context);
+    final layout = AppLayout.of(context);
+    final eventRowHeight = layout.isLandscape
+        ? layout.galleryTileHeight
+        : (size.height * 0.22).clamp(150.0, 210.0);
+    final eventHubWidth = layout.isLandscape
+        ? (eventRowHeight * 0.92).clamp(
+            eventRowHeight * 0.78,
+            eventRowHeight * 1.12,
+          )
+        : (eventRowHeight * 1.05).clamp(
+            eventRowHeight * 0.9,
+            size.width * 0.72,
+          );
 
     return ListView(
       controller: widget.scrollController,
@@ -782,6 +1088,47 @@ class _HomeTabState extends State<_HomeTab> {
             onOpenColoring: widget.onOpenColoring,
             onOpenPuzzle: widget.onOpenPuzzle,
           ),
+        // Platzhalter nur wenn gerade ein Event läuft — sonst Home wie bisher.
+        if (liveEvents.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _SectionHeader(title: t.events),
+          SizedBox(
+            height: eventRowHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
+              itemCount: liveEvents.length,
+              separatorBuilder: (_, _) =>
+                  SizedBox(width: size.width * 0.028),
+              itemBuilder: (context, index) {
+                final item = liveEvents[index];
+                return SizedBox(
+                  width: eventHubWidth,
+                  height: eventRowHeight,
+                  child: EventHubPortal(
+                    title: item.event.title,
+                    imagePaths: [
+                      for (final p in item.coloring.pages) p.assetPath,
+                      for (final p in item.puzzle.pages) p.assetPath,
+                    ],
+                    accent: item.event.id.toLowerCase().contains('halloween')
+                        ? const Color(0xFFFF8C42)
+                        : const Color(0xFFE8A0BF),
+                    isHalloween:
+                        item.event.id.toLowerCase().contains('halloween'),
+                    brightenImage: true,
+                    slideOffset: Duration(milliseconds: 400 * index),
+                    onTap: () => widget.onOpenEvent(
+                      item.event,
+                      item.coloring,
+                      item.puzzle,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         if (newPuzzles.isNotEmpty || newColoring.isNotEmpty) ...[
           _SectionHeader(title: t.newItems),
@@ -844,35 +1191,6 @@ class _HomeTabState extends State<_HomeTab> {
                 id,
                 kind: FavoriteKind.coloring,
               ),
-              favoriteKind: FavoriteKind.coloring,
-              onOpen: widget.onOpenColoring,
-            ),
-          const SizedBox(height: 8),
-        ],
-        if (lastColoring.isNotEmpty || lastPuzzles.isNotEmpty) ...[
-          _SectionHeader(
-            title: lastEvent?.title.isNotEmpty == true
-                ? '${t.lastEvent}: ${lastEvent!.title}'
-                : t.lastEvent,
-          ),
-          if (lastPuzzles.isNotEmpty)
-            _HomeRow(
-              label: t.puzzle,
-              pages: lastPuzzles,
-              isNew: (_) => false,
-              isHalloween: (id) => halloweenPuzzle.contains(id),
-              requiresAdUnlock: (_) => true,
-              favoriteKind: FavoriteKind.puzzle,
-              showDownloadButton: true,
-              onOpen: widget.onOpenPuzzle,
-            ),
-          if (lastColoring.isNotEmpty)
-            _HomeRow(
-              label: t.color,
-              pages: lastColoring,
-              isNew: (_) => false,
-              isHalloween: (id) => halloweenColor.contains(id),
-              requiresAdUnlock: (_) => true,
               favoriteKind: FavoriteKind.coloring,
               onOpen: widget.onOpenColoring,
             ),
