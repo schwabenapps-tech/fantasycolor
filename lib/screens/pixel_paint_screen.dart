@@ -530,6 +530,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                           filterQuality:
                                               FilterQuality.low,
                                           gaplessPlayback: false,
+                                          errorBuilder: (_, _, _) =>
+                                              const ColoredBox(
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ),
                                       ColoredBox(

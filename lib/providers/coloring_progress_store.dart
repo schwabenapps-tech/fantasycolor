@@ -151,6 +151,11 @@ class ColoringProgressStore extends ChangeNotifier {
   File? fileFor(String id) {
     final file = _fileFor(id);
     if (file == null || !_ids.contains(id)) return null;
+    try {
+      if (!file.existsSync()) return null;
+    } catch (_) {
+      return null;
+    }
     return file;
   }
 

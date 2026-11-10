@@ -13,6 +13,30 @@ import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../utils/image_source.dart';
 
+Widget _stickerImage(
+  String assetPath, {
+  required FilterQuality filterQuality,
+  double placeholderSize = 28,
+  Color placeholderColor = const Color(0xFF8B6914),
+}) {
+  if (!isLocalImageAvailable(assetPath)) {
+    return missingImagePlaceholder(
+      color: placeholderColor,
+      size: placeholderSize,
+    );
+  }
+  return Image(
+    image: imageProviderFor(assetPath),
+    fit: BoxFit.contain,
+    filterQuality: filterQuality,
+    gaplessPlayback: false,
+    errorBuilder: (_, _, _) => missingImagePlaceholder(
+      color: placeholderColor,
+      size: placeholderSize,
+    ),
+  );
+}
+
 /// Magisches Grid-Album über dem Hub (Hub bleibt gedimmt sichtbar).
 class StickerAlbumOverlay extends StatefulWidget {
   const StickerAlbumOverlay({
@@ -435,10 +459,10 @@ class _AlbumStickerCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = Image(
-      image: imageProviderFor(sticker.assetPath),
-      fit: BoxFit.contain,
+    final image = _stickerImage(
+      sticker.assetPath,
       filterQuality: FilterQuality.medium,
+      placeholderSize: 26,
     );
     final body = owned
         ? image
@@ -483,10 +507,11 @@ class _StickerPreviewOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final side = (size.shortestSide * 0.72).clamp(220.0, 380.0);
-    final image = Image(
-      image: imageProviderFor(sticker.assetPath),
-      fit: BoxFit.contain,
+    final image = _stickerImage(
+      sticker.assetPath,
       filterQuality: FilterQuality.high,
+      placeholderSize: 48,
+      placeholderColor: Colors.white70,
     );
 
     return Material(

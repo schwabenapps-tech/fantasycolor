@@ -105,7 +105,14 @@ class PixelProgressStore extends ChangeNotifier {
 
   File? previewFileFor(String pageId) {
     if (!_ids.contains(pageId)) return null;
-    return _pngFileFor(pageId);
+    final file = _pngFileFor(pageId);
+    if (file == null) return null;
+    try {
+      if (!file.existsSync()) return null;
+    } catch (_) {
+      return null;
+    }
+    return file;
   }
 
   File? _jsonFileFor(String id) {

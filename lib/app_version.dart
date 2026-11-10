@@ -2,5 +2,5 @@
 class AppVersion {
   AppVersion._();
 
-  static const String name = '2.0.2';
+  static const String name = '2.0.3';
 }

@@ -31,6 +31,7 @@ import 'services/notification_service.dart';
 import 'services/remote_pack_service.dart';
 import 'services/streak_service.dart';
 import 'utils/app_page_route.dart';
+import 'utils/image_source.dart';
 import 'widgets/force_update_overlay.dart';
 import 'widgets/orientation_snap.dart';
 
@@ -44,9 +45,17 @@ Future<void> main() async {
   // Anonyme Geräte-ID lokal erzeugen/laden; bei Deinstallation weg.
   await DeviceIdService.instance.ensureInitialized(bindFirebase: firebaseReady);
   if (firebaseReady) {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    FlutterError.onError = (details) {
+      // Fehlende Pack-/Progress-Bilder: UI fängt das ab — nicht als fatal melden.
+      if (isBenignImageLoadError(details.exception)) {
+        FirebaseCrashlytics.instance.recordFlutterError(details);
+        return;
+      }
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      final fatal = !isBenignImageLoadError(error);
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: fatal);
       return true;
     };
     unawaited(AnalyticsService.instance.initialize());

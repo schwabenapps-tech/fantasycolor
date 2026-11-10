@@ -96,6 +96,15 @@ class ColoringPageImage extends StatelessWidget {
   }
 
   Widget _sourceImage(int? cacheWidth) {
+    if (!isLocalImageAvailable(page.assetPath)) {
+      return Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: placeholderColor,
+          size: placeholderSize,
+        ),
+      );
+    }
     final provider = imageProviderFor(page.assetPath);
     return Image(
       image: ResizeImage.resizeIfNeeded(cacheWidth, null, provider),
@@ -104,7 +113,11 @@ class ColoringPageImage extends StatelessWidget {
       filterQuality: FilterQuality.low,
       gaplessPlayback: false,
       errorBuilder: (_, _, _) => Center(
-        child: Icon(Icons.broken_image_outlined, color: placeholderColor),
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: placeholderColor,
+          size: placeholderSize,
+        ),
       ),
     );
   }

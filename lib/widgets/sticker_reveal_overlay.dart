@@ -102,6 +102,11 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                     ),
                                     fit: BoxFit.contain,
                                     filterQuality: FilterQuality.high,
+                                    errorBuilder: (_, _, _) =>
+                                        missingImagePlaceholder(
+                                      color: const Color(0xFFFFE7A0),
+                                      size: stickerSide * 0.35,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 20),
@@ -161,6 +166,11 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                     ),
                                     fit: BoxFit.contain,
                                     filterQuality: FilterQuality.high,
+                                    errorBuilder: (_, _, _) =>
+                                        missingImagePlaceholder(
+                                      color: const Color(0xFFFFE7A0),
+                                      size: stickerSide * 0.35,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 22),
