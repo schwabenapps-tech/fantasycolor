@@ -300,7 +300,12 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         builder: (context, child) {
           // ListenableBuilder statt context.watch im MaterialApp.builder —
           // zuverlässigeres Rebuild, wenn forceRequired umschaltet.
+          // Winter: Cover näher am Hub-Himmel — weniger blauer Flash beim Drehen.
+          final cover = AdventService.isWinterHubUi()
+              ? const Color(0xFF1E3348)
+              : _bootBackground;
           return OrientationSnap(
+            coverColor: cover,
             child: ListenableBuilder(
               listenable: AppUpdateService.instance,
               builder: (context, _) {

@@ -15,7 +15,9 @@ import '../widgets/gallery_category_title.dart';
 enum CatalogGalleryKind { coloring, puzzle, print }
 
 /// Galerie-Layout: Event-Hubs (Diashow) vorne → Standard-Gallery → abgelaufene Hubs hinten.
-class CatalogGalleryBody extends StatelessWidget {
+///
+/// Beim Drehen wird der ungefähre sichtbare Index Grid ↔ Row mitgenommen.
+class CatalogGalleryBody extends StatefulWidget {
   const CatalogGalleryBody({
     super.key,
     required this.catalog,
@@ -49,57 +51,63 @@ class CatalogGalleryBody extends StatelessWidget {
   /// false = abgelaufene Event-Motive nur im Events-Tab (nicht in Malen/Puzzle).
   final bool includePastEventPages;
 
+  @override
+  State<CatalogGalleryBody> createState() => _CatalogGalleryBodyState();
+}
+
+class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
+  bool? _wasPortrait;
+  int _anchorIndex = 0;
+
   List<_Entry> _entries() {
-    if (!showEventHubs) {
+    if (!widget.showEventHubs) {
       final byId = <String, ColoringPage>{};
-      for (final event in catalog.activeEvents) {
+      for (final event in widget.catalog.activeEvents) {
         for (final page in event.pages) {
           byId[page.id] = page;
         }
       }
-      for (final page in catalog.standard.pages) {
+      for (final page in widget.catalog.standard.pages) {
         byId[page.id] = page;
       }
-      if (includePastEventPages) {
-        for (final event in catalog.pastEvents) {
+      if (widget.includePastEventPages) {
+        for (final event in widget.catalog.pastEvents) {
           for (final page in event.pages) {
             byId.putIfAbsent(page.id, () => page);
           }
         }
       }
-      final coloring = kind == CatalogGalleryKind.coloring;
-      final sorted = tags.sortNewestFirst(
+      final coloring = widget.kind == CatalogGalleryKind.coloring;
+      final sorted = widget.tags.sortNewestFirst(
         byId.values.toList(),
         coloring: coloring,
       );
       return [for (final page in sorted) _Entry.page(page)];
     }
     // Reihenfolge kommt aus buildCatalog: Neu → Featured → Rest.
-    // Hier nicht nochmal sortNewestFirst — sonst springen alte new_since-Daten vor.
     return [
-      for (final event in catalog.activeEvents) _Entry.hub(event),
-      for (final page in catalog.standard.pages) _Entry.page(page),
-      for (final event in catalog.pastEvents) _Entry.hub(event),
+      for (final event in widget.catalog.activeEvents) _Entry.hub(event),
+      for (final page in widget.catalog.standard.pages) _Entry.page(page),
+      for (final event in widget.catalog.pastEvents) _Entry.hub(event),
     ];
   }
 
   bool _requiresAdUnlock(String id) {
-    // Druckvorlagen: jedes Öffnen braucht Werbung.
-    if (kind == CatalogGalleryKind.print) return true;
+    if (widget.kind == CatalogGalleryKind.print) return true;
     return EventContentGate.isGatedId(
-      tags,
+      widget.tags,
       id,
-      kind: kind == CatalogGalleryKind.puzzle
+      kind: widget.kind == CatalogGalleryKind.puzzle
           ? FavoriteKind.puzzle
           : FavoriteKind.coloring,
     );
   }
 
   Set<String> get _halloweenIds {
-    if (halloweenIds.isNotEmpty) return halloweenIds;
-    return switch (kind) {
-      CatalogGalleryKind.coloring => tags.halloweenColoring,
-      CatalogGalleryKind.puzzle => tags.halloweenPuzzle,
+    if (widget.halloweenIds.isNotEmpty) return widget.halloweenIds;
+    return switch (widget.kind) {
+      CatalogGalleryKind.coloring => widget.tags.halloweenColoring,
+      CatalogGalleryKind.puzzle => widget.tags.halloweenPuzzle,
       CatalogGalleryKind.print => const {},
     };
   }
@@ -107,9 +115,9 @@ class CatalogGalleryBody extends StatelessWidget {
   bool _isHalloween(String id) => _halloweenIds.contains(id);
 
   bool _isNew(String id) {
-    return switch (kind) {
-      CatalogGalleryKind.coloring => tags.isNewColoring(id),
-      CatalogGalleryKind.puzzle => tags.isNewPuzzle(id),
+    return switch (widget.kind) {
+      CatalogGalleryKind.coloring => widget.tags.isNewColoring(id),
+      CatalogGalleryKind.puzzle => widget.tags.isNewPuzzle(id),
       CatalogGalleryKind.print => false,
     };
   }
@@ -119,9 +127,9 @@ class CatalogGalleryBody extends StatelessWidget {
       AppPageRoute<void>(
         builder: (_) => EventPackGalleryScreen(
           section: section,
-          kind: kind,
+          kind: widget.kind,
           halloweenIds: _halloweenIds,
-          tags: tags,
+          tags: widget.tags,
         ),
       ),
     );
@@ -154,32 +162,181 @@ class CatalogGalleryBody extends StatelessWidget {
     );
   }
 
-  String get _storageKey => switch (kind) {
+  String get _storageKey => switch (widget.kind) {
         CatalogGalleryKind.coloring => 'gallery',
         CatalogGalleryKind.puzzle => 'puzzle',
         CatalogGalleryKind.print => 'print',
       };
 
-  FavoriteKind get _favoriteKind => switch (kind) {
+  FavoriteKind get _favoriteKind => switch (widget.kind) {
         CatalogGalleryKind.coloring => FavoriteKind.coloring,
         CatalogGalleryKind.puzzle => FavoriteKind.puzzle,
         CatalogGalleryKind.print => FavoriteKind.coloring,
       };
 
-  bool get _showFavoriteButton => kind != CatalogGalleryKind.print;
+  bool get _showFavoriteButton => widget.kind != CatalogGalleryKind.print;
+
+  double _rowExtent(_Entry entry, double tileHeight) {
+    if (entry.hub != null) {
+      return (tileHeight * 0.92).clamp(tileHeight * 0.75, tileHeight * 1.15);
+    }
+    final page = entry.page!;
+    final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
+    return (tileHeight * ratio).clamp(tileHeight * 0.55, tileHeight * 1.75);
+  }
+
+  int _indexFromGrid({
+    required AppLayout layout,
+    required Size size,
+    required int itemCount,
+  }) {
+    final c = widget.gridScroll;
+    if (c == null || !c.hasClients || itemCount <= 0) return _anchorIndex;
+    final pad = layout.galleryGridPadding(size).copyWith(top: 8);
+    final cols = layout.galleryGridCrossAxisCount;
+    final usableW =
+        (size.width - pad.left - pad.right).clamp(1.0, double.infinity);
+    const spacing = 14.0;
+    final cellW = (usableW - spacing * (cols - 1)) / cols;
+    final cellH = cellW / layout.galleryGridChildAspectRatio;
+    final rowH = cellH + spacing;
+    final row = ((c.offset - pad.top).clamp(0.0, double.infinity) / rowH)
+        .floor();
+    return (row * cols).clamp(0, itemCount - 1);
+  }
+
+  int _indexFromRow({
+    required AppLayout layout,
+    required Size size,
+    required List<_Entry> entries,
+  }) {
+    final c = widget.rowScroll;
+    if (c == null || !c.hasClients || entries.isEmpty) return _anchorIndex;
+    final tileH = layout.galleryTileHeight;
+    final sep = size.width * 0.03;
+    final pad = size.width * 0.05;
+    var x = pad;
+    final target = c.offset + size.width * 0.15;
+    for (var i = 0; i < entries.length; i++) {
+      final w = _rowExtent(entries[i], tileH);
+      if (x + w >= target) return i;
+      x += w + sep;
+    }
+    return entries.length - 1;
+  }
+
+  void _jumpToGrid({
+    required AppLayout layout,
+    required Size size,
+    required int index,
+    required int itemCount,
+  }) {
+    final c = widget.gridScroll;
+    if (c == null || !c.hasClients || itemCount <= 0) return;
+    final pad = layout.galleryGridPadding(size).copyWith(top: 8);
+    final cols = layout.galleryGridCrossAxisCount;
+    final usableW =
+        (size.width - pad.left - pad.right).clamp(1.0, double.infinity);
+    const spacing = 14.0;
+    final cellW = (usableW - spacing * (cols - 1)) / cols;
+    final cellH = cellW / layout.galleryGridChildAspectRatio;
+    final rowH = cellH + spacing;
+    final row = index ~/ cols;
+    final target = (pad.top + row * rowH)
+        .clamp(0.0, c.position.maxScrollExtent);
+    c.jumpTo(target);
+  }
+
+  void _jumpToRow({
+    required AppLayout layout,
+    required Size size,
+    required List<_Entry> entries,
+    required int index,
+  }) {
+    final c = widget.rowScroll;
+    if (c == null || !c.hasClients || entries.isEmpty) return;
+    final tileH = layout.galleryTileHeight;
+    final sep = size.width * 0.03;
+    final pad = size.width * 0.05;
+    var x = pad;
+    final i = index.clamp(0, entries.length - 1);
+    for (var n = 0; n < i; n++) {
+      x += _rowExtent(entries[n], tileH) + sep;
+    }
+    c.jumpTo(x.clamp(0.0, c.position.maxScrollExtent));
+  }
+
+  void _syncAfterOrientationChange({
+    required bool toPortrait,
+    required AppLayout layout,
+    required Size size,
+    required List<_Entry> entries,
+  }) {
+    final index = _anchorIndex.clamp(0, entries.isEmpty ? 0 : entries.length - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Zweiter Frame: neuer Controller ist oft erst dann attached.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (toPortrait) {
+          _jumpToGrid(
+            layout: layout,
+            size: size,
+            index: index,
+            itemCount: entries.length,
+          );
+        } else {
+          _jumpToRow(
+            layout: layout,
+            size: size,
+            entries: entries,
+            index: index,
+          );
+        }
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.of(context);
     final size = MediaQuery.sizeOf(context);
     final entries = _entries();
-    final title = (categoryTitle ??
-            switch (kind) {
+    final portrait = layout.isPortrait;
+    final title = (widget.categoryTitle ??
+            switch (widget.kind) {
               CatalogGalleryKind.coloring => 'Color',
               CatalogGalleryKind.puzzle => 'Puzzle',
               CatalogGalleryKind.print => 'Print',
             })
         .trim();
+
+    if (_wasPortrait != null && _wasPortrait != portrait && entries.isNotEmpty) {
+      // _anchorIndex kommt aus den vorherigen Frames derselben Orientierung.
+      _syncAfterOrientationChange(
+        toPortrait: portrait,
+        layout: layout,
+        size: size,
+        entries: entries,
+      );
+    } else if (entries.isNotEmpty) {
+      // Laufend merken, solange dieselbe Orientierung gilt.
+      if (portrait && widget.gridScroll?.hasClients == true) {
+        _anchorIndex = _indexFromGrid(
+          layout: layout,
+          size: size,
+          itemCount: entries.length,
+        );
+      } else if (!portrait && widget.rowScroll?.hasClients == true) {
+        _anchorIndex = _indexFromRow(
+          layout: layout,
+          size: size,
+          entries: entries,
+        );
+      }
+    }
+    _wasPortrait = portrait;
+
     if (entries.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,10 +354,10 @@ class CatalogGalleryBody extends StatelessWidget {
       );
     }
 
-    final gallery = layout.isPortrait
+    final gallery = portrait
         ? GridView.builder(
             key: PageStorageKey<String>('${_storageKey}_grid'),
-            controller: gridScroll,
+            controller: widget.gridScroll,
             scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
             padding: layout.galleryGridPadding(size).copyWith(top: 8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -221,11 +378,11 @@ class CatalogGalleryBody extends StatelessWidget {
                 isHalloween: _isHalloween(page.id),
                 isNew: _isNew(page.id),
                 compact: true,
-                showDownloadButton: showDownloadButton,
+                showDownloadButton: widget.showDownloadButton,
                 showFavoriteButton: _showFavoriteButton,
                 favoriteKind: _favoriteKind,
                 requiresAdUnlock: _requiresAdUnlock(page.id),
-                onTap: () => onOpenPage(page),
+                onTap: () => widget.onOpenPage(page),
               );
             },
           )
@@ -235,7 +392,7 @@ class CatalogGalleryBody extends StatelessWidget {
               height: layout.galleryTileHeight,
               child: ListView.separated(
                 key: PageStorageKey<String>('${_storageKey}_row'),
-                controller: rowScroll,
+                controller: widget.rowScroll,
                 scrollCacheExtent: const ScrollCacheExtent.viewport(1.5),
                 scrollDirection: Axis.horizontal,
                 padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
@@ -272,11 +429,11 @@ class CatalogGalleryBody extends StatelessWidget {
                       page: page,
                       isHalloween: _isHalloween(page.id),
                       isNew: _isNew(page.id),
-                      showDownloadButton: showDownloadButton,
+                      showDownloadButton: widget.showDownloadButton,
                       showFavoriteButton: _showFavoriteButton,
                       favoriteKind: _favoriteKind,
                       requiresAdUnlock: _requiresAdUnlock(page.id),
-                      onTap: () => onOpenPage(page),
+                      onTap: () => widget.onOpenPage(page),
                     ),
                   );
                 },
@@ -287,7 +444,7 @@ class CatalogGalleryBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showCategoryTitle) GalleryCategoryTitle(title: title),
+        if (widget.showCategoryTitle) GalleryCategoryTitle(title: title),
         Expanded(child: gallery),
       ],
     );

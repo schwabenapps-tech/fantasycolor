@@ -11,6 +11,7 @@ import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
+import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 
 Widget _stickerImage(
@@ -42,20 +43,21 @@ class StickerAlbumOverlay extends StatefulWidget {
   const StickerAlbumOverlay({
     super.key,
     required this.onClose,
+    this.onBack,
     this.album = StickerAlbumKind.classic,
   });
 
   final VoidCallback onClose;
+  /// Zurück zur Album-Auswahl (Winter: Klassik ↔ Weihnachten).
+  final VoidCallback? onBack;
   final StickerAlbumKind album;
-
-  static const classicCover = 'assets/images/buch_offen.png';
-  static const winterCover = 'assets/images/christmas.album.png';
 
   @override
   State<StickerAlbumOverlay> createState() => _StickerAlbumOverlayState();
 }
 
-class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
+class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
+    with WidgetsBindingObserver {
   bool _showRules = false;
   int _page = 0;
   StickerEntry? _preview;
@@ -75,6 +77,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final store = context.read<StickerCollectionStore>();
       if (!store.isReady) {
@@ -85,8 +88,22 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    // Nach Drehen PageView auf aktueller Seite halten (kein Zwischen-Slide).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final page = _pageController.page?.round() ?? _page;
+      if (page != _page) {
+        setState(() => _page = page);
+      }
+      _pageController.jumpToPage(_page);
+    });
   }
 
   Future<void> _exportPack(
@@ -148,8 +165,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
         if (mounted) setState(() => _page = pageCount - 1);
       });
     }
-    final landscape =
-        MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
+    final landscape = AppLayout.of(context).isLandscape;
 
     return Material(
       color: Colors.black.withValues(alpha: 0.55),
@@ -169,17 +185,25 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                 ),
                 child: Column(
                   children: [
-                    // Nur Info/Close — Titel sitzt am Album-Block.
+                    // Zurück (Album-Wahl) · Info · Close — Titel sitzt am Album-Block.
                     Row(
                       children: [
-                        _AlbumChromeButton(
+                        if (widget.onBack != null) ...[
+                          AlbumChromeButton(
+                            tooltip: AppStrings.of(context).back,
+                            icon: Icons.arrow_back_rounded,
+                            onPressed: widget.onBack!,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        AlbumChromeButton(
                           tooltip: 'Rules',
                           icon: Icons.info_outline_rounded,
                           onPressed: () =>
                               setState(() => _showRules = true),
                         ),
                         const Spacer(),
-                        _AlbumChromeButton(
+                        AlbumChromeButton(
                           tooltip: 'Close',
                           icon: Icons.close_rounded,
                           onPressed: widget.onClose,
@@ -434,9 +458,10 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
   }
 }
 
-/// Heller Chrome-Button über dem Album (dunkler Hub-Hintergrund).
-class _AlbumChromeButton extends StatelessWidget {
-  const _AlbumChromeButton({
+/// Heller Chrome-Button über Album / Picker (dunkler Hub-Hintergrund).
+class AlbumChromeButton extends StatelessWidget {
+  const AlbumChromeButton({
+    super.key,
     required this.tooltip,
     required this.icon,
     required this.onPressed,
@@ -586,10 +611,10 @@ class _StickerPreviewOverlay extends StatelessWidget {
               Positioned(
                 top: 8,
                 right: 12,
-                child: IconButton(
+                child: AlbumChromeButton(
                   tooltip: 'Close',
+                  icon: Icons.close_rounded,
                   onPressed: onClose,
-                  icon: const Icon(Icons.close_rounded, color: Colors.white),
                 ),
               ),
             ],
@@ -647,12 +672,10 @@ class _RulesPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                      IconButton(
+                      AlbumChromeButton(
+                        tooltip: 'Close',
+                        icon: Icons.close_rounded,
                         onPressed: onClose,
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Color(0xFF4A3208),
-                        ),
                       ),
                     ],
                   ),

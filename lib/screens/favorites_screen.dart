@@ -486,6 +486,9 @@ class FavoriteImagesScreen extends StatelessWidget {
                               onOpen: (page) => _open(context, page),
                             )
                           : GridView.builder(
+                              key: PageStorageKey<String>(
+                                'favorites_grid_${kind.name}',
+                              ),
                               padding: EdgeInsets.fromLTRB(
                                 size.width * 0.045,
                                 10,
@@ -555,6 +558,7 @@ class _FavoriteLandscapeRow extends StatelessWidget {
       child: SizedBox(
         height: tileHeight,
         child: ListView.separated(
+          key: PageStorageKey<String>('favorites_row_${kind.name}'),
           scrollDirection: Axis.horizontal,
           padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
           itemCount: pages.length,

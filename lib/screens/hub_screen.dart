@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +8,7 @@ import '../data/coloring_pages_loader.dart';
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
+import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
@@ -23,10 +23,8 @@ import '../services/remote_pack_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
-import '../widgets/bauble_hub_portal.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/event_hub_portal.dart';
-import '../widgets/hub_arc_carousel.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
@@ -37,12 +35,9 @@ import 'coloring_preview_screen.dart';
 import 'event_pack_gallery_screen.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
-import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
-import 'puzzle_gallery_screen.dart';
 import 'puzzle_screen.dart';
 import 'settings_screen.dart';
-import '../data/sticker_catalog.dart';
 
 /// Zentraler Einstieg: Tabs Home / Puzzle / Malen / Events + Top-Aktionen.
 class HubScreen extends StatefulWidget {
@@ -52,6 +47,8 @@ class HubScreen extends StatefulWidget {
   static const coloringLogo = 'assets/images/malen_favorit.png';
   static const puzzleLogo = 'assets/images/puzzle_favorit.png';
   static const eventsLogo = 'assets/images/events-button.png';
+  /// Neben dem Stickeralbum — Datei ersetzen, wenn neues Asset fertig ist.
+  static const adventButtonAsset = 'assets/images/advent_menu_button.png';
 
   @override
   State<HubScreen> createState() => _HubScreenState();
@@ -194,7 +191,7 @@ class _HubScreenState extends State<HubScreen>
 
   void _openAlbum() {
     AnalyticsService.instance.logScreen('sticker_album');
-    // Winter-Hub: beide Alben wählbar (Klassik + Weihnachten).
+    // Winter: beide Alben wählbar (Klassik + Weihnachten).
     if (AdventService.isWinterHubUi()) {
       setState(() => _showAlbumPicker = true);
       return;
@@ -211,6 +208,10 @@ class _HubScreenState extends State<HubScreen>
       _albumKind = kind;
       _showAlbum = true;
     });
+  }
+
+  void _openAdvent() {
+    _open(const AdventCalendarScreen(), world: 'advent');
   }
 
   void _openFavorites() {
@@ -319,22 +320,15 @@ class _HubScreenState extends State<HubScreen>
             child: SafeArea(
               child: Column(
                 children: [
-                  if (winterUi)
-                    _WinterChromeBar(
-                      onAlbum: _openAlbum,
-                      onPrint: _openPrint,
-                      onFavorites: _openFavorites,
-                      onSettings: _openSettings,
-                    )
-                  else
-                    _HubTopBar(
-                      tabIndex: _tabIndex,
-                      onSelectTab: _selectTab,
-                      onAlbum: _openAlbum,
-                      onPrint: _openPrint,
-                      onFavorites: _openFavorites,
-                      onSettings: _openSettings,
-                    ),
+                  _HubTopBar(
+                    tabIndex: _tabIndex,
+                    onSelectTab: _selectTab,
+                    onAlbum: _openAlbum,
+                    onAdvent: winterUi ? _openAdvent : null,
+                    onPrint: _openPrint,
+                    onFavorites: _openFavorites,
+                    onSettings: _openSettings,
+                  ),
                   Expanded(
                     child: FutureBuilder<_HubCatalog>(
                       key: ValueKey('hub_catalog_$_heardGeneration'),
@@ -362,68 +356,6 @@ class _HubScreenState extends State<HubScreen>
                                 fontSize: 16,
                               ),
                             ),
-                          );
-                        }
-
-                        // Winter: nur Halbkreis-Hub — Galerien über Push.
-                        if (winterUi) {
-                          return _HomeTab(
-                            catalog: data,
-                            scrollController: _homeScroll,
-                            carouselOnly: true,
-                            onOpenColoring: _openColoring,
-                            onOpenPuzzle: _openPuzzle,
-                            onOpenEvent: (event, coloring, puzzle) {
-                              _openEventWorld(
-                                event: event,
-                                coloring: coloring,
-                                puzzle: puzzle,
-                                tags: data.tags,
-                              );
-                            },
-                            onOpenAdvent: () {
-                              _open(
-                                const AdventCalendarScreen(),
-                                world: 'advent',
-                              );
-                            },
-                            onOpenClassicColor: () {
-                              _open(const GalleryScreen(), world: 'color');
-                            },
-                            onOpenClassicPuzzle: () {
-                              _open(
-                                const PuzzleGalleryScreen(),
-                                world: 'puzzle',
-                              );
-                            },
-                            onOpenEventsTab: () {
-                              _open(
-                                _PastEventsScreen(
-                                  catalog: data,
-                                  onOpenEvent: (event, coloring, puzzle) {
-                                    _openEventWorld(
-                                      event: event,
-                                      coloring: coloring,
-                                      puzzle: puzzle,
-                                      tags: data.tags,
-                                    );
-                                  },
-                                ),
-                                world: 'events',
-                              );
-                            },
-                            onOpenFavorites: _openFavorites,
-                            onOpenPrint: _openPrint,
-                            onOpenRecent: () {
-                              _open(
-                                _RecentHubScreen(
-                                  catalog: data,
-                                  onOpenColoring: _openColoring,
-                                  onOpenPuzzle: _openPuzzle,
-                                ),
-                                world: 'recent',
-                              );
-                            },
                           );
                         }
 
@@ -479,15 +411,6 @@ class _HubScreenState extends State<HubScreen>
                                   tags: data.tags,
                                 );
                               },
-                              onOpenAdvent: () {
-                                _open(
-                                  const AdventCalendarScreen(),
-                                  world: 'advent',
-                                );
-                              },
-                              onOpenClassicColor: () => _selectTab(2),
-                              onOpenClassicPuzzle: () => _selectTab(1),
-                              onOpenEventsTab: () => _selectTab(3),
                             ),
                         };
                       },
@@ -527,8 +450,21 @@ class _HubScreenState extends State<HubScreen>
           if (_showAlbum)
             StickerAlbumOverlay(
               album: _albumKind,
+              onBack: winterUi
+                  ? () {
+                      if (!mounted) return;
+                      setState(() {
+                        _showAlbum = false;
+                        _showAlbumPicker = true;
+                      });
+                    }
+                  : null,
               onClose: () {
-                if (mounted) setState(() => _showAlbum = false);
+                if (!mounted) return;
+                setState(() {
+                  _showAlbum = false;
+                  _showAlbumPicker = false;
+                });
               },
             ),
         ],
@@ -552,7 +488,7 @@ class _AlbumPickerOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final size = MediaQuery.sizeOf(context);
-    final landscape = size.width > size.height;
+    final landscape = AppLayout.of(context).isLandscape;
     // Große Cover — deutlich lesbar/tippbar.
     final cardW = landscape
         ? (size.height * 0.42).clamp(160.0, 240.0)
@@ -568,9 +504,10 @@ class _AlbumPickerOverlay extends StatelessWidget {
             Positioned(
               top: 8,
               right: 8,
-              child: IconButton(
+              child: AlbumChromeButton(
+                tooltip: 'Close',
+                icon: Icons.close_rounded,
                 onPressed: onClose,
-                icon: const Icon(Icons.close, color: Colors.white, size: 28),
               ),
             ),
             Center(
@@ -677,217 +614,6 @@ class _HubCatalog {
   final GalleryCatalog puzzle;
 }
 
-/// Oben: Album + Streak · Tabs (nur Icons) · Druck · Stern · Settings.
-/// Winter: Album links wie bisher, Settings rechts — Rest über Kugel-Hubs.
-class _WinterChromeBar extends StatelessWidget {
-  const _WinterChromeBar({
-    required this.onAlbum,
-    required this.onPrint,
-    required this.onFavorites,
-    required this.onSettings,
-  });
-
-  final VoidCallback onAlbum;
-  final VoidCallback onPrint;
-  final VoidCallback onFavorites;
-  final VoidCallback onSettings;
-
-  static const _winterAlbumAsset = 'assets/images/christmas.album.png';
-
-  @override
-  Widget build(BuildContext context) {
-    final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 62.0 : 54.0;
-    // Extra Abstand unterhalb SafeArea — nicht am Notch/Rand kleben.
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Semantics(
-            button: true,
-            label: 'Christmas album',
-            child: GestureDetector(
-              onTap: onAlbum,
-              child: SizedBox(
-                width: size,
-                height: size,
-                child: Image.asset(
-                  _winterAlbumAsset,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.medium,
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: _PlainIconButton(
-              semanticLabel: 'Settings',
-              icon: Icons.settings_rounded,
-              size: 34,
-              onPressed: onSettings,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecentHubScreen extends StatelessWidget {
-  const _RecentHubScreen({
-    required this.catalog,
-    required this.onOpenColoring,
-    required this.onOpenPuzzle,
-  });
-
-  final _HubCatalog catalog;
-  final ValueChanged<ColoringPage> onOpenColoring;
-  final ValueChanged<ColoringPage> onOpenPuzzle;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppStrings.of(context);
-    final tags = catalog.tags;
-    final recent = context.watch<RecentContentStore>();
-    final coloringById = {
-      for (final p in catalog.coloring.allPages) p.id: p,
-    };
-    final puzzleById = {
-      for (final p in catalog.puzzle.allPages) p.id: p,
-    };
-    final items = <({ColoringPage page, FavoriteKind kind})>[
-      for (final e in recent.entries())
-        if (e.kind == FavoriteKind.coloring && coloringById[e.id] != null)
-          (page: coloringById[e.id]!, kind: FavoriteKind.coloring)
-        else if (e.kind == FavoriteKind.puzzle && puzzleById[e.id] != null)
-          (page: puzzleById[e.id]!, kind: FavoriteKind.puzzle),
-    ];
-
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const WinterHubBackdrop(
-            fallbackAsset: HubScreen.backgroundAsset,
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                  child: Row(
-                    children: [
-                      SilverBackButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        t.recentlyUsed,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: items.isEmpty
-                      ? Center(
-                          child: Text(
-                            t.recentlyUsedEmpty,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.75),
-                            ),
-                          ),
-                        )
-                      : _HomeRecentRow(
-                          items: items,
-                          isNew: (id, kind) => kind == FavoriteKind.coloring
-                              ? tags.isNewColoring(id)
-                              : tags.isNewPuzzle(id),
-                          isHalloween: (id, kind) => kind == FavoriteKind.coloring
-                              ? tags.halloweenColoring.contains(id)
-                              : tags.halloweenPuzzle.contains(id),
-                          requiresAdUnlock: (id, kind) =>
-                              EventContentGate.isGatedId(tags, id, kind: kind),
-                          onOpenColoring: onOpenColoring,
-                          onOpenPuzzle: onOpenPuzzle,
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PastEventsScreen extends StatelessWidget {
-  const _PastEventsScreen({
-    required this.catalog,
-    required this.onOpenEvent,
-  });
-
-  final _HubCatalog catalog;
-  final void Function(
-    ContentEvent event,
-    GallerySection coloring,
-    GallerySection puzzle,
-  ) onOpenEvent;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppStrings.of(context);
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const WinterHubBackdrop(
-            fallbackAsset: HubScreen.backgroundAsset,
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-                  child: Row(
-                    children: [
-                      SilverBackButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        t.pastEventsHub,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _EventsTab(
-                    catalog: catalog,
-                    onOpenEvent: onOpenEvent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HubTopBar extends StatelessWidget {
   const _HubTopBar({
     required this.tabIndex,
@@ -896,14 +622,33 @@ class _HubTopBar extends StatelessWidget {
     required this.onPrint,
     required this.onFavorites,
     required this.onSettings,
+    this.onAdvent,
   });
 
   final int tabIndex;
   final ValueChanged<int> onSelectTab;
   final VoidCallback onAlbum;
+  final VoidCallback? onAdvent;
   final VoidCallback onPrint;
   final VoidCallback onFavorites;
   final VoidCallback onSettings;
+
+  Widget _leftActions() {
+    final winter = onAdvent != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _StickerBookButton(
+          onPressed: onAlbum,
+          winter: winter,
+        ),
+        if (winter) ...[
+          const SizedBox(width: 6),
+          _AdventMenuButton(onPressed: onAdvent!),
+        ],
+      ],
+    );
+  }
 
   Widget _tabs({
     required AppStrings t,
@@ -1023,7 +768,7 @@ class _HubTopBar extends StatelessWidget {
           children: [
             Row(
               children: [
-                _StickerBookButton(onPressed: onAlbum),
+                _leftActions(),
                 const Spacer(),
                 _actions(),
               ],
@@ -1043,7 +788,7 @@ class _HubTopBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              _StickerBookButton(onPressed: onAlbum),
+              _leftActions(),
               const Spacer(),
               _actions(),
             ],
@@ -1273,6 +1018,7 @@ class _EventsTab extends StatelessWidget {
               child: SizedBox(
                 height: tileHeight,
                 child: ListView.separated(
+                  key: const PageStorageKey<String>('hub_events_row'),
                   scrollDirection: Axis.horizontal,
                   padding: EdgeInsets.symmetric(horizontal: size.width * 0.05),
                   itemCount: rowItems.length,
@@ -1295,6 +1041,7 @@ class _EventsTab extends StatelessWidget {
     }
 
     return ListView(
+      key: const PageStorageKey<String>('hub_events_list'),
       padding: EdgeInsets.fromLTRB(
         layout.hubHorizontalPadding * 0.55,
         8,
@@ -1349,19 +1096,10 @@ class _HomeTab extends StatefulWidget {
     required this.onOpenColoring,
     required this.onOpenPuzzle,
     required this.onOpenEvent,
-    required this.onOpenAdvent,
-    required this.onOpenClassicColor,
-    required this.onOpenClassicPuzzle,
-    required this.onOpenEventsTab,
-    this.onOpenFavorites,
-    this.onOpenRecent,
-    this.onOpenPrint,
-    this.carouselOnly = false,
   });
 
   final _HubCatalog catalog;
   final ScrollController scrollController;
-  final bool carouselOnly;
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
   final void Function(
@@ -1369,13 +1107,6 @@ class _HomeTab extends StatefulWidget {
     GallerySection coloring,
     GallerySection puzzle,
   ) onOpenEvent;
-  final VoidCallback onOpenAdvent;
-  final VoidCallback onOpenClassicColor;
-  final VoidCallback onOpenClassicPuzzle;
-  final VoidCallback onOpenEventsTab;
-  final VoidCallback? onOpenFavorites;
-  final VoidCallback? onOpenRecent;
-  final VoidCallback? onOpenPrint;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -1383,10 +1114,6 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   bool _precacheDone = false;
-  List<String>? _colorSlides;
-  List<String>? _puzzleSlides;
-  int _colorSlideSig = -1;
-  int _puzzleSlideSig = -1;
 
   List<ColoringPage> _flatten(GalleryCatalog catalog) {
     final byId = <String, ColoringPage>{};
@@ -1440,51 +1167,6 @@ class _HomeTabState extends State<_HomeTab> {
       for (final id in ids)
         if (byId.containsKey(id)) byId[id]!,
     ];
-  }
-
-  /// Zufällige Diashow-Pfade — alt und neu gleichermaßen, ohne Hub-Logos.
-  /// Ergebnis cachen, sonst reshuffle bei jedem Rebuild → Diashow springt.
-  List<String> _cachedColorSlides(Iterable<String> paths) {
-    final list = paths.toList();
-    if (_colorSlides != null && _colorSlideSig == list.length) {
-      return _colorSlides!;
-    }
-    _colorSlideSig = list.length;
-    _colorSlides = _shuffledSlidePaths(list);
-    return _colorSlides!;
-  }
-
-  List<String> _cachedPuzzleSlides(Iterable<String> paths) {
-    final list = paths.toList();
-    if (_puzzleSlides != null && _puzzleSlideSig == list.length) {
-      return _puzzleSlides!;
-    }
-    _puzzleSlideSig = list.length;
-    _puzzleSlides = _shuffledSlidePaths(list);
-    return _puzzleSlides!;
-  }
-
-  List<String> _shuffledSlidePaths(
-    Iterable<String> paths, {
-    Set<String> exclude = const {
-      HubScreen.coloringLogo,
-      HubScreen.puzzleLogo,
-    },
-    int limit = 14,
-  }) {
-    final seen = <String>{};
-    final pool = <String>[];
-    for (final p in paths) {
-      if (p.isEmpty || exclude.contains(p) || !seen.add(p)) continue;
-      final name = p.split('/').last.toLowerCase();
-      if (name == 'malen_favorit.png' || name == 'puzzle_favorit.png') {
-        continue;
-      }
-      pool.add(p);
-    }
-    pool.shuffle(math.Random());
-    if (pool.length <= limit) return pool;
-    return pool.sublist(0, limit);
   }
 
   @override
@@ -1581,148 +1263,10 @@ class _HomeTabState extends State<_HomeTab> {
             size.width * 0.72,
           );
 
-    final advent = context.watch<AdventService>();
-    ContentEvent? winterEventDef;
-    for (final e in tags.allEvents()) {
-      if (e.id.contains('winter') || e.id.contains('christmas')) {
-        winterEventDef = e;
-        break;
-      }
-    }
-    GallerySection? winterColorSection;
-    GallerySection? winterPuzzleSection;
-    if (winterEventDef != null) {
-      final colorIds = {
-        ...winterEventDef.coloringIds,
-        ...advent.unlockedColoringIds,
-      };
-      final puzzleIds = {
-        ...winterEventDef.puzzleIds,
-        ...advent.unlockedPuzzleIds,
-      };
-      winterColorSection = GallerySection(
-        id: winterEventDef.id,
-        title: winterEventDef.title,
-        pages: [
-          for (final id in colorIds)
-            if (coloringById[id] != null) coloringById[id]!,
-        ],
-        isEvent: true,
-        isActiveEvent: winterEventDef.isActive(),
-      );
-      winterPuzzleSection = GallerySection(
-        id: winterEventDef.id,
-        title: winterEventDef.title,
-        pages: [
-          for (final id in puzzleIds)
-            if (puzzleById[id] != null) puzzleById[id]!,
-        ],
-        isEvent: true,
-        isActiveEvent: winterEventDef.isActive(),
-      );
-    }
-
-    // Advent → Weihnachten → Zuletzt → Malen → Puzzle → Favoriten → Past → Drucken.
-    final arcItems = <HubArcItem>[
-      if (advent.showAdventPortal)
-        HubArcItem(
-          id: 'advent',
-          title: t.adventCalendar,
-          coverAsset: 'assets/images/advent_tree_calendar.png',
-          frame: BaubleFrameColor.gold,
-          badge: advent.openableUnopenedCount > 0
-              ? '${advent.openableUnopenedCount}'
-              : null,
-          onTap: widget.onOpenAdvent,
-        ),
-      if (winterEventDef != null &&
-          winterColorSection != null &&
-          winterPuzzleSection != null)
-        HubArcItem(
-          id: 'christmas',
-          title: t.christmasEvent,
-          coverAsset: winterColorSection.pages.isNotEmpty
-              ? winterColorSection.pages.first.assetPath
-              : 'assets/images/winterhintergrund.png',
-          frame: BaubleFrameColor.red,
-          onTap: () => widget.onOpenEvent(
-            winterEventDef!,
-            winterColorSection!,
-            winterPuzzleSection!,
-          ),
-        ),
-      if (widget.onOpenRecent != null)
-        HubArcItem(
-          id: 'recent',
-          title: t.recentlyUsed,
-          coverAsset: recentItems.isNotEmpty
-              ? recentItems.first.page.assetPath
-              : HubScreen.coloringLogo,
-          frame: BaubleFrameColor.green,
-          onTap: widget.onOpenRecent!,
-        ),
-      HubArcItem(
-        id: 'color',
-        title: t.color,
-        // Kein Logo — nur Ausmalbilder, gemischt alt/neu (gecacht).
-        coverAssets: _cachedColorSlides(
-          allColoring.map((p) => p.assetPath),
-        ),
-        frame: BaubleFrameColor.green,
-        slideOffset: const Duration(milliseconds: 400),
-        onTap: widget.onOpenClassicColor,
-      ),
-      HubArcItem(
-        id: 'puzzle',
-        title: t.puzzle,
-        // Kein Logo — nur Puzzlebilder, gemischt alt/neu (gecacht).
-        coverAssets: _cachedPuzzleSlides(
-          allPuzzles.map((p) => p.assetPath),
-        ),
-        frame: BaubleFrameColor.red,
-        slideOffset: const Duration(milliseconds: 1200),
-        onTap: widget.onOpenClassicPuzzle,
-      ),
-      if (widget.onOpenFavorites != null)
-        HubArcItem(
-          id: 'favorites',
-          title: t.favorites,
-          coverAsset: 'assets/images/malen_favorit.png',
-          frame: BaubleFrameColor.gold,
-          onTap: widget.onOpenFavorites!,
-        ),
-      HubArcItem(
-        id: 'past',
-        title: t.pastEventsHub,
-        coverAsset: HubScreen.eventsLogo,
-        frame: BaubleFrameColor.red,
-        onTap: widget.onOpenEventsTab,
-      ),
-      if (widget.onOpenPrint != null)
-        HubArcItem(
-          id: 'print',
-          title: t.print,
-          coverAsset: HubScreen.coloringLogo,
-          frame: BaubleFrameColor.gold,
-          onTap: widget.onOpenPrint!,
-        ),
-    ];
-
-    if (widget.carouselOnly) {
-      // Portrait: vertikale Scroll-Liste · Landscape: großer Halbkreis.
-      return HubArcCarousel(items: arcItems);
-    }
-
     return ListView(
       controller: widget.scrollController,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
-        if (arcItems.isNotEmpty) ...[
-          SizedBox(
-            height: layout.isLandscape ? 280 : 320,
-            child: HubArcCarousel(items: arcItems),
-          ),
-        ],
         _SectionHeader(title: t.recentlyUsed),
         if (recentItems.isEmpty)
           Padding(
@@ -1757,6 +1301,7 @@ class _HomeTabState extends State<_HomeTab> {
           SizedBox(
             height: eventRowHeight,
             child: ListView.separated(
+              key: const PageStorageKey<String>('home_live_events_row'),
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
               itemCount: liveEvents.length,
@@ -1952,6 +1497,7 @@ class _HomeRecentRow extends StatelessWidget {
     return SizedBox(
       height: rowHeight,
       child: ListView.separated(
+        key: const PageStorageKey<String>('home_recent_row'),
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
         itemCount: items.length,
@@ -2035,6 +1581,9 @@ class _HomeRow extends StatelessWidget {
         SizedBox(
           height: rowHeight,
           child: ListView.separated(
+            key: PageStorageKey<String>(
+              'home_row_${favoriteKind.name}_${label ?? 'main'}',
+            ),
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
             itemCount: pages.length,
@@ -2069,11 +1618,16 @@ class _HomeRow extends StatelessWidget {
 }
 
 class _StickerBookButton extends StatelessWidget {
-  const _StickerBookButton({required this.onPressed});
+  const _StickerBookButton({
+    required this.onPressed,
+    this.winter = false,
+  });
 
   final VoidCallback onPressed;
+  final bool winter;
 
-  static const asset = 'assets/images/buch_icon.png';
+  static const classicAsset = 'assets/images/buch_icon.png';
+  static const winterAsset = 'assets/images/christmas.album.png';
 
   @override
   Widget build(BuildContext context) {
@@ -2081,16 +1635,81 @@ class _StickerBookButton extends StatelessWidget {
     final size = side >= 600 ? 58.0 : 50.0;
     return Semantics(
       button: true,
-      label: 'Sticker album',
+      label: winter ? 'Christmas album' : 'Sticker album',
       child: GestureDetector(
         onTap: onPressed,
         child: SizedBox(
           width: size,
           height: size,
           child: Image.asset(
-            asset,
+            winter ? winterAsset : classicAsset,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.medium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdventMenuButton extends StatelessWidget {
+  const _AdventMenuButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final advent = context.watch<AdventService>();
+    final side = MediaQuery.sizeOf(context).shortestSide;
+    final size = side >= 600 ? 58.0 : 50.0;
+    final badge = advent.openableUnopenedCount;
+    return Semantics(
+      button: true,
+      label: t.adventCalendar,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  HubScreen.adventButtonAsset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+                  if (badge > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 18),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE85D5D),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.2),
+                    ),
+                    child: Text(
+                      '$badge',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

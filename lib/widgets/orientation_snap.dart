@@ -2,17 +2,23 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
-/// Sauberer Dreh-Cut: während Zwischengrößen nur Coverfarbe —
+/// Sauberer Dreh-Cut: während Zwischengrößen Cover —
 /// kein verzogenes Layout, kein Bild-Stretch.
+///
+/// Reveal per kurzem Fade statt hartem Cut.
 class OrientationSnap extends StatefulWidget {
   const OrientationSnap({
     super.key,
     required this.child,
     this.coverColor = const Color(0xFF12263F),
+    this.coverDuration = const Duration(milliseconds: 150),
+    this.fadeDuration = const Duration(milliseconds: 120),
   });
 
   final Widget child;
   final Color coverColor;
+  final Duration coverDuration;
+  final Duration fadeDuration;
 
   @override
   State<OrientationSnap> createState() => _OrientationSnapState();
@@ -60,7 +66,7 @@ class _OrientationSnapState extends State<OrientationSnap>
       setState(() => _covering = true);
     }
     // Kurz halten, bis OS + Flutter die Endgröße geliefert haben.
-    _revealTimer = Timer(const Duration(milliseconds: 120), () {
+    _revealTimer = Timer(widget.coverDuration, () {
       if (!mounted || epoch != _epoch) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || epoch != _epoch) return;
@@ -95,10 +101,15 @@ class _OrientationSnapState extends State<OrientationSnap>
       fit: StackFit.expand,
       children: [
         widget.child,
-        if (hide)
-          Positioned.fill(
+        IgnorePointer(
+          ignoring: !hide,
+          child: AnimatedOpacity(
+            opacity: hide ? 1 : 0,
+            duration: hide ? Duration.zero : widget.fadeDuration,
+            curve: Curves.easeOut,
             child: ColoredBox(color: widget.coverColor),
           ),
+        ),
       ],
     );
   }

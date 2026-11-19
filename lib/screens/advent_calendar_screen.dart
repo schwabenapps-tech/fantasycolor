@@ -9,6 +9,7 @@ import '../providers/sticker_collection_store.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/streak_service.dart';
+import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/advent_gift_overlay.dart';
 import '../widgets/silver_back_button.dart';
@@ -85,8 +86,8 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final advent = context.watch<AdventService>();
-    final size = MediaQuery.sizeOf(context);
-    final landscape = size.width > size.height;
+    final layout = AppLayout.of(context);
+    final landscape = layout.isLandscape;
 
     return Scaffold(
       body: Stack(
@@ -129,6 +130,7 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
                       vertical: 8,
                     ),
                     child: GridView.builder(
+                      key: const PageStorageKey<String>('advent_doors'),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: landscape ? 8 : 5,
                         mainAxisSpacing: 8,
