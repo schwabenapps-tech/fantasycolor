@@ -13,6 +13,7 @@ import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
 import 'puzzle_screen.dart';
 import '../utils/app_page_route.dart';
 
@@ -109,10 +110,8 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            PuzzleGalleryScreen.backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          const WinterHubBackdrop(
+            fallbackAsset: PuzzleGalleryScreen.backgroundAsset,
           ),
           FadeTransition(
             opacity: _fadeAnimation,

@@ -135,6 +135,42 @@ class AnalyticsService {
     );
   }
 
+  void logAdventDoorOpen(int day, String rewardId) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'advent_door_open',
+          parameters: {
+            'day': day,
+            'reward_id': rewardId,
+          },
+        ),
+      ),
+    );
+  }
+
+  void logStickerPlaced(String pageId) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'sticker_placed',
+          parameters: {'page_id': pageId},
+        ),
+      ),
+    );
+  }
+
+  void logShareColored(String pageId) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'share_colored',
+          parameters: {'page_id': pageId},
+        ),
+      ),
+    );
+  }
+
   Future<void> _safe(Future<void> Function() op) async {
     try {
       await op();

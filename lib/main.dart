@@ -20,7 +20,9 @@ import 'providers/recent_content_store.dart';
 import 'providers/sticker_collection_store.dart';
 import 'screens/hub_screen.dart';
 import 'screens/start_screen.dart';
+import 'providers/coloring_sticker_placements_store.dart';
 import 'services/ads_service.dart';
+import 'services/advent_service.dart';
 import 'services/analytics_service.dart';
 import 'services/app_update_service.dart';
 import 'services/audio_service.dart';
@@ -170,6 +172,8 @@ class _FantasyColorAppState extends State<FantasyColorApp>
       widget.stickers ?? StickerCollectionStore();
   late final RecentContentStore _recent =
       widget.recent ?? RecentContentStore();
+  late final ColoringStickerPlacementsStore _stickerPlacements =
+      ColoringStickerPlacementsStore();
 
   @override
   void initState() {
@@ -180,6 +184,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     // und der Check läuft zuverlässig nach dem ersten Frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(AppUpdateService.instance.check());
+      unawaited(AdventService.instance.load());
     });
     if (widget.stickers == null) {
       unawaited(_stickers.load());
@@ -247,6 +252,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(value: _pixelProgress),
         ChangeNotifierProvider.value(value: _stickers),
         ChangeNotifierProvider.value(value: _recent),
+        ChangeNotifierProvider.value(value: _stickerPlacements),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
         ),
@@ -261,6 +267,9 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ),
         ChangeNotifierProvider.value(
           value: StreakService.instance,
+        ),
+        ChangeNotifierProvider.value(
+          value: AdventService.instance,
         ),
       ],
       child: MaterialApp(

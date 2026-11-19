@@ -42,9 +42,14 @@ class StickerAlbumOverlay extends StatefulWidget {
   const StickerAlbumOverlay({
     super.key,
     required this.onClose,
+    this.album = StickerAlbumKind.classic,
   });
 
   final VoidCallback onClose;
+  final StickerAlbumKind album;
+
+  static const classicCover = 'assets/images/buch_offen.png';
+  static const winterCover = 'assets/images/christmas.album.png';
 
   @override
   State<StickerAlbumOverlay> createState() => _StickerAlbumOverlayState();
@@ -84,9 +89,13 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
     super.dispose();
   }
 
-  Future<void> _exportPack(StickerCollectionStore store) async {
-    final cat = store.catalog;
-    if (cat == null || !store.isComplete) return;
+  Future<void> _exportPack(
+    StickerCollectionStore store,
+    List<StickerEntry> albumStickers,
+  ) async {
+    if (albumStickers.isEmpty) return;
+    final owned = albumStickers.where((s) => store.owns(s.id)).length;
+    if (owned < albumStickers.length) return;
     try {
       final tmp = await getTemporaryDirectory();
       final dir = Directory('${tmp.path}/fairy_stickers');
@@ -95,7 +104,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
       }
       await dir.create(recursive: true);
       final files = <XFile>[];
-      for (final s in cat.stickers) {
+      for (final s in albumStickers) {
         final bytes = await loadImageBytes(s.assetPath);
         final name = s.assetPath.split('/').last;
         final out = File('${dir.path}/$name');
@@ -128,7 +137,9 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
   Widget build(BuildContext context) {
     final store = context.watch<StickerCollectionStore>();
     final cat = store.catalog;
-    final stickers = cat?.stickers ?? const <StickerEntry>[];
+    final stickers = cat == null
+        ? const <StickerEntry>[]
+        : cat.forAlbum(widget.album);
     final pageCount = stickers.isEmpty
         ? 1
         : ((stickers.length + _perPage - 1) / _perPage).ceil();
@@ -179,16 +190,21 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                     Expanded(
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final gap = landscape ? 6.0 : 10.0;
-                          final inset = landscape ? 10.0 : 14.0;
-                          final titleSize = landscape ? 17.0 : 20.0;
-                          final countSize = landscape ? 15.0 : 18.0;
-                          final titleGap = landscape ? 4.0 : 8.0;
-                          final countGap = landscape ? 4.0 : 8.0;
+                          final gap = landscape ? 8.0 : 12.0;
+                          final inset = landscape ? 12.0 : 16.0;
+                          final titleSize = landscape ? 18.0 : 22.0;
+                          final countSize = landscape ? 16.0 : 18.0;
+                          final titleGap = landscape ? 6.0 : 10.0;
+                          final countGap = landscape ? 6.0 : 10.0;
                           // Text-Zeilen etwas großzügiger schätzen (Font-Metrics).
                           final titleH = titleSize * 1.35;
                           final countH = countSize * 1.35;
-                          final exportH = store.isComplete ? 44.0 : 0.0;
+                          final ownedInAlbum = stickers
+                              .where((s) => store.owns(s.id))
+                              .length;
+                          final albumComplete = stickers.isNotEmpty &&
+                              ownedInAlbum >= stickers.length;
+                          final exportH = albumComplete ? 44.0 : 0.0;
                           final chromeExtras = titleH +
                               titleGap +
                               countGap +
@@ -211,9 +227,10 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                           var cell = cellFromW < cellFromH
                               ? cellFromW
                               : cellFromH;
-                          final maxCell = landscape ? 110.0 : 140.0;
+                          // Kein künstliches Mini-Cap — Album soll den Platz nutzen.
+                          final maxCell = landscape ? 168.0 : 200.0;
                           if (cell > maxCell) cell = maxCell;
-                          if (cell < 36) cell = 36;
+                          if (cell < 44) cell = 44;
                           // Nochmals gegen Budget kappen (min-cell darf nicht sprengen).
                           final gridW = cell * _cols + gap * (_cols - 1);
                           var gridH = cell * _rows + gap * (_rows - 1);
@@ -256,7 +273,9 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                           return Column(
                             children: [
                               Text(
-                                'Sticker album',
+                                widget.album == StickerAlbumKind.winter
+                                    ? AppStrings.of(context).winterStickerAlbum
+                                    : AppStrings.of(context).stickerAlbum,
                                 textAlign: TextAlign.center,
                                 style: titleStyle,
                               ),
@@ -358,25 +377,39 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay> {
                                 ),
                               ),
                               SizedBox(height: countGap),
-                              Text(
-                                '${store.ownedCount} / ${store.totalCount}',
-                                style: countStyle,
+                              Builder(
+                                builder: (context) {
+                                  final ownedInAlbum = stickers
+                                      .where((s) => store.owns(s.id))
+                                      .length;
+                                  final complete = stickers.isNotEmpty &&
+                                      ownedInAlbum >= stickers.length;
+                                  return Column(
+                                    children: [
+                                      Text(
+                                        '$ownedInAlbum / ${stickers.length}',
+                                        style: countStyle,
+                                      ),
+                                      if (complete)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 4),
+                                          child: TextButton.icon(
+                                            onPressed: () =>
+                                                _exportPack(store, stickers),
+                                            icon: const Icon(
+                                              Icons.download_rounded,
+                                            ),
+                                            label: const Text('Sticker pack'),
+                                            style: TextButton.styleFrom(
+                                              backgroundColor: _parchmentDeep,
+                                              foregroundColor: _ink,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
                               ),
-                              if (store.isComplete)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: TextButton.icon(
-                                    onPressed: () => _exportPack(store),
-                                    icon: const Icon(
-                                      Icons.download_rounded,
-                                    ),
-                                    label: const Text('Sticker pack'),
-                                    style: TextButton.styleFrom(
-                                      backgroundColor: _parchmentDeep,
-                                      foregroundColor: _ink,
-                                    ),
-                                  ),
-                                ),
                             ],
                           );
                         },

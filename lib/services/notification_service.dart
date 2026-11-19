@@ -7,6 +7,7 @@ import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../l10n/app_strings.dart';
+import 'advent_service.dart';
 
 /// Sanfte Local Notifications (täglicher Sticker-Hinweis).
 ///
@@ -145,8 +146,9 @@ class NotificationService {
     // sonst über PlatformDispatcher.onError als fataler Crashlytics-Crash.
     try {
       final t = AppStrings.of(context);
-      final dailyTitle = t.notifyTitle;
-      final dailyBody = t.notifyBody;
+      final advent = AdventService.isAdventSeason();
+      final dailyTitle = advent ? t.notifyAdventTitle : t.notifyTitle;
+      final dailyBody = advent ? t.notifyAdventBody : t.notifyBody;
 
       if (!_ready) await initialize();
       final allowed = await requestPermissionIfNeeded();

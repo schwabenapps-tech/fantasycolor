@@ -1,6 +1,14 @@
 {
   "events": [
     {
+      "id": "winter-2026",
+      "title": "Christmas",
+      "starts_at": "2026-12-01",
+      "ends_at": "2027-01-06",
+      "coloring_ids": [],
+      "puzzle_ids": []
+    },
+    {
       "id": "halloween-2026",
       "title": "Halloween",
       "starts_at": "2026-09-15",

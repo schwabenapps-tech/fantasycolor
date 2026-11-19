@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
+import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/event_content_gate.dart';
@@ -21,19 +23,26 @@ import '../services/remote_pack_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
+import '../widgets/bauble_hub_portal.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/event_hub_portal.dart';
+import '../widgets/hub_arc_carousel.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 import '../widgets/welcome_portal_overlay.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
+import 'advent_calendar_screen.dart';
 import 'coloring_preview_screen.dart';
 import 'event_pack_gallery_screen.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
+import 'gallery_screen.dart';
 import 'print_templates_screen.dart';
+import 'puzzle_gallery_screen.dart';
 import 'puzzle_screen.dart';
 import 'settings_screen.dart';
+import '../data/sticker_catalog.dart';
 
 /// Zentraler Einstieg: Tabs Home / Puzzle / Malen / Events + Top-Aktionen.
 class HubScreen extends StatefulWidget {
@@ -58,6 +67,8 @@ class _HubScreenState extends State<HubScreen>
   int _tabIndex = 0;
   bool _showWelcome = false;
   bool _showAlbum = false;
+  bool _showAlbumPicker = false;
+  StickerAlbumKind _albumKind = StickerAlbumKind.classic;
   bool _showDaily = false;
   bool _dailyChecked = false;
   int _heardGeneration = -1;
@@ -140,6 +151,8 @@ class _HubScreenState extends State<HubScreen>
   Future<void> _maybeShowDailyGift() async {
     if (_dailyChecked || !mounted) return;
     _dailyChecked = true;
+    // Advent 1.–25.12.: klassische Daily-Box aus.
+    if (!AdventService.classicRewardsEnabled()) return;
     var ready = false;
     for (var i = 0; i < 20; i++) {
       final store = context.read<StickerCollectionStore>();
@@ -181,7 +194,23 @@ class _HubScreenState extends State<HubScreen>
 
   void _openAlbum() {
     AnalyticsService.instance.logScreen('sticker_album');
-    setState(() => _showAlbum = true);
+    // Winter-Hub: beide Alben wählbar (Klassik + Weihnachten).
+    if (AdventService.isWinterHubUi()) {
+      setState(() => _showAlbumPicker = true);
+      return;
+    }
+    setState(() {
+      _albumKind = StickerAlbumKind.classic;
+      _showAlbum = true;
+    });
+  }
+
+  void _openAlbumKind(StickerAlbumKind kind) {
+    setState(() {
+      _showAlbumPicker = false;
+      _albumKind = kind;
+      _showAlbum = true;
+    });
   }
 
   void _openFavorites() {
@@ -272,28 +301,40 @@ class _HubScreenState extends State<HubScreen>
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
 
+    final winterUi = AdventService.isWinterHubUi();
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
           Image.asset(
-            HubScreen.backgroundAsset,
+            winterUi
+                ? 'assets/images/winterhintergrund.png'
+                : HubScreen.backgroundAsset,
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),
+          if (winterUi) const WinterAtmosphereOverlay(),
           FadeTransition(
             opacity: _fadeAnimation,
             child: SafeArea(
               child: Column(
                 children: [
-                  _HubTopBar(
-                    tabIndex: _tabIndex,
-                    onSelectTab: _selectTab,
-                    onAlbum: _openAlbum,
-                    onPrint: _openPrint,
-                    onFavorites: _openFavorites,
-                    onSettings: _openSettings,
-                  ),
+                  if (winterUi)
+                    _WinterChromeBar(
+                      onAlbum: _openAlbum,
+                      onPrint: _openPrint,
+                      onFavorites: _openFavorites,
+                      onSettings: _openSettings,
+                    )
+                  else
+                    _HubTopBar(
+                      tabIndex: _tabIndex,
+                      onSelectTab: _selectTab,
+                      onAlbum: _openAlbum,
+                      onPrint: _openPrint,
+                      onFavorites: _openFavorites,
+                      onSettings: _openSettings,
+                    ),
                   Expanded(
                     child: FutureBuilder<_HubCatalog>(
                       key: ValueKey('hub_catalog_$_heardGeneration'),
@@ -321,6 +362,68 @@ class _HubScreenState extends State<HubScreen>
                                 fontSize: 16,
                               ),
                             ),
+                          );
+                        }
+
+                        // Winter: nur Halbkreis-Hub — Galerien über Push.
+                        if (winterUi) {
+                          return _HomeTab(
+                            catalog: data,
+                            scrollController: _homeScroll,
+                            carouselOnly: true,
+                            onOpenColoring: _openColoring,
+                            onOpenPuzzle: _openPuzzle,
+                            onOpenEvent: (event, coloring, puzzle) {
+                              _openEventWorld(
+                                event: event,
+                                coloring: coloring,
+                                puzzle: puzzle,
+                                tags: data.tags,
+                              );
+                            },
+                            onOpenAdvent: () {
+                              _open(
+                                const AdventCalendarScreen(),
+                                world: 'advent',
+                              );
+                            },
+                            onOpenClassicColor: () {
+                              _open(const GalleryScreen(), world: 'color');
+                            },
+                            onOpenClassicPuzzle: () {
+                              _open(
+                                const PuzzleGalleryScreen(),
+                                world: 'puzzle',
+                              );
+                            },
+                            onOpenEventsTab: () {
+                              _open(
+                                _PastEventsScreen(
+                                  catalog: data,
+                                  onOpenEvent: (event, coloring, puzzle) {
+                                    _openEventWorld(
+                                      event: event,
+                                      coloring: coloring,
+                                      puzzle: puzzle,
+                                      tags: data.tags,
+                                    );
+                                  },
+                                ),
+                                world: 'events',
+                              );
+                            },
+                            onOpenFavorites: _openFavorites,
+                            onOpenPrint: _openPrint,
+                            onOpenRecent: () {
+                              _open(
+                                _RecentHubScreen(
+                                  catalog: data,
+                                  onOpenColoring: _openColoring,
+                                  onOpenPuzzle: _openPuzzle,
+                                ),
+                                world: 'recent',
+                              );
+                            },
                           );
                         }
 
@@ -376,6 +479,15 @@ class _HubScreenState extends State<HubScreen>
                                   tags: data.tags,
                                 );
                               },
+                              onOpenAdvent: () {
+                                _open(
+                                  const AdventCalendarScreen(),
+                                  world: 'advent',
+                                );
+                              },
+                              onOpenClassicColor: () => _selectTab(2),
+                              onOpenClassicPuzzle: () => _selectTab(1),
+                              onOpenEventsTab: () => _selectTab(3),
                             ),
                         };
                       },
@@ -404,12 +516,149 @@ class _HubScreenState extends State<HubScreen>
                 );
               },
             ),
+          if (_showAlbumPicker)
+            _AlbumPickerOverlay(
+              onClassic: () => _openAlbumKind(StickerAlbumKind.classic),
+              onWinter: () => _openAlbumKind(StickerAlbumKind.winter),
+              onClose: () {
+                if (mounted) setState(() => _showAlbumPicker = false);
+              },
+            ),
           if (_showAlbum)
             StickerAlbumOverlay(
+              album: _albumKind,
               onClose: () {
                 if (mounted) setState(() => _showAlbum = false);
               },
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlbumPickerOverlay extends StatelessWidget {
+  const _AlbumPickerOverlay({
+    required this.onClassic,
+    required this.onWinter,
+    required this.onClose,
+  });
+
+  final VoidCallback onClassic;
+  final VoidCallback onWinter;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height;
+    // Große Cover — deutlich lesbar/tippbar.
+    final cardW = landscape
+        ? (size.height * 0.42).clamp(160.0, 240.0)
+        : (size.width * 0.38).clamp(150.0, 220.0);
+    final cardH = cardW * 1.22;
+    final gap = landscape ? 28.0 : 20.0;
+
+    return Material(
+      color: Colors.black54,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                onPressed: onClose,
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              ),
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      t.chooseAlbum,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: landscape ? 24 : 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: landscape ? 22 : 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _AlbumPickCard(
+                          title: t.classicStickerAlbum,
+                          asset: 'assets/images/buch_icon.png',
+                          width: cardW,
+                          height: cardH,
+                          onTap: onClassic,
+                        ),
+                        SizedBox(width: gap),
+                        _AlbumPickCard(
+                          title: t.winterStickerAlbum,
+                          asset: 'assets/images/christmas.album.png',
+                          width: cardW,
+                          height: cardH,
+                          onTap: onWinter,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlbumPickCard extends StatelessWidget {
+  const _AlbumPickCard({
+    required this.title,
+    required this.asset,
+    required this.onTap,
+    required this.width,
+    required this.height,
+  });
+
+  final String title;
+  final String asset;
+  final VoidCallback onTap;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              asset,
+              width: width,
+              height: height,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
         ],
       ),
     );
@@ -429,6 +678,216 @@ class _HubCatalog {
 }
 
 /// Oben: Album + Streak · Tabs (nur Icons) · Druck · Stern · Settings.
+/// Winter: Album links wie bisher, Settings rechts — Rest über Kugel-Hubs.
+class _WinterChromeBar extends StatelessWidget {
+  const _WinterChromeBar({
+    required this.onAlbum,
+    required this.onPrint,
+    required this.onFavorites,
+    required this.onSettings,
+  });
+
+  final VoidCallback onAlbum;
+  final VoidCallback onPrint;
+  final VoidCallback onFavorites;
+  final VoidCallback onSettings;
+
+  static const _winterAlbumAsset = 'assets/images/christmas.album.png';
+
+  @override
+  Widget build(BuildContext context) {
+    final side = MediaQuery.sizeOf(context).shortestSide;
+    final size = side >= 600 ? 62.0 : 54.0;
+    // Extra Abstand unterhalb SafeArea — nicht am Notch/Rand kleben.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            button: true,
+            label: 'Christmas album',
+            child: GestureDetector(
+              onTap: onAlbum,
+              child: SizedBox(
+                width: size,
+                height: size,
+                child: Image.asset(
+                  _winterAlbumAsset,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: _PlainIconButton(
+              semanticLabel: 'Settings',
+              icon: Icons.settings_rounded,
+              size: 34,
+              onPressed: onSettings,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentHubScreen extends StatelessWidget {
+  const _RecentHubScreen({
+    required this.catalog,
+    required this.onOpenColoring,
+    required this.onOpenPuzzle,
+  });
+
+  final _HubCatalog catalog;
+  final ValueChanged<ColoringPage> onOpenColoring;
+  final ValueChanged<ColoringPage> onOpenPuzzle;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final tags = catalog.tags;
+    final recent = context.watch<RecentContentStore>();
+    final coloringById = {
+      for (final p in catalog.coloring.allPages) p.id: p,
+    };
+    final puzzleById = {
+      for (final p in catalog.puzzle.allPages) p.id: p,
+    };
+    final items = <({ColoringPage page, FavoriteKind kind})>[
+      for (final e in recent.entries())
+        if (e.kind == FavoriteKind.coloring && coloringById[e.id] != null)
+          (page: coloringById[e.id]!, kind: FavoriteKind.coloring)
+        else if (e.kind == FavoriteKind.puzzle && puzzleById[e.id] != null)
+          (page: puzzleById[e.id]!, kind: FavoriteKind.puzzle),
+    ];
+
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const WinterHubBackdrop(
+            fallbackAsset: HubScreen.backgroundAsset,
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                  child: Row(
+                    children: [
+                      SilverBackButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        t.recentlyUsed,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: items.isEmpty
+                      ? Center(
+                          child: Text(
+                            t.recentlyUsedEmpty,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                        )
+                      : _HomeRecentRow(
+                          items: items,
+                          isNew: (id, kind) => kind == FavoriteKind.coloring
+                              ? tags.isNewColoring(id)
+                              : tags.isNewPuzzle(id),
+                          isHalloween: (id, kind) => kind == FavoriteKind.coloring
+                              ? tags.halloweenColoring.contains(id)
+                              : tags.halloweenPuzzle.contains(id),
+                          requiresAdUnlock: (id, kind) =>
+                              EventContentGate.isGatedId(tags, id, kind: kind),
+                          onOpenColoring: onOpenColoring,
+                          onOpenPuzzle: onOpenPuzzle,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PastEventsScreen extends StatelessWidget {
+  const _PastEventsScreen({
+    required this.catalog,
+    required this.onOpenEvent,
+  });
+
+  final _HubCatalog catalog;
+  final void Function(
+    ContentEvent event,
+    GallerySection coloring,
+    GallerySection puzzle,
+  ) onOpenEvent;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const WinterHubBackdrop(
+            fallbackAsset: HubScreen.backgroundAsset,
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                  child: Row(
+                    children: [
+                      SilverBackButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        t.pastEventsHub,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _EventsTab(
+                    catalog: catalog,
+                    onOpenEvent: onOpenEvent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HubTopBar extends StatelessWidget {
   const _HubTopBar({
     required this.tabIndex,
@@ -890,10 +1349,19 @@ class _HomeTab extends StatefulWidget {
     required this.onOpenColoring,
     required this.onOpenPuzzle,
     required this.onOpenEvent,
+    required this.onOpenAdvent,
+    required this.onOpenClassicColor,
+    required this.onOpenClassicPuzzle,
+    required this.onOpenEventsTab,
+    this.onOpenFavorites,
+    this.onOpenRecent,
+    this.onOpenPrint,
+    this.carouselOnly = false,
   });
 
   final _HubCatalog catalog;
   final ScrollController scrollController;
+  final bool carouselOnly;
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
   final void Function(
@@ -901,6 +1369,13 @@ class _HomeTab extends StatefulWidget {
     GallerySection coloring,
     GallerySection puzzle,
   ) onOpenEvent;
+  final VoidCallback onOpenAdvent;
+  final VoidCallback onOpenClassicColor;
+  final VoidCallback onOpenClassicPuzzle;
+  final VoidCallback onOpenEventsTab;
+  final VoidCallback? onOpenFavorites;
+  final VoidCallback? onOpenRecent;
+  final VoidCallback? onOpenPrint;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -908,6 +1383,10 @@ class _HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<_HomeTab> {
   bool _precacheDone = false;
+  List<String>? _colorSlides;
+  List<String>? _puzzleSlides;
+  int _colorSlideSig = -1;
+  int _puzzleSlideSig = -1;
 
   List<ColoringPage> _flatten(GalleryCatalog catalog) {
     final byId = <String, ColoringPage>{};
@@ -961,6 +1440,51 @@ class _HomeTabState extends State<_HomeTab> {
       for (final id in ids)
         if (byId.containsKey(id)) byId[id]!,
     ];
+  }
+
+  /// Zufällige Diashow-Pfade — alt und neu gleichermaßen, ohne Hub-Logos.
+  /// Ergebnis cachen, sonst reshuffle bei jedem Rebuild → Diashow springt.
+  List<String> _cachedColorSlides(Iterable<String> paths) {
+    final list = paths.toList();
+    if (_colorSlides != null && _colorSlideSig == list.length) {
+      return _colorSlides!;
+    }
+    _colorSlideSig = list.length;
+    _colorSlides = _shuffledSlidePaths(list);
+    return _colorSlides!;
+  }
+
+  List<String> _cachedPuzzleSlides(Iterable<String> paths) {
+    final list = paths.toList();
+    if (_puzzleSlides != null && _puzzleSlideSig == list.length) {
+      return _puzzleSlides!;
+    }
+    _puzzleSlideSig = list.length;
+    _puzzleSlides = _shuffledSlidePaths(list);
+    return _puzzleSlides!;
+  }
+
+  List<String> _shuffledSlidePaths(
+    Iterable<String> paths, {
+    Set<String> exclude = const {
+      HubScreen.coloringLogo,
+      HubScreen.puzzleLogo,
+    },
+    int limit = 14,
+  }) {
+    final seen = <String>{};
+    final pool = <String>[];
+    for (final p in paths) {
+      if (p.isEmpty || exclude.contains(p) || !seen.add(p)) continue;
+      final name = p.split('/').last.toLowerCase();
+      if (name == 'malen_favorit.png' || name == 'puzzle_favorit.png') {
+        continue;
+      }
+      pool.add(p);
+    }
+    pool.shuffle(math.Random());
+    if (pool.length <= limit) return pool;
+    return pool.sublist(0, limit);
   }
 
   @override
@@ -1057,10 +1581,148 @@ class _HomeTabState extends State<_HomeTab> {
             size.width * 0.72,
           );
 
+    final advent = context.watch<AdventService>();
+    ContentEvent? winterEventDef;
+    for (final e in tags.allEvents()) {
+      if (e.id.contains('winter') || e.id.contains('christmas')) {
+        winterEventDef = e;
+        break;
+      }
+    }
+    GallerySection? winterColorSection;
+    GallerySection? winterPuzzleSection;
+    if (winterEventDef != null) {
+      final colorIds = {
+        ...winterEventDef.coloringIds,
+        ...advent.unlockedColoringIds,
+      };
+      final puzzleIds = {
+        ...winterEventDef.puzzleIds,
+        ...advent.unlockedPuzzleIds,
+      };
+      winterColorSection = GallerySection(
+        id: winterEventDef.id,
+        title: winterEventDef.title,
+        pages: [
+          for (final id in colorIds)
+            if (coloringById[id] != null) coloringById[id]!,
+        ],
+        isEvent: true,
+        isActiveEvent: winterEventDef.isActive(),
+      );
+      winterPuzzleSection = GallerySection(
+        id: winterEventDef.id,
+        title: winterEventDef.title,
+        pages: [
+          for (final id in puzzleIds)
+            if (puzzleById[id] != null) puzzleById[id]!,
+        ],
+        isEvent: true,
+        isActiveEvent: winterEventDef.isActive(),
+      );
+    }
+
+    // Advent → Weihnachten → Zuletzt → Malen → Puzzle → Favoriten → Past → Drucken.
+    final arcItems = <HubArcItem>[
+      if (advent.showAdventPortal)
+        HubArcItem(
+          id: 'advent',
+          title: t.adventCalendar,
+          coverAsset: 'assets/images/advent_tree_calendar.png',
+          frame: BaubleFrameColor.gold,
+          badge: advent.openableUnopenedCount > 0
+              ? '${advent.openableUnopenedCount}'
+              : null,
+          onTap: widget.onOpenAdvent,
+        ),
+      if (winterEventDef != null &&
+          winterColorSection != null &&
+          winterPuzzleSection != null)
+        HubArcItem(
+          id: 'christmas',
+          title: t.christmasEvent,
+          coverAsset: winterColorSection.pages.isNotEmpty
+              ? winterColorSection.pages.first.assetPath
+              : 'assets/images/winterhintergrund.png',
+          frame: BaubleFrameColor.red,
+          onTap: () => widget.onOpenEvent(
+            winterEventDef!,
+            winterColorSection!,
+            winterPuzzleSection!,
+          ),
+        ),
+      if (widget.onOpenRecent != null)
+        HubArcItem(
+          id: 'recent',
+          title: t.recentlyUsed,
+          coverAsset: recentItems.isNotEmpty
+              ? recentItems.first.page.assetPath
+              : HubScreen.coloringLogo,
+          frame: BaubleFrameColor.green,
+          onTap: widget.onOpenRecent!,
+        ),
+      HubArcItem(
+        id: 'color',
+        title: t.color,
+        // Kein Logo — nur Ausmalbilder, gemischt alt/neu (gecacht).
+        coverAssets: _cachedColorSlides(
+          allColoring.map((p) => p.assetPath),
+        ),
+        frame: BaubleFrameColor.green,
+        slideOffset: const Duration(milliseconds: 400),
+        onTap: widget.onOpenClassicColor,
+      ),
+      HubArcItem(
+        id: 'puzzle',
+        title: t.puzzle,
+        // Kein Logo — nur Puzzlebilder, gemischt alt/neu (gecacht).
+        coverAssets: _cachedPuzzleSlides(
+          allPuzzles.map((p) => p.assetPath),
+        ),
+        frame: BaubleFrameColor.red,
+        slideOffset: const Duration(milliseconds: 1200),
+        onTap: widget.onOpenClassicPuzzle,
+      ),
+      if (widget.onOpenFavorites != null)
+        HubArcItem(
+          id: 'favorites',
+          title: t.favorites,
+          coverAsset: 'assets/images/malen_favorit.png',
+          frame: BaubleFrameColor.gold,
+          onTap: widget.onOpenFavorites!,
+        ),
+      HubArcItem(
+        id: 'past',
+        title: t.pastEventsHub,
+        coverAsset: HubScreen.eventsLogo,
+        frame: BaubleFrameColor.red,
+        onTap: widget.onOpenEventsTab,
+      ),
+      if (widget.onOpenPrint != null)
+        HubArcItem(
+          id: 'print',
+          title: t.print,
+          coverAsset: HubScreen.coloringLogo,
+          frame: BaubleFrameColor.gold,
+          onTap: widget.onOpenPrint!,
+        ),
+    ];
+
+    if (widget.carouselOnly) {
+      // Portrait: vertikale Scroll-Liste · Landscape: großer Halbkreis.
+      return HubArcCarousel(items: arcItems);
+    }
+
     return ListView(
       controller: widget.scrollController,
       padding: const EdgeInsets.only(bottom: 16),
       children: [
+        if (arcItems.isNotEmpty) ...[
+          SizedBox(
+            height: layout.isLandscape ? 280 : 320,
+            child: HubArcCarousel(items: arcItems),
+          ),
+        ],
         _SectionHeader(title: t.recentlyUsed),
         if (recentItems.isEmpty)
           Padding(

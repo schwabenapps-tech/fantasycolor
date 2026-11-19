@@ -11,6 +11,7 @@ import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
 import 'print_preview_screen.dart';
 
 /// Galerie zum Speichern und Teilen von Print templates (zum Ausdrucken).
@@ -78,10 +79,8 @@ class _PrintTemplatesScreenState extends State<PrintTemplatesScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            PrintTemplatesScreen.backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          const WinterHubBackdrop(
+            fallbackAsset: PrintTemplatesScreen.backgroundAsset,
           ),
           FadeTransition(
             opacity: _fadeAnimation,

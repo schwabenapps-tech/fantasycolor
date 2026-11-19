@@ -23,6 +23,7 @@ import '../widgets/event_badges.dart';
 import '../widgets/gallery_category_title.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
 import 'coloring_preview_screen.dart';
 import 'print_preview_screen.dart';
 import 'puzzle_screen.dart';
@@ -115,11 +116,7 @@ class EventPackGalleryScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
+          WinterHubBackdrop(fallbackAsset: backgroundAsset),
           SafeArea(
             child: Stack(
               children: [

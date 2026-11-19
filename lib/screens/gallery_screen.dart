@@ -13,6 +13,7 @@ import '../utils/app_layout.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
 import 'coloring_preview_screen.dart';
 import '../utils/app_page_route.dart';
 
@@ -113,10 +114,8 @@ class _GalleryScreenState extends State<GalleryScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            GalleryScreen.backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          const WinterHubBackdrop(
+            fallbackAsset: GalleryScreen.backgroundAsset,
           ),
           FadeTransition(
             opacity: _fadeAnimation,

@@ -72,6 +72,20 @@ class AppStrings {
   String get pickBoxToday => _t('pickBoxToday');
   String get dailyReward => _t('dailyReward');
   String get stickerAlbum => _t('stickerAlbum');
+  String get winterStickerAlbum => _t('winterStickerAlbum');
+  String get classicStickerAlbum => _t('classicStickerAlbum');
+  String get chooseAlbum => _t('chooseAlbum');
+  String get adventCalendar => _t('adventCalendar');
+  String get christmasEvent => _t('christmasEvent');
+  String get classicWorld => _t('classicWorld');
+  String get pastEventsHub => _t('pastEventsHub');
+  String get adventReviewTitle => _t('adventReviewTitle');
+  String get adventReviewEmpty => _t('adventReviewEmpty');
+  String get adventRewardSticker => _t('adventRewardSticker');
+  String get adventRewardColoring => _t('adventRewardColoring');
+  String get adventRewardPuzzle => _t('adventRewardPuzzle');
+  String get notifyAdventTitle => _t('notifyAdventTitle');
+  String get notifyAdventBody => _t('notifyAdventBody');
   String get stickerRulesBody => _t('stickerRulesBody');
   String get settings => _t('settings');
   String get welcomeTitle => _t('welcomeTitle');
@@ -187,6 +201,20 @@ const _en = {
   'pickBoxToday': 'Pick a box for today’s reward',
   'dailyReward': 'Daily reward!',
   'stickerAlbum': 'Sticker album',
+  'winterStickerAlbum': 'Christmas album',
+  'classicStickerAlbum': 'Classic album',
+  'chooseAlbum': 'Choose an album',
+  'adventCalendar': 'Advent calendar',
+  'christmasEvent': 'Christmas',
+  'classicWorld': 'Classic',
+  'pastEventsHub': 'Past events',
+  'adventReviewTitle': 'Door {n} — your gifts',
+  'adventReviewEmpty': 'No gifts stored for this door.',
+  'adventRewardSticker': 'Sticker',
+  'adventRewardColoring': 'Coloring page',
+  'adventRewardPuzzle': 'Puzzle',
+  'notifyAdventTitle': 'Your Advent door is open ✨',
+  'notifyAdventBody': 'A Christmas bauble is waiting — come open today’s gift!',
   'stickerRulesBody':
       '• Finish a coloring page (about 90% painted) to earn a sticker — once per picture until you reset it.\n'
       '• Solve a puzzle on Pro difficulty to earn a sticker — once per puzzle.\n'
@@ -294,6 +322,21 @@ const _de = {
   'pickBoxToday': 'Wähle eine Box für die heutige Belohnung',
   'dailyReward': 'Tagesbelohnung!',
   'stickerAlbum': 'Sticker-Album',
+  'winterStickerAlbum': 'Weihnachts-Album',
+  'classicStickerAlbum': 'Klassik-Album',
+  'chooseAlbum': 'Album wählen',
+  'adventCalendar': 'Adventskalender',
+  'christmasEvent': 'Weihnachten',
+  'classicWorld': 'Klassik',
+  'pastEventsHub': 'Vergangene Events',
+  'adventReviewTitle': 'Türchen {n} — deine Geschenke',
+  'adventReviewEmpty': 'Keine Geschenke für dieses Türchen gespeichert.',
+  'adventRewardSticker': 'Sticker',
+  'adventRewardColoring': 'Ausmalbild',
+  'adventRewardPuzzle': 'Puzzle',
+  'notifyAdventTitle': 'Dein Advents-Türchen ist offen ✨',
+  'notifyAdventBody':
+      'Eine Weihnachtskugel wartet — hol dir das Geschenk von heute!',
   'stickerRulesBody':
       '• Male ein Bild zu etwa 90 % aus, um einen Sticker zu verdienen — einmal pro Bild, bis du es zurücksetzt.\n'
       '• Löse ein Puzzle auf Pro-Schwierigkeit für einen Sticker — einmal pro Puzzle.\n'

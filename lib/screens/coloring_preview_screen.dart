@@ -10,16 +10,20 @@ import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
+import '../providers/coloring_sticker_placements_store.dart';
 import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
+import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/coloring_sticker_export.dart';
 import '../services/gallery_export.dart';
 import '../services/streak_service.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_canvas.dart';
+import '../widgets/coloring_sticker_layer.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
@@ -197,7 +201,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     final store = context.read<StickerCollectionStore>();
     await store.load();
     List<StickerEntry>? choices;
-    if (store.canRewardColoring(widget.page.id)) {
+    // Advent-Saison: klassische Completion-Sticker aus.
+    if (AdventService.classicRewardsEnabled() &&
+        store.canRewardColoring(widget.page.id)) {
       final offered = store.choicesForColoring(widget.page.id);
       if (offered.isNotEmpty) choices = offered;
     }
@@ -226,12 +232,24 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
       return;
     }
     try {
-      final bytes = _finishedPng ?? await _session.renderColoredPng();
+      var bytes = _finishedPng ?? await _session.renderColoredPng();
       if (bytes == null) return;
+      if (!mounted) return;
+      final placements =
+          context.read<ColoringStickerPlacementsStore>().forPage(widget.page.id);
+      if (placements.isNotEmpty) {
+        final catalog = context.read<StickerCollectionStore>().catalog;
+        bytes = await ColoringStickerExport.bake(
+          basePng: bytes,
+          placements: placements,
+          assetPathFor: (id) => catalog?.byId(id)?.assetPath,
+        );
+      }
       await GalleryExport.savePngBytes(
         bytes,
         name: 'fantasy_color_${widget.page.id}',
       );
+      AnalyticsService.instance.logShareColored(widget.page.id);
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -329,9 +347,13 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                               ),
                             );
                           }
-                          return ColoringCanvas(
-                            bitmap: snapshot.data!,
-                            session: _session,
+                          return ColoringStickerLayer(
+                            pageId: widget.page.id,
+                            editable: !_celebrating,
+                            child: ColoringCanvas(
+                              bitmap: snapshot.data!,
+                              session: _session,
+                            ),
                           );
                         },
                       ),

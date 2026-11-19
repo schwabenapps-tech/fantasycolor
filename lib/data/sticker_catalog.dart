@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 
 import 'event_catalog.dart';
 
+enum StickerAlbumKind { classic, winter }
+
 /// Ein Sticker im Sammelalbum.
 class StickerEntry {
   const StickerEntry({
@@ -11,6 +13,7 @@ class StickerEntry {
     required this.assetPath,
     this.coloringId,
     this.puzzleId,
+    this.album = StickerAlbumKind.classic,
   });
 
   final String id;
@@ -18,13 +21,19 @@ class StickerEntry {
   final String assetPath;
   final String? coloringId;
   final String? puzzleId;
+  final StickerAlbumKind album;
 
   factory StickerEntry.fromJson(Map<String, dynamic> json) {
+    final albumRaw = json['album']?.toString().toLowerCase();
+    final album = albumRaw == 'winter'
+        ? StickerAlbumKind.winter
+        : StickerAlbumKind.classic;
     return StickerEntry(
       id: json['id'] as String,
       assetPath: json['asset'] as String,
       coloringId: json['coloringId'] as String?,
       puzzleId: json['puzzleId'] as String?,
+      album: album,
     );
   }
 }
@@ -153,4 +162,9 @@ class StickerCatalog {
   }
 
   int get count => stickers.length;
+
+  List<StickerEntry> forAlbum(StickerAlbumKind album) => [
+        for (final s in stickers)
+          if (s.album == album) s,
+      ];
 }

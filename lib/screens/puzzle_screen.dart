@@ -14,6 +14,7 @@ import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
+import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/gallery_export.dart';
@@ -575,7 +576,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
     List<StickerEntry>? choices;
     // Sticker nur ab Pro (schwer) — einmal pro Puzzle.
-    if (_difficulty.tier == PuzzleTier.expert) {
+    // Advent-Saison: klassische Completion-Belohnungen aus.
+    if (AdventService.classicRewardsEnabled() &&
+        _difficulty.tier == PuzzleTier.expert) {
       final store = context.read<StickerCollectionStore>();
       await store.load();
       if (store.canRewardPuzzle(widget.puzzle.id)) {

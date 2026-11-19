@@ -13,6 +13,7 @@ import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/winter_atmosphere_overlay.dart';
 import 'coloring_preview_screen.dart';
 import 'puzzle_screen.dart';
 
@@ -75,10 +76,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            FavoritesScreen.backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          const WinterHubBackdrop(
+            fallbackAsset: FavoritesScreen.backgroundAsset,
           ),
           SafeArea(
             child: Column(
@@ -408,10 +407,8 @@ class FavoriteImagesScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            FavoritesScreen.backgroundAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          const WinterHubBackdrop(
+            fallbackAsset: FavoritesScreen.backgroundAsset,
           ),
           SafeArea(
             child: Column(
