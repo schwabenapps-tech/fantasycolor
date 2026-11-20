@@ -14,8 +14,8 @@ import '../widgets/freehand_stroke_painter.dart';
 /// Penstärke für kindgerechte Auswahl.
 enum PenSize { thin, medium, thick }
 
-/// Tray: erst Kategorien, dann Farben (unabhängig von `_category` / Fill-Stil).
-enum PaletteTrayMode { categories, colors }
+/// Tray: Kategorien, Farben oder Stickers.
+enum PaletteTrayMode { categories, colors, stickers }
 
 /// Ein freier Pen- oder Eraser-Strich (Overlay).
 class FreehandStroke {
@@ -85,6 +85,7 @@ class ColoringSession extends ChangeNotifier {
   DateTime? _lastFrameNotifyAt;
   bool _frameDirty = false;
   int _lastNotifiedGen = -1;
+  DateTime _lastChangeAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   PaintCategory? get category => _category;
   PaletteTrayMode get trayMode => _trayMode;
@@ -98,6 +99,8 @@ class ColoringSession extends ChangeNotifier {
   bool get canReset => _dirty || _undoStack.isNotEmpty || _strokes.isNotEmpty;
   bool get hasCategory => _category != null;
   bool get showingColors => _trayMode == PaletteTrayMode.colors;
+  bool get showingStickers => _trayMode == PaletteTrayMode.stickers;
+  DateTime get lastChangeAt => _lastChangeAt;
 
   /// Ändert sich nur bei Bitmap-Fills/Reset — steuert Frame-Rebuild.
   int get bitmapGeneration => _bitmapGeneration;
@@ -215,6 +218,14 @@ class ColoringSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  void openStickerTray() {
+    _trayMode = PaletteTrayMode.stickers;
+    if (_tool == PaintTool.eraser) {
+      _tool = PaintTool.brush;
+    }
+    notifyListeners();
+  }
+
   void selectCategory(PaintCategory category) {
     _category = category;
     final swatches = PaintCatalog.swatchesFor(category);
@@ -315,11 +326,16 @@ class ColoringSession extends ChangeNotifier {
     unawaited(applyFillAt(next));
   }
 
+  void _markChanged() {
+    _lastChangeAt = DateTime.now();
+  }
+
   void _pushUndoSnapshot(Uint8List before) {
     _undoStack.add(BitmapSnapshotAction(before));
     if (_undoStack.length > 40) {
       _undoStack.removeAt(0);
     }
+    _markChanged();
   }
 
   void _bumpFrame({required bool force}) {
@@ -421,6 +437,7 @@ class ColoringSession extends ChangeNotifier {
     }
     _dirty = true;
     _strokeGeneration++;
+    _markChanged();
     notifyListeners();
   }
 
@@ -435,6 +452,7 @@ class ColoringSession extends ChangeNotifier {
         _strokes.remove(stroke);
         _strokeGeneration++;
     }
+    _markChanged();
     notifyListeners();
   }
 

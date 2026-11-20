@@ -26,7 +26,7 @@ class CatalogGalleryBody extends StatefulWidget {
     required this.onOpenPage,
     this.gridScroll,
     this.rowScroll,
-    this.showDownloadButton = false,
+    this.showPreviewButton = false,
     this.categoryTitle,
     this.halloweenIds = const {},
     this.showEventHubs = true,
@@ -40,7 +40,7 @@ class CatalogGalleryBody extends StatefulWidget {
   final ValueChanged<ColoringPage> onOpenPage;
   final ScrollController? gridScroll;
   final ScrollController? rowScroll;
-  final bool showDownloadButton;
+  final bool showPreviewButton;
   /// z. B. „Color“ / „Puzzle“ / „Print“ — immer sichtbar oben in der Ansicht.
   final String? categoryTitle;
   /// Für Print: Halloween-Druckvorlagen-IDs. Sonst aus [tags] abgeleitet.
@@ -378,7 +378,7 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
                 isHalloween: _isHalloween(page.id),
                 isNew: _isNew(page.id),
                 compact: true,
-                showDownloadButton: widget.showDownloadButton,
+                showPreviewButton: widget.showPreviewButton,
                 showFavoriteButton: _showFavoriteButton,
                 favoriteKind: _favoriteKind,
                 requiresAdUnlock: _requiresAdUnlock(page.id),
@@ -429,7 +429,7 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
                       page: page,
                       isHalloween: _isHalloween(page.id),
                       isNew: _isNew(page.id),
-                      showDownloadButton: widget.showDownloadButton,
+                      showPreviewButton: widget.showPreviewButton,
                       showFavoriteButton: _showFavoriteButton,
                       favoriteKind: _favoriteKind,
                       requiresAdUnlock: _requiresAdUnlock(page.id),

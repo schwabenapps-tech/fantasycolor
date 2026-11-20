@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../data/paint_catalog.dart';
 import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
@@ -347,13 +348,19 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                               ),
                             );
                           }
-                          return ColoringStickerLayer(
-                            pageId: widget.page.id,
-                            editable: !_celebrating,
-                            child: ColoringCanvas(
-                              bitmap: snapshot.data!,
-                              session: _session,
-                            ),
+                          return AnimatedBuilder(
+                            animation: _session,
+                            builder: (context, _) {
+                              return ColoringStickerLayer(
+                                pageId: widget.page.id,
+                                editable: !_celebrating,
+                                eraseMode: _session.tool == PaintTool.eraser,
+                                child: ColoringCanvas(
+                                  bitmap: snapshot.data!,
+                                  session: _session,
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -403,6 +410,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                 ),
                 PaintBottomBar(
                   session: _session,
+                  pageId: widget.page.id,
                   onResetAll: () => unawaited(_resetAllColors()),
                 ),
               ],

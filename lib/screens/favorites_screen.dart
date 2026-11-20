@@ -90,10 +90,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 12),
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Color(0xFFFFD56A),
-                        size: 28,
+                      Image.asset(
+                        FavoriteStarButton.asset,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -654,7 +656,7 @@ class _FavoriteGridTile extends StatelessWidget {
   }
 }
 
-/// Star button used on gallery cards and favorites.
+/// Herz-Button auf Galerie-Karten und in den Favoriten.
 class FavoriteStarButton extends StatelessWidget {
   const FavoriteStarButton({
     super.key,
@@ -663,46 +665,54 @@ class FavoriteStarButton extends StatelessWidget {
     this.size = 40,
   });
 
+  static const asset = 'assets/images/herz-favoriten.png';
+
   final bool isFavorite;
   final VoidCallback onPressed;
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Ink(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isFavorite
-                ? const Color(0xFF3A2810).withValues(alpha: 0.55)
-                : Colors.black.withValues(alpha: 0.35),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.7),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isFavorite
-                    ? const Color(0xFFFFD56A).withValues(alpha: 0.45)
-                    : Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
+    return Semantics(
+      button: true,
+      selected: isFavorite,
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: Ink(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isFavorite
+                  ? const Color(0xFF3A2810).withValues(alpha: 0.55)
+                  : Colors.black.withValues(alpha: 0.35),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.7),
+                width: 1.2,
               ),
-            ],
-          ),
-          child: Icon(
-            isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
-            color: isFavorite
-                ? const Color(0xFFFFD56A)
-                : Colors.white.withValues(alpha: 0.92),
-            size: size * 0.58,
+              boxShadow: [
+                BoxShadow(
+                  color: isFavorite
+                      ? const Color(0xFFFF4F93).withValues(alpha: 0.45)
+                      : Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Icon(
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: isFavorite
+                  ? const Color(0xFFFF4F93)
+                  : Colors.white.withValues(alpha: 0.92),
+              size: size * 0.58,
+            ),
           ),
         ),
       ),

@@ -87,6 +87,8 @@ class AppStrings {
   String get notifyAdventTitle => _t('notifyAdventTitle');
   String get notifyAdventBody => _t('notifyAdventBody');
   String get stickerRulesBody => _t('stickerRulesBody');
+  String get stickerPlaceHelpTitle => _t('stickerPlaceHelpTitle');
+  String get stickerPlaceHelpBody => _t('stickerPlaceHelpBody');
   String get settings => _t('settings');
   String get welcomeTitle => _t('welcomeTitle');
   String get welcomeBody => _t('welcomeBody');
@@ -222,6 +224,14 @@ const _en = {
       '• Each day you can pick a daily surprise gift box.\n'
       '• Every sticker unlocks only once — no duplicates.\n'
       '• Collect them all to download the free sticker pack.',
+  'stickerPlaceHelpTitle': 'Stickers on your picture',
+  'stickerPlaceHelpBody':
+      '• Tap a sticker in the tray to place it.\n'
+      '• Drag to move it.\n'
+      '• Pinch with two fingers to resize.\n'
+      '• Double-tap to switch small / medium / large.\n'
+      '• Long-press or use the eraser to remove.\n'
+      '• Undo also reverses sticker actions.',
   'settings': 'Settings',
   'welcomeTitle': 'Welcome, little\nadventurer!',
   'welcomeBody':
@@ -344,6 +354,14 @@ const _de = {
       '• Jeden Tag kannst du eine Überraschungs-Box öffnen.\n'
       '• Jeder Sticker nur einmal — keine Duplikate.\n'
       '• Sammle alle, um das Sticker-Pack herunterzuladen.',
+  'stickerPlaceHelpTitle': 'Stickers auf dem Bild',
+  'stickerPlaceHelpBody':
+      '• Tippe im Tray auf einen Sticker, um ihn zu setzen.\n'
+      '• Ziehe ihn zum Verschieben.\n'
+      '• Zwei Finger zum Vergrößern/Verkleinern.\n'
+      '• Doppeltipp wechselt klein / mittel / groß.\n'
+      '• Lange tippen oder Radierer zum Entfernen.\n'
+      '• Rückgängig gilt auch für Sticker.',
   'settings': 'Einstellungen',
   'welcomeTitle': 'Willkommen, kleiner\nAbenteurer!',
   'welcomeBody':
@@ -448,6 +466,14 @@ const _es = {
       '• Cada día puedes abrir una caja sorpresa.\n'
       '• Cada sticker solo una vez — sin duplicados.\n'
       '• Consíguelos todos para descargar el pack.',
+  'stickerPlaceHelpTitle': 'Stickers en tu dibujo',
+  'stickerPlaceHelpBody':
+      '• Toca un sticker en la bandeja para colocarlo.\n'
+      '• Arrástralo para moverlo.\n'
+      '• Pellizca con dos dedos para cambiar el tamaño.\n'
+      '• Doble toque: pequeño / mediano / grande.\n'
+      '• Mantén pulsado o usa la goma para quitarlo.\n'
+      '• Deshacer también afecta a los stickers.',
   'settings': 'Ajustes',
   'welcomeTitle': '¡Bienvenido, pequeño\naventurero!',
   'welcomeBody':
@@ -552,6 +578,14 @@ const _fr = {
       '• Chaque jour, ouvre une boîte surprise.\n'
       '• Chaque sticker une seule fois — pas de doublons.\n'
       '• Collecte-les tous pour télécharger le pack.',
+  'stickerPlaceHelpTitle': 'Stickers sur ton dessin',
+  'stickerPlaceHelpBody':
+      '• Touche un sticker dans le plateau pour le placer.\n'
+      '• Fais glisser pour le déplacer.\n'
+      '• Pince avec deux doigts pour redimensionner.\n'
+      '• Double touche : petit / moyen / grand.\n'
+      '• Appui long ou gomme pour le retirer.\n'
+      '• Annuler fonctionne aussi pour les stickers.',
   'settings': 'Réglages',
   'welcomeTitle': 'Bienvenue, petit\naventurier !',
   'welcomeBody':
@@ -656,6 +690,14 @@ const _pt = {
       '• Todos os dias podes abrir uma caixa surpresa.\n'
       '• Cada sticker só uma vez — sem duplicados.\n'
       '• Junta todos para descarregar o pack.',
+  'stickerPlaceHelpTitle': 'Stickers na tua imagem',
+  'stickerPlaceHelpBody':
+      '• Toca num sticker na barra para o colocar.\n'
+      '• Arrasta para mover.\n'
+      '• Usa dois dedos para redimensionar.\n'
+      '• Toque duplo: pequeno / médio / grande.\n'
+      '• Toque longo ou borracha para remover.\n'
+      '• Anular também funciona com stickers.',
   'settings': 'Definições',
   'welcomeTitle': 'Bem-vindo, pequeno\naventureiro!',
   'welcomeBody':
@@ -760,6 +802,14 @@ const _it = {
       '• Ogni giorno puoi aprire una scatola sorpresa.\n'
       '• Ogni sticker una sola volta — niente duplicati.\n'
       '• Collezionali tutti per scaricare il pack.',
+  'stickerPlaceHelpTitle': 'Stickers sul disegno',
+  'stickerPlaceHelpBody':
+      '• Tocca uno sticker nel vassoio per posizionarlo.\n'
+      '• Trascina per spostarlo.\n'
+      '• Pizzica con due dita per ridimensionare.\n'
+      '• Doppio tocco: piccolo / medio / grande.\n'
+      '• Tocco prolungato o gomma per rimuoverlo.\n'
+      '• Annulla vale anche per gli sticker.',
   'settings': 'Impostazioni',
   'welcomeTitle': 'Benvenuto, piccolo\navventuriero!',
   'welcomeBody':
@@ -864,6 +914,14 @@ const _nl = {
       '• Elke dag kun je een verrassingsdoos openen.\n'
       '• Elke sticker maar één keer — geen duplicaten.\n'
       '• Verzamel ze allemaal om het pack te downloaden.',
+  'stickerPlaceHelpTitle': 'Stickers op je tekening',
+  'stickerPlaceHelpBody':
+      '• Tik in de balk op een sticker om hem te plaatsen.\n'
+      '• Sleep om te verplaatsen.\n'
+      '• Knijp met twee vingers om te vergroten/verkleinen.\n'
+      '• Dubbeltik: klein / middel / groot.\n'
+      '• Lang indrukken of gummen om te verwijderen.\n'
+      '• Ongedaan maken geldt ook voor stickers.',
   'settings': 'Instellingen',
   'welcomeTitle': 'Welkom, kleine\navonturier!',
   'welcomeBody':
@@ -968,6 +1026,14 @@ const _pl = {
       '• Codziennie możesz otworzyć niespodziankę.\n'
       '• Każda naklejka tylko raz — bez duplikatów.\n'
       '• Zbierz wszystkie, by pobrać paczkę.',
+  'stickerPlaceHelpTitle': 'Naklejki na obrazku',
+  'stickerPlaceHelpBody':
+      '• Dotknij naklejki na pasku, aby ją umieścić.\n'
+      '• Przeciągnij, aby przesunąć.\n'
+      '• Ściśnij dwoma palcami, aby zmienić rozmiar.\n'
+      '• Podwójne stuknięcie: mała / średnia / duża.\n'
+      '• Długie naciśnięcie lub gumka, aby usunąć.\n'
+      '• Cofnij działa też dla naklejek.',
   'settings': 'Ustawienia',
   'welcomeTitle': 'Witaj, mały\npodróżniku!',
   'welcomeBody':
@@ -1072,6 +1138,14 @@ const _tr = {
       '• Her gün sürpriz kutu açabilirsin.\n'
       '• Her sticker yalnızca bir kez — kopya yok.\n'
       '• Hepsini topla, paketi indir.',
+  'stickerPlaceHelpTitle': 'Resimdeki çıkartmalar',
+  'stickerPlaceHelpBody':
+      '• Yerleştirmek için çubuktan bir çıkartmaya dokun.\n'
+      '• Taşımak için sürükle.\n'
+      '• Boyutu değiştirmek için iki parmakla sıkıştır.\n'
+      '• Çift dokunuş: küçük / orta / büyük.\n'
+      '• Silmek için uzun bas veya silgiyi kullan.\n'
+      '• Geri al çıkartmalar için de geçerlidir.',
   'settings': 'Ayarlar',
   'welcomeTitle': 'Hoş geldin, küçük\nmaceracı!',
   'welcomeBody':

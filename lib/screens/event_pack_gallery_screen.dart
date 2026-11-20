@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/event_catalog.dart';
@@ -14,7 +13,6 @@ import '../screens/favorites_screen.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/event_content_gate.dart';
-import '../services/gallery_export.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/catalog_gallery_body.dart';
@@ -22,6 +20,7 @@ import '../widgets/coloring_page_image.dart';
 import '../widgets/event_badges.dart';
 import '../widgets/gallery_category_title.dart';
 import '../widgets/progress_badge.dart';
+import '../widgets/puzzle_preview_overlay.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/winter_atmosphere_overlay.dart';
 import 'coloring_preview_screen.dart';
@@ -164,7 +163,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                           halloweenIds.contains(page.id),
                                       isNew: _isNew(page.id),
                                       compact: true,
-                                      showDownloadButton:
+                                      showPreviewButton:
                                           kind == CatalogGalleryKind.puzzle,
                                       showFavoriteButton: !_print,
                                       favoriteKind: _coloring
@@ -205,7 +204,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                             isHalloween: halloweenIds
                                                 .contains(page.id),
                                             isNew: _isNew(page.id),
-                                            showDownloadButton: kind ==
+                                            showPreviewButton: kind ==
                                                 CatalogGalleryKind.puzzle,
                                             showFavoriteButton: !_print,
                                             favoriteKind: _coloring
@@ -249,7 +248,7 @@ class GalleryPageTile extends StatelessWidget {
     required this.isNew,
     required this.onTap,
     this.compact = false,
-    this.showDownloadButton = false,
+    this.showPreviewButton = false,
     this.favoriteKind = FavoriteKind.coloring,
     this.showFavoriteButton = true,
     this.requiresAdUnlock = false,
@@ -259,30 +258,16 @@ class GalleryPageTile extends StatelessWidget {
   final bool isHalloween;
   final bool isNew;
   final bool compact;
-  final bool showDownloadButton;
+  final bool showPreviewButton;
   final FavoriteKind favoriteKind;
   final bool showFavoriteButton;
   /// Motiv aus dem letzten Event — Badge bis zur Ad-Freischaltung.
   final bool requiresAdUnlock;
   final VoidCallback onTap;
 
-  Future<void> _saveToPhotos(BuildContext context) async {
-    try {
-      await GalleryExport.saveAsset(
-        page.assetPath,
-        name: 'fantasy_puzzle_${page.id}',
-      );
-      if (!context.mounted) return;
-      HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved to Photos!')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
-    }
+  Future<void> _openPreview(BuildContext context) async {
+    final play = await PuzzlePreviewOverlay.show(context, page);
+    if (play && context.mounted) onTap();
   }
 
   @override
@@ -318,7 +303,7 @@ class GalleryPageTile extends StatelessWidget {
 
     final starSize = compact ? 34.0 : 42.0;
     final inset = compact ? 8.0 : 12.0;
-    final downloadSize = compact ? 34.0 : 40.0;
+    final previewSize = compact ? 34.0 : 40.0;
     final t = AppStrings.of(context);
 
     return Stack(
@@ -342,7 +327,7 @@ class GalleryPageTile extends StatelessWidget {
               compact: compact,
             ),
           )
-        else if (!showDownloadButton)
+        else if (!showPreviewButton)
           Selector<ColoringProgressStore, bool>(
             selector: (_, store) => store.hasProgress(page.id),
             builder: (context, hasProgress, _) {
@@ -373,7 +358,7 @@ class GalleryPageTile extends StatelessWidget {
               },
             ),
           ),
-        if (showDownloadButton)
+        if (showPreviewButton)
           Positioned(
             right: inset,
             bottom: inset,
@@ -382,11 +367,11 @@ class GalleryPageTile extends StatelessWidget {
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                onTap: () => unawaited(_saveToPhotos(context)),
+                onTap: () => unawaited(_openPreview(context)),
                 customBorder: const CircleBorder(),
                 child: Ink(
-                  width: downloadSize,
-                  height: downloadSize,
+                  width: previewSize,
+                  height: previewSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.black.withValues(alpha: 0.4),
@@ -396,9 +381,9 @@ class GalleryPageTile extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    Icons.download_rounded,
+                    Icons.visibility_rounded,
                     color: Colors.white.withValues(alpha: 0.95),
-                    size: downloadSize * 0.55,
+                    size: previewSize * 0.55,
                   ),
                 ),
               ),

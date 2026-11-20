@@ -25,7 +25,6 @@ import '../utils/app_page_route.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
 import '../widgets/event_hub_portal.dart';
-import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_album_overlay.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 import '../widgets/welcome_portal_overlay.dart';
@@ -44,6 +43,9 @@ class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
+  static const homeLogo = 'assets/images/homeicon.house.png';
+  static const settingsLogo = 'assets/images/gold-zahnrad-setting.png';
+  static const printLogo = 'assets/images/magischer.drucker.png';
   static const coloringLogo = 'assets/images/malen_favorit.png';
   static const puzzleLogo = 'assets/images/puzzle_favorit.png';
   static const eventsLogo = 'assets/images/events-button.png';
@@ -370,7 +372,7 @@ class _HubScreenState extends State<HubScreen>
                               showEventHubs: false,
                               showCategoryTitle: false,
                               includePastEventPages: false,
-                              showDownloadButton: true,
+                              showPreviewButton: true,
                               onOpenPage: _openPuzzle,
                               gridScroll: _puzzleGridScroll,
                               rowScroll: _puzzleRowScroll,
@@ -656,12 +658,9 @@ class _HubTopBar extends StatelessWidget {
     required bool portrait,
   }) {
     final tabGap = portrait ? (tablet ? 16.0 : 12.0) : (tablet ? 14.0 : 10.0);
-    final homeSize = portrait
-        ? (tablet ? 42.0 : 36.0)
-        : (tablet ? 44.0 : 38.0);
     final logoSize = portrait
-        ? (tablet ? 48.0 : 42.0)
-        : (tablet ? 50.0 : 44.0);
+        ? (tablet ? 58.0 : 52.0)
+        : (tablet ? 60.0 : 54.0);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -670,21 +669,10 @@ class _HubTopBar extends StatelessWidget {
           selected: tabIndex == 0,
           semanticLabel: t.home,
           onTap: () => onSelectTab(0),
-          child: Icon(
-            Icons.home_rounded,
-            size: homeSize,
-            color: tabIndex == 0
-                ? const Color(0xFFFFE7A0)
-                : const Color(0xFFD0D8E8),
-            shadows: [
-              Shadow(
-                color: tabIndex == 0
-                    ? const Color(0xAAFFE7A0)
-                    : const Color(0xAA000000),
-                blurRadius: tabIndex == 0 ? 14 : 8,
-                offset: const Offset(0, 1),
-              ),
-            ],
+          child: _TabLogo(
+            asset: HubScreen.homeLogo,
+            selected: tabIndex == 0,
+            size: logoSize,
           ),
         ),
         SizedBox(width: tabGap),
@@ -730,22 +718,22 @@ class _HubTopBar extends StatelessWidget {
       children: [
         _PlainIconButton(
           semanticLabel: 'Print',
-          icon: Icons.print_rounded,
-          size: 34,
+          asset: HubScreen.printLogo,
+          size: 62,
           onPressed: onPrint,
         ),
         const SizedBox(width: 10),
         _PlainIconButton(
           semanticLabel: 'Favorites',
-          icon: Icons.star_rounded,
-          size: 36,
+          asset: FavoriteStarButton.asset,
+          size: 58,
           onPressed: onFavorites,
         ),
         const SizedBox(width: 8),
-        SilverBackButton(
-          icon: Icons.settings_rounded,
-          size: 44,
-          iconSize: 22,
+        _PlainIconButton(
+          semanticLabel: 'Settings',
+          asset: HubScreen.settingsLogo,
+          size: 56,
           onPressed: onSettings,
         ),
       ],
@@ -1351,7 +1339,7 @@ class _HomeTabState extends State<_HomeTab> {
                 kind: FavoriteKind.puzzle,
               ),
               favoriteKind: FavoriteKind.puzzle,
-              showDownloadButton: true,
+              showPreviewButton: true,
               onOpen: widget.onOpenPuzzle,
             ),
           if (newColoring.isNotEmpty)
@@ -1384,7 +1372,7 @@ class _HomeTabState extends State<_HomeTab> {
                 kind: FavoriteKind.puzzle,
               ),
               favoriteKind: FavoriteKind.puzzle,
-              showDownloadButton: true,
+              showPreviewButton: true,
               onOpen: widget.onOpenPuzzle,
             ),
           if (favColoring.isNotEmpty)
@@ -1415,7 +1403,7 @@ class _HomeTabState extends State<_HomeTab> {
               kind: FavoriteKind.puzzle,
             ),
             favoriteKind: FavoriteKind.puzzle,
-            showDownloadButton: true,
+            showPreviewButton: true,
             onOpen: widget.onOpenPuzzle,
           ),
         ],
@@ -1519,7 +1507,7 @@ class _HomeRecentRow extends StatelessWidget {
               isHalloween: isHalloween(page.id, kind),
               isNew: isNew(page.id, kind),
               showFavoriteButton: true,
-              showDownloadButton: kind == FavoriteKind.puzzle,
+              showPreviewButton: kind == FavoriteKind.puzzle,
               favoriteKind: kind,
               requiresAdUnlock: requiresAdUnlock(page.id, kind),
               onTap: () => kind == FavoriteKind.puzzle
@@ -1542,7 +1530,7 @@ class _HomeRow extends StatelessWidget {
     required this.favoriteKind,
     required this.onOpen,
     this.label,
-    this.showDownloadButton = false,
+    this.showPreviewButton = false,
   });
 
   final List<ColoringPage> pages;
@@ -1552,7 +1540,7 @@ class _HomeRow extends StatelessWidget {
   final bool Function(String id) requiresAdUnlock;
   final FavoriteKind favoriteKind;
   final ValueChanged<ColoringPage> onOpen;
-  final bool showDownloadButton;
+  final bool showPreviewButton;
 
   @override
   Widget build(BuildContext context) {
@@ -1603,7 +1591,7 @@ class _HomeRow extends StatelessWidget {
                   isHalloween: isHalloween(page.id),
                   isNew: isNew(page.id),
                   showFavoriteButton: true,
-                  showDownloadButton: showDownloadButton,
+                  showPreviewButton: showPreviewButton,
                   favoriteKind: favoriteKind,
                   requiresAdUnlock: requiresAdUnlock(page.id),
                   onTap: () => onOpen(page),
@@ -1632,7 +1620,7 @@ class _StickerBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 58.0 : 50.0;
+    final size = side >= 600 ? 68.0 : 58.0;
     return Semantics(
       button: true,
       label: winter ? 'Christmas album' : 'Sticker album',
@@ -1662,7 +1650,7 @@ class _AdventMenuButton extends StatelessWidget {
     final t = AppStrings.of(context);
     final advent = context.watch<AdventService>();
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 58.0 : 50.0;
+    final size = side >= 600 ? 68.0 : 58.0;
     final badge = advent.openableUnopenedCount;
     return Semantics(
       button: true,
@@ -1720,18 +1708,40 @@ class _AdventMenuButton extends StatelessWidget {
 class _PlainIconButton extends StatelessWidget {
   const _PlainIconButton({
     required this.semanticLabel,
-    required this.icon,
     required this.onPressed,
+    this.icon,
+    this.asset,
     this.size = 28,
-  });
+  }) : assert(icon != null || asset != null);
 
   final String semanticLabel;
-  final IconData icon;
+  final IconData? icon;
+  final String? asset;
   final VoidCallback onPressed;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final child = asset != null
+        ? Image.asset(
+            asset!,
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+          )
+        : Icon(
+            icon,
+            size: size,
+            color: const Color(0xFFFFF6E8),
+            shadows: const [
+              Shadow(
+                color: Color(0xAA000000),
+                blurRadius: 8,
+                offset: Offset(0, 1),
+              ),
+            ],
+          );
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -1742,18 +1752,7 @@ class _PlainIconButton extends StatelessWidget {
           customBorder: const CircleBorder(),
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: Icon(
-              icon,
-              size: size,
-              color: const Color(0xFFFFF6E8),
-              shadows: const [
-                Shadow(
-                  color: Color(0xAA000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
+            child: child,
           ),
         ),
       ),

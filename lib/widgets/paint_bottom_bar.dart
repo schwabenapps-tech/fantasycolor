@@ -1,27 +1,38 @@
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../data/paint_catalog.dart';
+import '../data/sticker_catalog.dart';
+import '../l10n/app_strings.dart';
 import '../providers/coloring_session.dart';
+import '../providers/coloring_sticker_placements_store.dart';
+import '../providers/sticker_collection_store.dart';
+import '../services/analytics_service.dart';
 import '../utils/app_layout.dart';
+import '../utils/image_source.dart';
 import 'sticker_coverage_bar.dart';
 
-/// Untere Farbleiste: Tools + Kategorien/Farben in einer scrollbaren Reihe.
+/// Untere Farbleiste: Tools + Kategorien/Farben/Stickers in einer scrollbaren Reihe.
 class PaintBottomBar extends StatelessWidget {
   const PaintBottomBar({
     super.key,
     required this.session,
+    required this.pageId,
     this.onResetAll,
   });
 
   final ColoringSession session;
+  final String pageId;
 
   /// Long-Press auf Undo → alles zurücksetzen (inkl. Progress löschen).
   final VoidCallback? onResetAll;
 
   static double heightOf(BuildContext context) =>
       AppLayout.of(context).paintBarHeight;
+
+  static const stickerEntryAsset = StickerCoverageBar.stickerAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -42,19 +53,10 @@ class PaintBottomBar extends StatelessWidget {
                 top: BorderSide(color: Colors.white24),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Sticker + Balken über den Farben — Balken volle Tray-Breite.
-                StickerCoverageBar(session: session),
-                const SizedBox(height: 6),
-                Expanded(
-                  child: _ScrollablePaintTray(
-                    session: session,
-                    onResetAll: onResetAll,
-                  ),
-                ),
-              ],
+            child: _ScrollablePaintTray(
+              session: session,
+              pageId: pageId,
+              onResetAll: onResetAll,
             ),
           ),
         );
@@ -63,37 +65,79 @@ class PaintBottomBar extends StatelessWidget {
   }
 }
 
-/// Eine horizontale Liste: [Zurück?] [Radierer] [Undo] | Kategorien oder Farben.
+/// Eine horizontale Liste: Tools | Sticker-Chip / Stickers / Kategorien / Farben.
 class _ScrollablePaintTray extends StatelessWidget {
   const _ScrollablePaintTray({
     required this.session,
+    required this.pageId,
     this.onResetAll,
   });
 
   final ColoringSession session;
+  final String pageId;
   final VoidCallback? onResetAll;
+
+  void _undo(BuildContext context) {
+    final stickers = context.read<ColoringStickerPlacementsStore>();
+    final stickerUndo = stickers.canUndo(pageId);
+    final paintUndo = session.canUndo;
+    if (stickerUndo &&
+        (!paintUndo ||
+            stickers.lastChangeAt(pageId).isAfter(session.lastChangeAt))) {
+      unawaited(stickers.undo(pageId));
+      return;
+    }
+    if (paintUndo) {
+      session.undo();
+    } else if (stickerUndo) {
+      unawaited(stickers.undo(pageId));
+    }
+  }
+
+  Future<void> _placeSticker(BuildContext context, String stickerId) async {
+    await context.read<ColoringStickerPlacementsStore>().add(
+          pageId,
+          PlacedSticker(stickerId: stickerId, x: 0.5, y: 0.5),
+        );
+    AnalyticsService.instance.logStickerPlaced(pageId);
+  }
 
   @override
   Widget build(BuildContext context) {
     final showingColors = session.showingColors;
+    final showingStickers = session.showingStickers;
+    final stickersStore = context.watch<StickerCollectionStore>();
+    final owned = [
+      for (final s in stickersStore.catalog?.stickers ?? const <StickerEntry>[])
+        if (stickersStore.owns(s.id)) s,
+    ];
+    final placements = context.watch<ColoringStickerPlacementsStore>();
+    final canUndo =
+        session.canUndo || placements.canUndo(pageId);
+
     final recent = showingColors ? session.recentSwatches : const <PaintSwatch>[];
     final swatches =
         showingColors ? session.availableSwatches : const <PaintSwatch>[];
-    final categories =
-        showingColors ? const <PaintCategory>[] : PaintCatalog.categories;
+    final categories = (!showingColors && !showingStickers)
+        ? PaintCatalog.categories
+        : const <PaintCategory>[];
 
-    // Tools: Zurück (nur Farben) → Radierer → Undo, dann Inhalt.
-    final toolCount = showingColors ? 3 : 2;
+    // Tools: Zurück (Farben/Stickers) → Radierer → Undo
+    final toolCount = (showingColors || showingStickers) ? 3 : 2;
+    // Nach Tools: Sticker-Chip (nur Kategorien) oder Stickers oder Farben/Kats
+    final stickerChip = !showingColors && !showingStickers ? 1 : 0;
     final recentBlock = recent.isEmpty ? 0 : recent.length + 1;
-    final contentCount =
-        showingColors ? recentBlock + swatches.length : categories.length;
+    final contentCount = showingStickers
+        ? 1 + (owned.isEmpty ? 1 : owned.length) // Info + Stickers
+        : showingColors
+            ? recentBlock + swatches.length
+            : stickerChip + categories.length;
     final itemCount = toolCount + contentCount;
 
     return ListView.separated(
       scrollDirection: Axis.horizontal,
       itemCount: itemCount,
       separatorBuilder: (_, index) {
-        // Nach den Tools etwas mehr Luft vor den Farben/Kategorien.
         if (index == toolCount - 1) {
           return const SizedBox(width: 12);
         }
@@ -101,11 +145,50 @@ class _ScrollablePaintTray extends StatelessWidget {
       },
       itemBuilder: (context, index) {
         if (index < toolCount) {
-          return Center(child: _toolAt(index, showingColors));
+          return Center(
+            child: _toolAt(
+              index,
+              showingColors: showingColors,
+              showingStickers: showingStickers,
+              canUndo: canUndo,
+              onUndo: () => _undo(context),
+            ),
+          );
         }
         var i = index - toolCount;
+
+        if (showingStickers) {
+          if (i == 0) {
+            return const Center(child: _StickerHelpButton());
+          }
+          i -= 1;
+          if (owned.isEmpty) {
+            return const Center(
+              child: Text(
+                'No stickers yet',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            );
+          }
+          final sticker = owned[i];
+          return Center(
+            child: _TrayStickerChip(
+              sticker: sticker,
+              onTap: () => unawaited(_placeSticker(context, sticker.id)),
+            ),
+          );
+        }
+
         if (!showingColors) {
-          final category = categories[i];
+          if (i == 0) {
+            return Center(
+              child: _StickerEntryChip(
+                selected: false,
+                onTap: session.openStickerTray,
+              ),
+            );
+          }
+          final category = categories[i - 1];
           return Center(
             child: _PalettePackChip(
               category: category,
@@ -113,6 +196,7 @@ class _ScrollablePaintTray extends StatelessWidget {
             ),
           );
         }
+
         if (recent.isNotEmpty) {
           if (i < recent.length) {
             final swatch = recent[i];
@@ -155,18 +239,33 @@ class _ScrollablePaintTray extends StatelessWidget {
     );
   }
 
-  Widget _toolAt(int index, bool showingColors) {
-    // Reihenfolge: Zurück → Radierer → Undo
-    if (showingColors) {
+  Widget _toolAt(
+    int index, {
+    required bool showingColors,
+    required bool showingStickers,
+    required bool canUndo,
+    required VoidCallback onUndo,
+  }) {
+    if (showingColors || showingStickers) {
       return switch (index) {
         0 => _BackButton(session: session),
         1 => _EraserButton(session: session),
-        _ => _UndoButton(session: session, onResetAll: onResetAll),
+        _ => _UndoButton(
+            enabled: canUndo,
+            canReset: session.canReset,
+            onUndo: onUndo,
+            onResetAll: onResetAll,
+          ),
       };
     }
     return switch (index) {
       0 => _EraserButton(session: session),
-      _ => _UndoButton(session: session, onResetAll: onResetAll),
+      _ => _UndoButton(
+          enabled: canUndo,
+          canReset: session.canReset,
+          onUndo: onUndo,
+          onResetAll: onResetAll,
+        ),
     };
   }
 }
@@ -207,26 +306,29 @@ class _BackButton extends StatelessWidget {
 
 class _UndoButton extends StatelessWidget {
   const _UndoButton({
-    required this.session,
+    required this.enabled,
+    required this.canReset,
+    required this.onUndo,
     this.onResetAll,
   });
 
-  final ColoringSession session;
+  final bool enabled;
+  final bool canReset;
+  final VoidCallback onUndo;
   final VoidCallback? onResetAll;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = session.canUndo || session.canReset;
     final radius = BorderRadius.circular(14);
     return Opacity(
-      opacity: enabled ? 1 : 0.4,
+      opacity: enabled || canReset ? 1 : 0.4,
       child: Material(
         color: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: session.canUndo ? session.undo : null,
-          onLongPress: session.canReset ? onResetAll : null,
+          onTap: enabled ? onUndo : null,
+          onLongPress: canReset ? onResetAll : null,
           borderRadius: radius,
           child: Ink(
             width: 48,
@@ -290,6 +392,152 @@ class _EraserButton extends StatelessWidget {
   }
 }
 
+class _StickerEntryChip extends StatelessWidget {
+  const _StickerEntryChip({
+    required this.selected,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Stickers',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Opacity(
+            opacity: selected ? 1 : 0.95,
+            child: Image.asset(
+              PaintBottomBar.stickerEntryAsset,
+              width: 58,
+              height: 58,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StickerHelpButton extends StatelessWidget {
+  const _StickerHelpButton();
+
+  void _showHelp(BuildContext context) {
+    final t = AppStrings.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFF3E6C8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: Text(
+            t.stickerPlaceHelpTitle,
+            style: const TextStyle(
+              color: Color(0xFF4A3208),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Text(
+            t.stickerPlaceHelpBody,
+            style: const TextStyle(
+              color: Color(0xFF4A3208),
+              fontSize: 14,
+              height: 1.45,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                t.letsGo,
+                style: const TextStyle(
+                  color: Color(0xFF4A3208),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(14);
+    return Semantics(
+      button: true,
+      label: 'Sticker help',
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showHelp(context),
+          borderRadius: radius,
+          child: Ink(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              color: Colors.white.withValues(alpha: 0.16),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              size: 22,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TrayStickerChip extends StatelessWidget {
+  const _TrayStickerChip({
+    required this.sticker,
+    required this.onTap,
+  });
+
+  final StickerEntry sticker;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = isLocalImageAvailable(sticker.assetPath)
+        ? Image(
+            image: imageProviderFor(sticker.assetPath),
+            width: 58,
+            height: 58,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+          )
+        : const Icon(Icons.sticky_note_2, color: Colors.white70, size: 40);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: image,
+      ),
+    );
+  }
+}
+
 /// Visuelles Paletten-Pack (wie in Kids-Apps): bunter Kreis, kurzes Label.
 class _PalettePackChip extends StatelessWidget {
   const _PalettePackChip({
@@ -348,60 +596,26 @@ class _PalettePreviewOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: 36,
       height: 36,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.65), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: CustomPaint(
-            painter: _PiePalettePainter(colors: colors),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: SweepGradient(colors: [
+          for (final c in colors) c,
+          if (colors.isNotEmpty) colors.first,
+        ]),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.65), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
-        ),
+        ],
       ),
     );
   }
-}
-
-class _PiePalettePainter extends CustomPainter {
-  const _PiePalettePainter({required this.colors});
-
-  final List<Color> colors;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (colors.isEmpty) return;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide / 2;
-    final sweep = (math.pi * 2) / colors.length;
-    var start = -math.pi / 2;
-    final paint = Paint()..style = PaintingStyle.fill;
-    for (final color in colors) {
-      paint.color = color;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        start,
-        sweep,
-        true,
-        paint,
-      );
-      start += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PiePalettePainter oldDelegate) =>
-      oldDelegate.colors != colors;
 }
 
 class _ColorWell extends StatelessWidget {
@@ -414,60 +628,53 @@ class _ColorWell extends StatelessWidget {
 
   final Color color;
   final bool selected;
-  final VoidCallback onTap;
   final bool recent;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final outer = recent ? 44.0 : 50.0;
+    final inner = selected ? (recent ? 32.0 : 38.0) : (recent ? 36.0 : 44.0);
     return Material(
       color: Colors.transparent,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          width: recent ? 44 : 50,
-          height: recent ? 44 : 50,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? Colors.white : Colors.transparent,
-            border: selected
-                ? Border.all(color: const Color(0xFF121826), width: 2.8)
-                : recent
-                    ? Border.all(
-                        color: const Color(0xFFFFE7A0).withValues(alpha: 0.7),
-                        width: 1.4,
-                      )
-                    : null,
-            boxShadow: selected
-                ? [
+        child: SizedBox(
+          width: outer,
+          height: outer,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (selected)
+                Container(
+                  width: outer,
+                  height: outer,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF121826), width: 2.8),
+                  ),
+                ),
+              Container(
+                width: inner,
+                height: inner,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: selected ? 0.95 : 0.55),
+                    width: selected ? 2.4 : 1.2,
+                  ),
+                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withValues(alpha: 0.28),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
                     ),
-                  ]
-                : null,
-          ),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            width: selected ? (recent ? 32 : 38) : (recent ? 36 : 44),
-            height: selected ? (recent ? 32 : 38) : (recent ? 36 : 44),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              border: Border.all(
-                color: selected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.45),
-                width: selected ? 2.4 : 1.2,
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

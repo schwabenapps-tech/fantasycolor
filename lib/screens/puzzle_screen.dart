@@ -38,6 +38,49 @@ class PuzzleScreen extends StatefulWidget {
   /// Optional: ausgemaltes Bild (sonst Asset aus [puzzle]).
   final ImageProvider? customImage;
 
+  /// Wählt ein Raster möglichst nah an [targetCount], mit passendem Seitenverhältnis.
+  static ({int cols, int rows}) gridForDisplayAspect(
+    double aspect, {
+    required int targetCount,
+  }) {
+    final a = aspect.clamp(0.45, 2.6);
+    final maxDim =
+        math.max(12, (math.sqrt(targetCount.toDouble()) * 1.8).ceil() + 2);
+    var bestCols = 3;
+    var bestRows = 2;
+    var bestScore = double.infinity;
+
+    void consider(int cols, int rows) {
+      final n = cols * rows;
+      final cellAspect = a * rows / cols;
+      final score = (cellAspect - 1).abs() * 3 +
+          (n - targetCount).abs() * 0.35 -
+          (n == targetCount ? 0.8 : 0);
+      if (score < bestScore) {
+        bestScore = score;
+        bestCols = cols;
+        bestRows = rows;
+      }
+    }
+
+    for (var cols = 2; cols <= maxDim; cols++) {
+      if (targetCount % cols != 0) continue;
+      final rows = targetCount ~/ cols;
+      if (rows >= 2 && rows <= maxDim) consider(cols, rows);
+    }
+
+    final slack = math.max(4, (targetCount * 0.12).round());
+    for (var cols = 2; cols <= maxDim; cols++) {
+      for (var rows = 2; rows <= maxDim; rows++) {
+        final n = cols * rows;
+        if ((n - targetCount).abs() > slack) continue;
+        consider(cols, rows);
+      }
+    }
+
+    return (cols: bestCols, rows: bestRows);
+  }
+
   @override
   State<PuzzleScreen> createState() => _PuzzleScreenState();
 }
@@ -190,53 +233,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     super.dispose();
   }
 
-  /// Wählt ein Raster möglichst nah an [targetCount], mit passendem Seitenverhältnis.
-  static ({int cols, int rows}) gridForDisplayAspect(
-    double aspect, {
-    required int targetCount,
-  }) {
-    final a = aspect.clamp(0.45, 2.6);
-    final maxDim =
-        math.max(12, (math.sqrt(targetCount.toDouble()) * 1.8).ceil() + 2);
-    var bestCols = 3;
-    var bestRows = 2;
-    var bestScore = double.infinity;
-
-    void consider(int cols, int rows) {
-      final n = cols * rows;
-      final cellAspect = a * rows / cols;
-      final score = (cellAspect - 1).abs() * 3 +
-          (n - targetCount).abs() * 0.35 -
-          (n == targetCount ? 0.8 : 0);
-      if (score < bestScore) {
-        bestScore = score;
-        bestCols = cols;
-        bestRows = rows;
-      }
-    }
-
-    // Zuerst exakte Faktoren (z. B. 8×8 = 64).
-    for (var cols = 2; cols <= maxDim; cols++) {
-      if (targetCount % cols != 0) continue;
-      final rows = targetCount ~/ cols;
-      if (rows >= 2 && rows <= maxDim) consider(cols, rows);
-    }
-
-    // Dann nahe Alternativen.
-    final slack = math.max(4, (targetCount * 0.12).round());
-    for (var cols = 2; cols <= maxDim; cols++) {
-      for (var rows = 2; rows <= maxDim; rows++) {
-        final n = cols * rows;
-        if ((n - targetCount).abs() > slack) continue;
-        consider(cols, rows);
-      }
-    }
-
-    return (cols: bestCols, rows: bestRows);
-  }
-
   void _reset() {
-    final grid = gridForDisplayAspect(
+    final grid = PuzzleScreen.gridForDisplayAspect(
       _displayAspect,
       targetCount: _difficulty.targetPieces,
     );
@@ -827,11 +825,26 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                         onPressed: () => unawaited(_leavePuzzle()),
                       ),
                       const SizedBox(width: 8),
-                      SilverBackButton(
-                        size: 40,
-                        iconSize: 20,
-                        icon: Icons.tune_rounded,
-                        onPressed: _openSettings,
+                      Semantics(
+                        button: true,
+                        label: 'Settings',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openSettings,
+                            customBorder: const CircleBorder(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: Image.asset(
+                                'assets/images/gold-zahnrad-setting.png',
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.medium,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                       const Spacer(),
                       _ProgressChip(

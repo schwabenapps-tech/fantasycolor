@@ -175,7 +175,7 @@ class _PuzzleGalleryScreenState extends State<PuzzleGalleryScreen>
                               tags: tags,
                               kind: CatalogGalleryKind.puzzle,
                               categoryTitle: 'Puzzle',
-                              showDownloadButton: true,
+                              showPreviewButton: true,
                               onOpenPage: _openPuzzle,
                             );
                           },

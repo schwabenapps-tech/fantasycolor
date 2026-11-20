@@ -88,6 +88,24 @@ enum PuzzlePieceStyle {
   /// Traditionelles Puzzle: runde Zapfen / Buchten (nicht spitz).
   jigsaw,
 
+  /// Classic mit ovalen Zapfen.
+  oval,
+
+  /// Classic mit eckigen / blockigen Zapfen.
+  block,
+
+  /// Classic mit versetzten Zapfen.
+  offset,
+
+  /// Classic mit eingeschnürtem Keyhole-Hals.
+  keyhole,
+
+  /// Spitze / rautenförmige Zapfen.
+  pointed,
+
+  /// Weiche „Wolken“-Zapfen.
+  cloud,
+
   /// Gerade Rechtecke.
   square,
 
@@ -96,21 +114,38 @@ enum PuzzlePieceStyle {
 
   /// Wellenkanten (ohne Zapfen).
   wave,
+
+  /// Doppelwelle — spielerischere Kanten.
+  ripple,
 }
 
 extension PuzzlePieceStyleX on PuzzlePieceStyle {
   String get label => switch (this) {
         PuzzlePieceStyle.jigsaw => 'Classic',
+        PuzzlePieceStyle.oval => 'Oval',
+        PuzzlePieceStyle.block => 'Block',
+        PuzzlePieceStyle.offset => 'Offset',
+        PuzzlePieceStyle.keyhole => 'Keyhole',
+        PuzzlePieceStyle.pointed => 'Pointed',
+        PuzzlePieceStyle.cloud => 'Cloud',
         PuzzlePieceStyle.square => 'Square',
         PuzzlePieceStyle.rounded => 'Rounded',
         PuzzlePieceStyle.wave => 'Wave',
+        PuzzlePieceStyle.ripple => 'Ripple',
       };
 
   String get hint => switch (this) {
         PuzzlePieceStyle.jigsaw => 'Round tabs like real puzzles',
+        PuzzlePieceStyle.oval => 'Longer oval tabs',
+        PuzzlePieceStyle.block => 'Chunky rectangular tabs',
+        PuzzlePieceStyle.offset => 'Tabs shifted off-center',
+        PuzzlePieceStyle.keyhole => 'Pinched keyhole necks',
+        PuzzlePieceStyle.pointed => 'Sharp diamond tabs',
+        PuzzlePieceStyle.cloud => 'Soft fluffy tabs',
         PuzzlePieceStyle.square => 'Straight rectangles',
         PuzzlePieceStyle.rounded => 'Soft corners',
         PuzzlePieceStyle.wave => 'Curved edges',
+        PuzzlePieceStyle.ripple => 'Double wavy edges',
       };
 }
 
