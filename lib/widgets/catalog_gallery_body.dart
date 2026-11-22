@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../data/event_catalog.dart';
 import '../data/event_tags.dart';
+import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_ready_store.dart';
 import '../providers/star_wallet_store.dart';
 import '../screens/event_pack_gallery_screen.dart';
+import '../screens/pixel_gallery_screen.dart';
 import '../services/event_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
@@ -85,6 +88,7 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
         coloring: coloring,
       );
       return [
+        if (coloring) _Entry.pixelHub(),
         for (final page in sorted) _Entry.page(page),
       ];
     }
@@ -186,12 +190,23 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
   bool get _showFavoriteButton => widget.kind != CatalogGalleryKind.print;
 
   double _rowExtent(_Entry entry, double tileHeight) {
-    if (entry.hub != null) {
+    if (entry.hub != null || entry.isPixelHub) {
       return (tileHeight * 0.92).clamp(tileHeight * 0.75, tileHeight * 1.15);
     }
     final page = entry.page!;
     final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
     return (tileHeight * ratio).clamp(tileHeight * 0.55, tileHeight * 1.75);
+  }
+
+  Widget _pixelHubTile(BuildContext context, {int index = 0}) {
+    final t = AppStrings.of(context);
+    return EventHubPortal(
+      title: t.pixelArt,
+      imagePaths: const [PixelReadyStore.hubCoverAsset],
+      accent: const Color(0xFF6EC6FF),
+      slideOffset: Duration(milliseconds: 400 * index),
+      onTap: () => openPixelModeFromGallery(context),
+    );
   }
 
   int _indexFromGrid({
@@ -383,6 +398,9 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
             itemCount: entries.length,
             itemBuilder: (context, index) {
               final entry = entries[index];
+              if (entry.isPixelHub) {
+                return _pixelHubTile(context);
+              }
               if (entry.hub != null) {
                 return _hubTile(context, entry.hub!);
               }
@@ -416,7 +434,7 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
                 separatorBuilder: (_, _) => SizedBox(width: size.width * 0.03),
                 itemBuilder: (context, index) {
                   final entry = entries[index];
-                  if (entry.hub != null) {
+                  if (entry.isPixelHub || entry.hub != null) {
                     final tileHeight = layout.galleryTileHeight;
                     final hubWidth = (tileHeight * 0.92).clamp(
                       tileHeight * 0.75,
@@ -425,7 +443,9 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
                     return SizedBox(
                       width: hubWidth,
                       height: tileHeight,
-                      child: _hubTile(context, entry.hub!, index: index),
+                      child: entry.isPixelHub
+                          ? _pixelHubTile(context, index: index)
+                          : _hubTile(context, entry.hub!, index: index),
                     );
                   }
 
@@ -469,11 +489,13 @@ class _CatalogGalleryBodyState extends State<CatalogGalleryBody> {
 }
 
 class _Entry {
-  const _Entry._({this.hub, this.page});
+  const _Entry._({this.hub, this.page, this.isPixelHub = false});
 
   factory _Entry.hub(GallerySection section) => _Entry._(hub: section);
   factory _Entry.page(ColoringPage page) => _Entry._(page: page);
+  factory _Entry.pixelHub() => const _Entry._(isPixelHub: true);
 
   final GallerySection? hub;
   final ColoringPage? page;
+  final bool isPixelHub;
 }

@@ -88,8 +88,8 @@ class _RingingBellState extends State<_RingingBell>
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.compact ? 36.0 : 40.0;
-    final dot = widget.compact ? 9.0 : 10.0;
+    final size = widget.compact ? 46.0 : 52.0;
+    final dot = widget.compact ? 10.0 : 12.0;
 
     return Semantics(
       button: true,

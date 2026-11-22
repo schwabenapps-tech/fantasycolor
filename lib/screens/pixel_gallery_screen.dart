@@ -19,6 +19,7 @@ import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/progress_badge.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/star_balance_pill.dart';
 import 'pixel_paint_screen.dart';
 import '../utils/app_page_route.dart';
 
@@ -125,12 +126,12 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     final t = AppStrings.of(context);
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
-    final tileHeight = layout.galleryTileHeight;
-    final tileWidth = layout.galleryTileWidth;
     final ready = context.watch<PixelReadyStore>();
     final topPad = widget.embedded
         ? layout.galleryTopSpacer * 0.25
         : layout.galleryTopSpacer * 0.55;
+    final scrollBottom = MediaQuery.paddingOf(context).bottom;
+    final gridPad = layout.galleryGridPadding(size);
 
     return FutureBuilder<List<ColoringPage>>(
       future: _pagesFuture,
@@ -185,50 +186,77 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              t.pixelArtHint,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 13,
-              ),
-            ),
+            const SizedBox(height: 8),
             Expanded(
-              child: Align(
-                alignment: const Alignment(0, 0.35),
-                child: SizedBox(
-                  height: tileHeight,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: size.width * 0.055,
-                    ),
-                    itemCount: pages.length,
-                    separatorBuilder: (context, index) =>
-                        SizedBox(width: size.width * 0.03),
-                    itemBuilder: (context, index) {
-                      final page = pages[index];
-                      final pixelProgress =
-                          context.watch<PixelProgressStore>();
-                      return _PixelPageTile(
-                        page: page,
-                        width: tileWidth,
-                        height: tileHeight,
-                        hasProgress: pixelProgress.hasProgress(page.id),
-                        isCompleted: pixelProgress.isCompleted(page.id),
-                        requiresAdUnlock: !ready.isPaintUnlocked(page.id),
-                        onTap: () => _openPage(page),
-                      );
-                    },
-                  ),
+              child: GridView.builder(
+                key: const PageStorageKey<String>('pixel_gallery_grid'),
+                padding: gridPad.copyWith(
+                  top: 8,
+                  bottom: gridPad.bottom + scrollBottom,
                 ),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: layout.galleryGridCrossAxisCount,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: layout.galleryGridChildAspectRatio,
+                ),
+                itemCount: pages.length,
+                itemBuilder: (context, index) {
+                  final page = pages[index];
+                  final pixelProgress = context.watch<PixelProgressStore>();
+                  return _PixelPageTile(
+                    page: page,
+                    hasProgress: pixelProgress.hasProgress(page.id),
+                    isCompleted: pixelProgress.isCompleted(page.id),
+                    requiresAdUnlock: !ready.isPaintUnlocked(page.id),
+                    onTap: () => _openPage(page),
+                  );
+                },
               ),
             ),
-            SizedBox(height: size.height * 0.03),
           ],
         );
       },
+    );
+  }
+
+  void _showPixelInfo(BuildContext context) {
+    final t = AppStrings.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: StarBalancePill.fill,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: StarBalancePill.border, width: 1.4),
+        ),
+        title: Text(
+          t.pixelArt,
+          style: const TextStyle(
+            color: StarBalancePill.ink,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Text(
+          t.pixelArtInfoBody,
+          style: TextStyle(
+            color: StarBalancePill.ink.withValues(alpha: 0.9),
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'OK',
+              style: TextStyle(
+                color: StarBalancePill.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -259,6 +287,14 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                   left: 12,
                   child: SilverBackButton(
                     onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 12,
+                  child: SilverBackButton(
+                    icon: Icons.info_outline_rounded,
+                    onPressed: () => _showPixelInfo(context),
                   ),
                 ),
               ],
@@ -401,11 +437,43 @@ Future<bool?> showPixelUnlockDialog(BuildContext context) {
   );
 }
 
+/// Vorschau: Pixel-Zwischenstand, sonst Ausmalbild.
+class _PixelTilePreview extends StatelessWidget {
+  const _PixelTilePreview({required this.page});
+
+  final ColoringPage page;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<PixelProgressStore>();
+    final file = store.previewFileFor(page.id);
+    final version = store.versionOf(page.id);
+    if (file != null) {
+      return Image.file(
+        file,
+        key: ValueKey<String>('pixel_prev_${page.id}_$version'),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, _, _) => ColoringPageImage(
+          page: page,
+          fit: BoxFit.cover,
+          borderRadius: BorderRadius.circular(14),
+        ),
+      );
+    }
+    return ColoringPageImage(
+      page: page,
+      fit: BoxFit.cover,
+      borderRadius: BorderRadius.circular(14),
+    );
+  }
+}
+
 class _PixelPageTile extends StatelessWidget {
   const _PixelPageTile({
     required this.page,
-    required this.width,
-    required this.height,
     required this.hasProgress,
     required this.isCompleted,
     required this.onTap,
@@ -413,8 +481,6 @@ class _PixelPageTile extends StatelessWidget {
   });
 
   final ColoringPage page;
-  final double width;
-  final double height;
   final bool hasProgress;
   final bool isCompleted;
   final VoidCallback onTap;
@@ -422,10 +488,7 @@ class _PixelPageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: GestureDetector(
+    return GestureDetector(
         onTap: onTap,
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -462,16 +525,11 @@ class _PixelPageTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: ColoredBox(
                       color: Colors.white,
-                      // Immer das Ausmalbild — nie den Pixel-Zwischenstand.
-                      child: ColoringPageImage(
-                        page: page,
-                        fit: BoxFit.cover,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      child: _PixelTilePreview(page: page),
                     ),
                   ),
                 ),
-                if (hasProgress)
+                if (hasProgress && !requiresAdUnlock)
                   Positioned(
                     left: 10,
                     bottom: 10,
@@ -482,25 +540,16 @@ class _PixelPageTile extends StatelessWidget {
                   ),
                 if (requiresAdUnlock)
                   Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.lock_rounded,
-                          color: Colors.white,
-                          size: 36,
-                        ),
-                      ),
+                    child: AdUnlockCover(
+                      label: AppStrings.of(context).unlockWithAd,
+                      compact: true,
+                      large: true,
                     ),
                   ),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 }

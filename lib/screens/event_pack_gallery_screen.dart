@@ -298,7 +298,7 @@ class GalleryPageTile extends StatelessWidget {
   }
 
   /// Stern sitzt an der echten Bild-Ecke (Aspect-Box), nicht der Letterbox-Kachel.
-  Widget _pictureStack({required BoxFit fit}) {
+  Widget _pictureStack({required BoxFit fit, String? adUnlockLabel}) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final side = constraints.biggest.shortestSide;
@@ -318,6 +318,14 @@ class GalleryPageTile extends StatelessWidget {
                 ),
               ),
             ),
+            if (adUnlockLabel != null)
+              Positioned.fill(
+                child: AdUnlockCover(
+                  label: adUnlockLabel,
+                  compact: compact,
+                  large: largeAdBadge,
+                ),
+              ),
             if (starLockCost != null)
               Positioned(
                 // Leicht über den Innenrand in den Holzrahmen.
@@ -337,6 +345,9 @@ class GalleryPageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final aspect = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
+    final t = AppStrings.of(context);
+    final adLabel =
+        starLockCost == null && requiresAdUnlock ? t.unlockWithAd : null;
     final framed = GalleryFrame(
       style: isHalloween
           ? GalleryFrameStyle.halloween
@@ -344,11 +355,11 @@ class GalleryPageTile extends StatelessWidget {
       showHalloweenBadge: false,
       softShadow: softShadow,
       child: compact
-          ? _pictureStack(fit: BoxFit.cover)
+          ? _pictureStack(fit: BoxFit.cover, adUnlockLabel: adLabel)
           : Center(
               child: AspectRatio(
                 aspectRatio: aspect,
-                child: _pictureStack(fit: BoxFit.cover),
+                child: _pictureStack(fit: BoxFit.cover, adUnlockLabel: adLabel),
               ),
             ),
     );
@@ -356,7 +367,6 @@ class GalleryPageTile extends StatelessWidget {
     final starSize = compact ? 34.0 : 42.0;
     final inset = compact ? 8.0 : 12.0;
     final previewSize = compact ? 34.0 : 40.0;
-    final t = AppStrings.of(context);
 
     return Stack(
       fit: StackFit.expand,
@@ -371,17 +381,7 @@ class GalleryPageTile extends StatelessWidget {
             top: inset,
             child: const NewBadge(),
           ),
-        if (starLockCost == null && requiresAdUnlock)
-          Positioned(
-            left: inset,
-            bottom: inset,
-            child: AdUnlockBadge(
-              label: t.unlockWithAd,
-              compact: compact,
-              large: largeAdBadge,
-            ),
-          )
-        else if (starLockCost == null && !showPreviewButton)
+        if (starLockCost == null && !requiresAdUnlock && !showPreviewButton)
           Selector<ColoringProgressStore, bool>(
             selector: (_, store) => store.hasProgress(page.id),
             builder: (context, hasProgress, _) {

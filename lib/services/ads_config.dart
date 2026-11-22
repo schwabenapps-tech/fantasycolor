@@ -19,9 +19,10 @@ class AdsConfig {
       'ca-app-pub-5511264969083689/1038177048';
   static const String iosInterstitialUnitId =
       'ca-app-pub-5511264969083689/6052673887';
-  /// TODO: echte Rewarded-Unit-IDs aus AdMob eintragen.
-  static const String androidRewardedUnitId = '';
-  static const String iosRewardedUnitId = '';
+  static const String androidRewardedUnitId =
+      'ca-app-pub-5511264969083689/2435556563';
+  static const String iosRewardedUnitId =
+      'ca-app-pub-5511264969083689/6473827747';
 
   // Google Sample / Test
   static const String _testAndroidAppId =

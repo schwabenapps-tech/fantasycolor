@@ -78,7 +78,7 @@ class _StarBalancePillState extends State<StarBalancePill>
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = widget.compact ? 24.0 : 28.0;
+    final iconSize = widget.compact ? 32.0 : 36.0;
     final radius = BorderRadius.circular(22);
 
     return DecoratedBox(
@@ -128,7 +128,7 @@ class _StarBalancePillState extends State<StarBalancePill>
                   '$_displayed',
                   style: TextStyle(
                     color: StarBalancePill.ink,
-                    fontSize: widget.compact ? 14 : 16,
+                    fontSize: widget.compact ? 16 : 18,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.2,
                   ),

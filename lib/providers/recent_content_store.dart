@@ -3,18 +3,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'favorites_store.dart';
 
-/// Zuletzt geöffnete Ausmal-/Puzzle-Motive für Home „Zuletzt benutzt“.
+/// Heute geöffnete Ausmal-/Puzzle-Motive für Home „Zuletzt benutzt“.
 ///
-/// Nach [expiry] ohne Nutzung (kein neues Öffnen) wird die Liste geleert.
+/// Nur für den aktuellen Kalendertag — am nächsten Tag wieder leer.
 class RecentContentStore extends ChangeNotifier {
   RecentContentStore();
 
-  static const _key = 'recent_content_entries_v1';
-  static const _touchedKey = 'recent_content_touched_at_v1';
+  static const _key = 'recent_content_entries_v2';
+  static const _dayKeyPrefs = 'recent_content_day_v2';
   static const maxItems = 24;
 
-  /// Lange ungenutzt → Abschnitt leer, bis wieder etwas geöffnet wird.
-  static const expiry = Duration(days: 14);
+  /// Alte 14-Tage-Persistenz aufräumen.
+  static const _legacyKey = 'recent_content_entries_v1';
+  static const _legacyTouchedKey = 'recent_content_touched_at_v1';
 
   final List<RecentContentEntry> _entries = <RecentContentEntry>[];
   bool _ready = false;
@@ -24,15 +25,29 @@ class RecentContentStore extends ChangeNotifier {
   List<RecentContentEntry> entries() =>
       List<RecentContentEntry>.unmodifiable(_entries);
 
+  static String _calendarDay([DateTime? now]) {
+    final d = now ?? DateTime.now();
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$m-$day';
+  }
+
+  Future<void> _clearDay(SharedPreferences prefs, String today) async {
+    _entries.clear();
+    await prefs.remove(_key);
+    await prefs.setString(_dayKeyPrefs, today);
+  }
+
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final touchedMs = prefs.getInt(_touchedKey);
+    // Legacy-Keys entfernen (kein Übernehmen über den Tag hinaus).
+    await prefs.remove(_legacyKey);
+    await prefs.remove(_legacyTouchedKey);
 
-    if (touchedMs != null && now - touchedMs >= expiry.inMilliseconds) {
-      _entries.clear();
-      await prefs.remove(_key);
-      await prefs.remove(_touchedKey);
+    final today = _calendarDay();
+    final storedDay = prefs.getString(_dayKeyPrefs);
+    if (storedDay != today) {
+      await _clearDay(prefs, today);
       _ready = true;
       notifyListeners();
       return;
@@ -46,30 +61,30 @@ class RecentContentStore extends ChangeNotifier {
           if (RecentContentEntry.tryParse(line) case final e?) e,
       ]);
 
-    // Upgrade ohne Timestamp: nicht sofort löschen, Ablauf ab jetzt.
-    if (_entries.isNotEmpty && touchedMs == null) {
-      await prefs.setInt(_touchedKey, now);
-    }
-
     _ready = true;
     notifyListeners();
   }
 
   Future<void> record(String id, {required FavoriteKind kind}) async {
     if (id.trim().isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final today = _calendarDay();
+    final storedDay = prefs.getString(_dayKeyPrefs);
+    if (storedDay != today) {
+      await _clearDay(prefs, today);
+    }
+
     _entries.removeWhere((e) => e.id == id && e.kind == kind);
     _entries.insert(0, RecentContentEntry(id: id, kind: kind));
     while (_entries.length > maxItems) {
       _entries.removeLast();
     }
     notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    final now = DateTime.now().millisecondsSinceEpoch;
     await prefs.setStringList(
       _key,
       [for (final e in _entries) e.encode()],
     );
-    await prefs.setInt(_touchedKey, now);
+    await prefs.setString(_dayKeyPrefs, today);
   }
 }
 

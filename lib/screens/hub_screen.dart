@@ -85,7 +85,6 @@ class _HubScreenState extends State<HubScreen>
   int _tabIndex = 0;
   bool _showWelcome = false;
   bool _showAlbum = false;
-  bool _showAlbumPicker = false;
   bool _flushingCelebrations = false;
   StickerAlbumKind _albumKind = StickerAlbumKind.classic;
   int _heardGeneration = -1;
@@ -243,22 +242,9 @@ class _HubScreenState extends State<HubScreen>
     if (mounted) await _flushHubCelebrations();
   }
 
-  void _openAlbum() {
-    AnalyticsService.instance.logScreen('sticker_album');
-    // Winter: beide Alben wählbar (Klassik + Weihnachten).
-    if (AdventService.isWinterHubUi()) {
-      setState(() => _showAlbumPicker = true);
-      return;
-    }
-    setState(() {
-      _albumKind = StickerAlbumKind.classic;
-      _showAlbum = true;
-    });
-  }
-
   void _openAlbumKind(StickerAlbumKind kind) {
+    AnalyticsService.instance.logScreen('sticker_album');
     setState(() {
-      _showAlbumPicker = false;
       _albumKind = kind;
       _showAlbum = true;
     });
@@ -415,7 +401,11 @@ class _HubScreenState extends State<HubScreen>
                   child: Column(
                     children: [
                       _HubTopBar(
-                        onAlbum: _openAlbum,
+                        onOpenClassicAlbum: () =>
+                            _openAlbumKind(StickerAlbumKind.classic),
+                        onOpenWinterAlbum: winterUi
+                            ? () => _openAlbumKind(StickerAlbumKind.winter)
+                            : null,
                         onAdvent: winterUi ? _openAdvent : null,
                         onPrint: _openPrint,
                         onSettings: _openSettings,
@@ -546,163 +536,14 @@ class _HubScreenState extends State<HubScreen>
             WelcomePortalOverlay(
               onFinished: () => unawaited(_dismissWelcome()),
             ),
-          if (_showAlbumPicker)
-            _AlbumPickerOverlay(
-              onClassic: () => _openAlbumKind(StickerAlbumKind.classic),
-              onWinter: () => _openAlbumKind(StickerAlbumKind.winter),
-              onClose: () {
-                if (mounted) setState(() => _showAlbumPicker = false);
-              },
-            ),
           if (_showAlbum)
             StickerAlbumOverlay(
               album: _albumKind,
-              onBack: winterUi
-                  ? () {
-                      if (!mounted) return;
-                      setState(() {
-                        _showAlbum = false;
-                        _showAlbumPicker = true;
-                      });
-                    }
-                  : null,
               onClose: () {
                 if (!mounted) return;
-                setState(() {
-                  _showAlbum = false;
-                  _showAlbumPicker = false;
-                });
+                setState(() => _showAlbum = false);
               },
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AlbumPickerOverlay extends StatelessWidget {
-  const _AlbumPickerOverlay({
-    required this.onClassic,
-    required this.onWinter,
-    required this.onClose,
-  });
-
-  final VoidCallback onClassic;
-  final VoidCallback onWinter;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppStrings.of(context);
-    final size = MediaQuery.sizeOf(context);
-    final landscape = AppLayout.of(context).isLandscape;
-    // Große Cover — deutlich lesbar/tippbar.
-    final cardW = landscape
-        ? (size.height * 0.42).clamp(160.0, 240.0)
-        : (size.width * 0.38).clamp(150.0, 220.0);
-    final cardH = cardW * 1.22;
-    final gap = landscape ? 28.0 : 20.0;
-
-    return Material(
-      color: Colors.black54,
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Positioned(
-              top: 8,
-              right: 8,
-              child: AlbumChromeButton(
-                tooltip: 'Close',
-                icon: Icons.close_rounded,
-                onPressed: onClose,
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      t.chooseAlbum,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: landscape ? 24 : 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: landscape ? 22 : 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _AlbumPickCard(
-                          title: t.classicStickerAlbum,
-                          asset: 'assets/images/buch_icon.png',
-                          width: cardW,
-                          height: cardH,
-                          onTap: onClassic,
-                        ),
-                        SizedBox(width: gap),
-                        _AlbumPickCard(
-                          title: t.winterStickerAlbum,
-                          asset: 'assets/images/christmas.album.png',
-                          width: cardW,
-                          height: cardH,
-                          onTap: onWinter,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AlbumPickCard extends StatelessWidget {
-  const _AlbumPickCard({
-    required this.title,
-    required this.asset,
-    required this.onTap,
-    required this.width,
-    required this.height,
-  });
-
-  final String title;
-  final String asset;
-  final VoidCallback onTap;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.asset(
-              asset,
-              width: width,
-              height: height,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 16,
-            ),
-          ),
         ],
       ),
     );
@@ -721,33 +562,54 @@ class _HubCatalog {
   final GalleryCatalog puzzle;
 }
 
-class _HubTopBar extends StatelessWidget {
+class _HubTopBar extends StatefulWidget {
   const _HubTopBar({
-    required this.onAlbum,
+    required this.onOpenClassicAlbum,
     required this.onPrint,
     required this.onSettings,
+    this.onOpenWinterAlbum,
     this.onAdvent,
   });
 
-  final VoidCallback onAlbum;
+  final VoidCallback onOpenClassicAlbum;
+  final VoidCallback? onOpenWinterAlbum;
   final VoidCallback? onAdvent;
   final VoidCallback onPrint;
   final VoidCallback onSettings;
 
   @override
+  State<_HubTopBar> createState() => _HubTopBarState();
+}
+
+class _HubTopBarState extends State<_HubTopBar> {
+  bool _utilsOpen = false;
+  bool _albumOpen = false;
+
+  void _toggleUtils() => setState(() {
+        _utilsOpen = !_utilsOpen;
+        if (_utilsOpen) _albumOpen = false;
+      });
+
+  void _toggleAlbum() => setState(() {
+        _albumOpen = !_albumOpen;
+        if (_albumOpen) _utilsOpen = false;
+      });
+
+  @override
   Widget build(BuildContext context) {
-    final winter = onAdvent != null;
+    final winter = widget.onAdvent != null;
+    final winterAlbums = widget.onOpenWinterAlbum != null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        // Portrait + Advent: sehr eng — Icons stärker kompakt.
         final tight = width < 520 || (winter && width < 640);
         final micro = width < 400 || (winter && width < 480);
-        final printSize = micro ? 36.0 : (tight ? 42.0 : 54.0);
-        final settingsSize = micro ? 34.0 : (tight ? 40.0 : 50.0);
-        final gap = micro ? 2.0 : (tight ? 4.0 : 8.0);
+        final utilSize = micro ? 40.0 : (tight ? 44.0 : 48.0);
+        final albumSize = micro ? 48.0 : (tight ? 56.0 : 64.0);
+        final gap = micro ? 4.0 : (tight ? 8.0 : 10.0);
+        final albumAdventGap = micro ? 14.0 : (tight ? 18.0 : 22.0);
         return Padding(
-          padding: EdgeInsets.fromLTRB(micro ? 2 : 6, 4, micro ? 2 : 6, 4),
+          padding: EdgeInsets.fromLTRB(micro ? 4 : 8, 4, micro ? 4 : 8, 4),
           child: Row(
             children: [
               Expanded(
@@ -759,16 +621,29 @@ class _HubTopBar extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _StickerBookButton(
-                          onPressed: onAlbum,
-                          winter: winter,
-                          compact: tight,
-                          micro: micro,
+                        _AlbumMenuPill(
+                          open: _albumOpen,
+                          winterChoice: winterAlbums,
+                          iconSize: albumSize,
+                          onToggle: winterAlbums
+                              ? _toggleAlbum
+                              : () {
+                                  setState(() => _albumOpen = false);
+                                  widget.onOpenClassicAlbum();
+                                },
+                          onClassic: () {
+                            setState(() => _albumOpen = false);
+                            widget.onOpenClassicAlbum();
+                          },
+                          onWinter: () {
+                            setState(() => _albumOpen = false);
+                            widget.onOpenWinterAlbum?.call();
+                          },
                         ),
                         if (winter) ...[
-                          SizedBox(width: gap),
+                          SizedBox(width: albumAdventGap),
                           _AdventMenuButton(
-                            onPressed: onAdvent!,
+                            onPressed: widget.onAdvent!,
                             compact: tight,
                             micro: micro,
                           ),
@@ -782,23 +657,217 @@ class _HubTopBar extends StatelessWidget {
               ),
               StarBalancePill(compact: true),
               SizedBox(width: gap),
-              _PlainIconButton(
-                semanticLabel: 'Print',
-                asset: HubScreen.printLogo,
-                size: printSize,
-                onPressed: onPrint,
-              ),
-              SizedBox(width: gap),
-              _PlainIconButton(
-                semanticLabel: 'Settings',
-                asset: HubScreen.settingsLogo,
-                size: settingsSize,
-                onPressed: onSettings,
+              _UtilitiesMenuPill(
+                open: _utilsOpen,
+                onToggle: _toggleUtils,
+                iconSize: utilSize,
+                onPrint: () {
+                  setState(() => _utilsOpen = false);
+                  widget.onPrint();
+                },
+                onSettings: () {
+                  setState(() => _utilsOpen = false);
+                  widget.onSettings();
+                },
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Stickeralbum-Pille: Winter als aktuelles Face; Erweiterung zeigt Klassik.
+class _AlbumMenuPill extends StatelessWidget {
+  const _AlbumMenuPill({
+    required this.open,
+    required this.winterChoice,
+    required this.iconSize,
+    required this.onToggle,
+    required this.onClassic,
+    required this.onWinter,
+  });
+
+  final bool open;
+  final bool winterChoice;
+  final double iconSize;
+  final VoidCallback onToggle;
+  final VoidCallback onClassic;
+  final VoidCallback onWinter;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final choiceSize = iconSize * 0.92;
+
+    if (!winterChoice) {
+      return _StickerBookButton(
+        onPressed: onToggle,
+        winter: false,
+        size: iconSize,
+      );
+    }
+
+    // Kein Pill-Chrome: Klassik schiebt sich unter dem Winter-Face raus.
+    const duration = Duration(milliseconds: 280);
+    const curve = Curves.easeOutCubic;
+    final slideLeft = open ? iconSize * 0.88 : (iconSize - choiceSize) / 2;
+    final totalWidth = open ? iconSize + choiceSize * 0.95 : iconSize;
+
+    return AnimatedContainer(
+      duration: duration,
+      curve: curve,
+      width: totalWidth,
+      height: iconSize,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          AnimatedPositioned(
+            duration: duration,
+            curve: curve,
+            left: slideLeft,
+            top: (iconSize - choiceSize) / 2,
+            width: choiceSize,
+            height: choiceSize,
+            child: IgnorePointer(
+              ignoring: !open,
+              child: Semantics(
+                button: true,
+                label: t.classicStickerAlbum,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onClassic,
+                  child: Image.asset(
+                    _StickerBookButton.classicAsset,
+                    width: choiceSize,
+                    height: choiceSize,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            width: iconSize,
+            height: iconSize,
+            child: Semantics(
+              button: true,
+              label: open ? t.winterStickerAlbum : 'Sticker albums',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: open ? onWinter : onToggle,
+                child: Image.asset(
+                  _StickerBookButton.winterAsset,
+                  width: iconSize,
+                  height: iconSize,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hamburger rechts; öffnet Print + Settings in einer Pille nach links.
+class _UtilitiesMenuPill extends StatelessWidget {
+  const _UtilitiesMenuPill({
+    required this.open,
+    required this.onToggle,
+    required this.onPrint,
+    required this.onSettings,
+    required this.iconSize,
+  });
+
+  final bool open;
+  final VoidCallback onToggle;
+  final VoidCallback onPrint;
+  final VoidCallback onSettings;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: StarBalancePill.fill.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: StarBalancePill.border.withValues(alpha: 0.95),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: StarBalancePill.glow.withValues(alpha: 0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRect(
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 260),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.centerRight,
+                  widthFactor: open ? 1 : 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _PlainIconButton(
+                        semanticLabel: 'Print',
+                        asset: HubScreen.printLogo,
+                        size: iconSize,
+                        dense: true,
+                        onPressed: onPrint,
+                      ),
+                      _PlainIconButton(
+                        semanticLabel: 'Settings',
+                        asset: HubScreen.settingsLogo,
+                        size: iconSize,
+                        dense: true,
+                        onPressed: onSettings,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: open ? 'Close menu' : 'Open menu',
+                child: InkWell(
+                  onTap: onToggle,
+                  customBorder: const CircleBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        open ? Icons.close_rounded : Icons.menu_rounded,
+                        key: ValueKey(open),
+                        size: iconSize * 0.72,
+                        color: StarBalancePill.ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -815,35 +884,37 @@ class _HubBottomNav extends StatelessWidget {
   /// Platz unter Scroll-Inhalten, damit Letzte Kacheln über die Icons kommen.
   static double clearance(BuildContext context) {
     final tablet = AppLayout.of(context).isTablet;
-    final logo = tablet ? 48.0 : 42.0;
-    // logo + label + vert. Padding + float margin + Home-Indicator
-    return logo + 16 + 16 + 8 + MediaQuery.viewPaddingOf(context).bottom;
+    final logo = tablet ? 68.0 : 60.0;
+    // Icon + Pill-Padding + Float-Margin + Home-Indicator.
+    return logo + 8 + 8 + MediaQuery.viewPaddingOf(context).bottom;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final layout = AppLayout.of(context);
-    final logoSize = layout.isTablet ? 48.0 : 42.0;
+    final logoSize = layout.isTablet ? 68.0 : 60.0;
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     Widget item({
       required int index,
-      required String label,
+      required String semanticLabel,
       required String asset,
     }) {
       final selected = tabIndex == index;
       return Expanded(
-        child: InkWell(
-          onTap: () => onSelectTab(index),
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedScale(
-                  scale: selected ? 1.1 : 0.94,
+        child: Semantics(
+          button: true,
+          label: semanticLabel,
+          selected: selected,
+          child: InkWell(
+            onTap: () => onSelectTab(index),
+            borderRadius: BorderRadius.circular(999),
+            child: SizedBox(
+              height: logoSize,
+              child: Center(
+                child: AnimatedScale(
+                  scale: selected ? 1.08 : 0.96,
                   duration: const Duration(milliseconds: 180),
                   child: Opacity(
                     opacity: selected ? 1 : 0.78,
@@ -856,33 +927,20 @@ class _HubBottomNav extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: selected
-                        ? StarBalancePill.ink
-                        : StarBalancePill.ink.withValues(alpha: 0.72),
-                    fontSize: 10,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    // Floating Tray über dem Content — Scroll läuft darunter durch.
+    // Schwebende Pill — große Icons, ohne Labels.
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 8 + bottomInset),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: StarBalancePill.fill.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: StarBalancePill.border.withValues(alpha: 0.95),
             width: 1.2,
@@ -896,16 +954,32 @@ class _HubBottomNav extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           child: Row(
             children: [
-              item(index: 0, label: t.home, asset: HubScreen.homeLogo),
-              item(index: 1, label: t.puzzle, asset: HubScreen.puzzleLogo),
-              item(index: 2, label: t.color, asset: HubScreen.coloringLogo),
-              item(index: 3, label: t.events, asset: HubScreen.eventsLogo),
+              item(
+                index: 0,
+                semanticLabel: t.home,
+                asset: HubScreen.homeLogo,
+              ),
+              item(
+                index: 1,
+                semanticLabel: t.puzzle,
+                asset: HubScreen.puzzleLogo,
+              ),
+              item(
+                index: 2,
+                semanticLabel: t.color,
+                asset: HubScreen.coloringLogo,
+              ),
+              item(
+                index: 3,
+                semanticLabel: t.events,
+                asset: HubScreen.eventsLogo,
+              ),
               item(
                 index: 4,
-                label: t.favorites,
+                semanticLabel: t.favorites,
                 asset: FavoriteStarButton.asset,
               ),
             ],
@@ -1158,21 +1232,35 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
-  static const _homePreviewCount = 6;
+  static const _homePreviewCount = 12;
 
   bool _precacheDone = false;
-  bool _previewsReady = false;
-  final _rng = math.Random();
+  String? _previewDayKey;
   List<ColoringPage> _previewPuzzles = const [];
   List<ColoringPage> _previewColoring = const [];
   List<ColoringPage> _previewPixel = const [];
   List<ColoringPage> _previewFavPuzzles = const [];
   List<ColoringPage> _previewFavColoring = const [];
 
-  List<ColoringPage> _shuffleTake(List<ColoringPage> pages) {
+  /// Tägliche Rotation: Fenster wandert durch den Pool, damit jedes Bild drankommt.
+  List<ColoringPage> _dailyTake(List<ColoringPage> pages, String salt) {
     if (pages.isEmpty) return const [];
-    final copy = [...pages]..shuffle(_rng);
-    return copy.take(_homePreviewCount).toList(growable: false);
+    final sorted = [...pages]..sort((a, b) => a.id.compareTo(b.id));
+    final now = DateTime.now();
+    final dayIndex = DateTime(now.year, now.month, now.day)
+        .difference(DateTime(2024, 1, 1))
+        .inDays;
+    final saltHash = salt.hashCode & 0x7fffffff;
+    final start = (dayIndex * _homePreviewCount + saltHash) % sorted.length;
+    final count = math.min(_homePreviewCount, sorted.length);
+    return [
+      for (var i = 0; i < count; i++) sorted[(start + i) % sorted.length],
+    ];
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month}-${now.day}';
   }
 
   List<ColoringPage> _flatten(GalleryCatalog catalog) {
@@ -1334,16 +1422,31 @@ class _HomeTabState extends State<_HomeTab> {
       for (final p in allColoring)
         if (pixelReady.isReadyFor(p.id)) p,
     ];
-    if (!_previewsReady) {
-      _previewsReady = true;
-      _previewPuzzles = _shuffleTake(regularPuzzlesPool);
-      _previewColoring = _shuffleTake(regularColoringPool);
-      _previewPixel = _shuffleTake(readyPixelPool);
-      _previewFavPuzzles = _shuffleTake(favPuzzles);
-      _previewFavColoring = _shuffleTake(favColoring);
-    } else if (_previewPixel.isEmpty && readyPixelPool.isNotEmpty) {
-      // Neu fertig ausgemalt, während Home offen war.
-      _previewPixel = _shuffleTake(readyPixelPool);
+    final dayKey = _todayKey();
+    if (_previewDayKey != dayKey) {
+      _previewDayKey = dayKey;
+      _previewPuzzles = _dailyTake(regularPuzzlesPool, 'puzzle');
+      _previewColoring = _dailyTake(regularColoringPool, 'color');
+      _previewPixel = _dailyTake(readyPixelPool, 'pixel');
+      _previewFavPuzzles = _dailyTake(favPuzzles, 'fav_puzzle');
+      _previewFavColoring = _dailyTake(favColoring, 'fav_color');
+    } else {
+      // Pools können nachladen (Favoriten / neu fertige Pixel).
+      if (_previewPuzzles.isEmpty && regularPuzzlesPool.isNotEmpty) {
+        _previewPuzzles = _dailyTake(regularPuzzlesPool, 'puzzle');
+      }
+      if (_previewColoring.isEmpty && regularColoringPool.isNotEmpty) {
+        _previewColoring = _dailyTake(regularColoringPool, 'color');
+      }
+      if (_previewPixel.isEmpty && readyPixelPool.isNotEmpty) {
+        _previewPixel = _dailyTake(readyPixelPool, 'pixel');
+      }
+      if (_previewFavPuzzles.isEmpty && favPuzzles.isNotEmpty) {
+        _previewFavPuzzles = _dailyTake(favPuzzles, 'fav_puzzle');
+      }
+      if (_previewFavColoring.isEmpty && favColoring.isNotEmpty) {
+        _previewFavColoring = _dailyTake(favColoring, 'fav_color');
+      }
     }
     final halloweenColor = tags.halloweenColoring;
     final halloweenPuzzle = tags.halloweenPuzzle;
@@ -1633,8 +1736,8 @@ class _HomeRecentRow extends StatelessWidget {
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final rowHeight = layout.isLandscape
-        ? (size.height * 0.34).clamp(150.0, 240.0)
-        : (size.height * 0.20).clamp(128.0, layout.isTablet ? 220.0 : 176.0);
+        ? (size.height * 0.36).clamp(160.0, 260.0)
+        : (size.height * 0.24).clamp(148.0, layout.isTablet ? 248.0 : 204.0);
 
     return SizedBox(
       height: rowHeight,
@@ -1711,8 +1814,8 @@ class _HomeRow extends StatelessWidget {
     final layout = AppLayout.of(context);
     // Portrait: etwas höhere Reihen (mehr Fläche), Landscape: flacher.
     final rowHeight = layout.isLandscape
-        ? (size.height * 0.34).clamp(150.0, 240.0)
-        : (size.height * 0.20).clamp(128.0, layout.isTablet ? 220.0 : 176.0);
+        ? (size.height * 0.36).clamp(160.0, 260.0)
+        : (size.height * 0.24).clamp(148.0, layout.isTablet ? 248.0 : 204.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1781,24 +1884,18 @@ class _StickerBookButton extends StatelessWidget {
   const _StickerBookButton({
     required this.onPressed,
     this.winter = false,
-    this.compact = false,
-    this.micro = false,
+    this.size = 56,
   });
 
   final VoidCallback onPressed;
   final bool winter;
-  final bool compact;
-  final bool micro;
+  final double size;
 
   static const classicAsset = 'assets/images/buch_icon.png';
   static const winterAsset = 'assets/images/christmas.album.png';
 
   @override
   Widget build(BuildContext context) {
-    final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600
-        ? 68.0
-        : (micro ? 38.0 : (compact ? 44.0 : 58.0));
     return Semantics(
       button: true,
       label: winter ? 'Christmas album' : 'Sticker album',
@@ -1869,8 +1966,8 @@ class _AdventMenuButtonState extends State<_AdventMenuButton>
     final advent = context.watch<AdventService>();
     final side = MediaQuery.sizeOf(context).shortestSide;
     final size = side >= 600
-        ? 68.0
-        : (widget.micro ? 38.0 : (widget.compact ? 44.0 : 58.0));
+        ? 88.0
+        : (widget.micro ? 58.0 : (widget.compact ? 68.0 : 78.0));
     final badge = advent.openableUnopenedCount;
     final shouldBounce = badge > 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1946,6 +2043,7 @@ class _PlainIconButton extends StatelessWidget {
     this.icon,
     this.asset,
     this.size = 28,
+    this.dense = false,
   }) : assert(icon != null || asset != null);
 
   final String semanticLabel;
@@ -1953,6 +2051,7 @@ class _PlainIconButton extends StatelessWidget {
   final String? asset;
   final VoidCallback onPressed;
   final double size;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
@@ -1985,7 +2084,7 @@ class _PlainIconButton extends StatelessWidget {
           onTap: onPressed,
           customBorder: const CircleBorder(),
           child: Padding(
-            padding: const EdgeInsets.all(6),
+            padding: EdgeInsets.all(dense ? 2 : 6),
             child: child,
           ),
         ),

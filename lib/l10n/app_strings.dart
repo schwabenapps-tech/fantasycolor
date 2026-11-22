@@ -142,6 +142,7 @@ class AppStrings {
   String get pixelArt => _t('pixelArt');
   String get pixelArtHint => _t('pixelArtHint');
   String get pixelArtEmpty => _t('pixelArtEmpty');
+  String get pixelArtInfoBody => _t('pixelArtInfoBody');
   String get readyForPixel => _t('readyForPixel');
   String get recentlyUsed => _t('recentlyUsed');
 
@@ -344,9 +345,11 @@ const _en = {
   'pixelArt': 'Pixel Art',
   'pixelArtHint': 'Finished coloring pages appear here (including daily quests)',
   'pixelArtEmpty': 'Finish a coloring page (or a daily) to unlock Pixel Art',
+  'pixelArtInfoBody':
+      'Finish a coloring page completely (100%). It then appears here for Pixel Art. Tap a picture and watch a short ad to unlock painting. Daily quest coloring pages count too.',
   'readyForPixel': 'Ready for Pixel',
-  'recentlyUsed': 'Recently used',
-  'recentlyUsedEmpty': 'Open a coloring page or puzzle to see it here.',
+  'recentlyUsed': 'Used today',
+  'recentlyUsedEmpty': 'Open a coloring page or puzzle today to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
   'notifyBody': 'Your daily sticker gift is ready — come pick a box!',
   'notifyStreakTitle': 'Keep the magic going!',
@@ -521,9 +524,11 @@ const _de = {
   'pixelArt': 'Pixel Art',
   'pixelArtHint': 'Fertige Ausmalbilder erscheinen hier (auch aus Dailys)',
   'pixelArtEmpty': 'Male ein Bild fertig (oder eine Daily), um Pixel Art freizuschalten',
+  'pixelArtInfoBody':
+      'Male ein Ausmalbild komplett fertig (100 %). Danach erscheint es hier für Pixel Art. Tippe auf ein Bild und schau dir eine kurze Werbung an, um es freizuschalten und zu malen. Auch fertige Daily-Bilder zählen.',
   'readyForPixel': 'Bereit für Pixel',
-  'recentlyUsed': 'Zuletzt benutzt',
-  'recentlyUsedEmpty': 'Öffne ein Ausmalbild oder Puzzle, dann erscheint es hier.',
+  'recentlyUsed': 'Heute benutzt',
+  'recentlyUsedEmpty': 'Öffne heute ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',
   'notifyBody': 'Deine Tagesaufgabe wartet — hol dir die Überraschung!',
   'notifyStreakTitle': 'Halte die Magie am Leben!',
