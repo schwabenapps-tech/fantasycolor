@@ -15,12 +15,18 @@ class PixelPaintRail extends StatelessWidget {
     required this.selectedNumber,
     required this.remainingOf,
     required this.onSelect,
+    this.onHelpWithAd,
+    this.fillAdBusy = false,
+    this.adFillsLeft = 0,
   });
 
   final List<PaintSwatch> swatches;
   final int selectedNumber;
   final int Function(int number) remainingOf;
   final ValueChanged<int> onSelect;
+  final VoidCallback? onHelpWithAd;
+  final bool fillAdBusy;
+  final int adFillsLeft;
 
   static double widthOf(BuildContext context) =>
       AppLayout.of(context).paintRailWidth;
@@ -29,6 +35,10 @@ class PixelPaintRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final railWidth = widthOf(context);
+    final hasOpenColors = swatches.any((s) {
+      final n = s.number ?? 0;
+      return n > 0 && remainingOf(n) > 0;
+    });
     return Container(
       width: railWidth,
       decoration: BoxDecoration(
@@ -85,7 +95,100 @@ class PixelPaintRail extends StatelessWidget {
                   },
                 ),
               ),
+              if (onHelpWithAd != null && hasOpenColors) ...[
+                const SizedBox(height: 8),
+                _FillNumberAdButton(
+                  busy: fillAdBusy,
+                  fillsLeft: adFillsLeft,
+                  onPressed: onHelpWithAd!,
+                ),
+              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FillNumberAdButton extends StatelessWidget {
+  const _FillNumberAdButton({
+    required this.busy,
+    required this.fillsLeft,
+    required this.onPressed,
+  });
+
+  final bool busy;
+  final int fillsLeft;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final enabled = fillsLeft > 0 && !busy;
+    return Tooltip(
+      message: fillsLeft > 0
+          ? t.pixelFillNumberAdHint
+          : t.pixelAdFillsExhausted,
+      child: Opacity(
+        opacity: enabled || busy ? 1 : 0.4,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? onPressed : (fillsLeft <= 0 ? onPressed : null),
+            borderRadius: BorderRadius.circular(14),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: const Color(0xFFFFD56A).withValues(alpha: 0.18),
+                border: Border.all(
+                  color: const Color(0xFFFFD56A).withValues(alpha: 0.55),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (busy)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFFFE7A0),
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.lightbulb_rounded,
+                      color: Color(0xFFFFE7A0),
+                      size: 20,
+                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    t.pixelFillNumberAd,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFFE7A0),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                  Text(
+                    fillsLeft > 0
+                        ? t.pixelAdFillsLeft(fillsLeft)
+                        : '0',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -119,55 +222,35 @@ class _NumberedColorWell extends StatelessWidget {
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: enabled ? onTap : null,
         customBorder: const CircleBorder(),
+        onTap: enabled ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          width: 54,
-          height: 54,
-          alignment: Alignment.center,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: selected ? Colors.white : Colors.transparent,
-            border: selected
-                ? Border.all(color: const Color(0xFF121826), width: 2.8)
-                : null,
+            color: color,
+            border: Border.all(
+              color: selected ? const Color(0xFFFFE7A0) : Colors.white54,
+              width: selected ? 3 : 1.5,
+            ),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
+                      blurRadius: 10,
                     ),
                   ]
                 : null,
           ),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            width: selected ? 40 : 48,
-            height: selected ? 40 : 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              border: Border.all(
-                color: selected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.45),
-                width: selected ? 2.4 : 1.2,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '$number',
-                style: TextStyle(
-                  color: ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
+          alignment: Alignment.center,
+          child: Text(
+            '$number',
+            style: TextStyle(
+              color: ink,
+              fontWeight: FontWeight.w900,
+              fontSize: 15,
             ),
           ),
         ),

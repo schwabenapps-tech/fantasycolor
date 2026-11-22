@@ -59,6 +59,9 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   bool _showFinishActions = false;
   bool _exitAdShown = false;
   bool _stickerGiftShown = false;
+  bool _fillAdBusy = false;
+  static const _maxAdFills = 4;
+  int _adFillsUsed = 0;
   int _finishRating = 0;
   bool _saveInFlight = false;
   bool _saveDirty = false;
@@ -115,6 +118,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       }
       _filledCount = _filled.where((f) => f).length;
       _selectedNumber = resume.selectedNumber.clamp(1, puzzle.palette.length);
+      _adFillsUsed = resume.adFillsUsed.clamp(0, _maxAdFills);
       _swatches = PaintCatalog.numberedFromImageColors([
         for (final entry in puzzle.palette) entry.color,
       ]);
@@ -286,6 +290,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
           filled: filledCopy,
           selectedNumber: selected,
           completed: markCompleted,
+          adFillsUsed: _adFillsUsed,
         );
         final preview = await PixelExporter.renderPreviewWithCanvas(
           puzzle: puzzle,
@@ -362,13 +367,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     _scheduleAutoSave();
 
     if (_remainingFor(_selectedNumber) == 0) {
-      for (final swatch in _swatches) {
-        final n = swatch.number ?? 0;
-        if (n > 0 && _remainingFor(n) > 0) {
-          setState(() => _selectedNumber = n);
-          break;
-        }
-      }
+      _advanceFromCompletedNumber();
     }
   }
 
@@ -379,6 +378,88 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   }
 
   int get _rating => PixelReadyStore.starRatingForFill(_fillRatio);
+
+  void _advanceFromCompletedNumber() {
+    for (final swatch in _swatches) {
+      final n = swatch.number ?? 0;
+      if (n > 0 && _remainingFor(n) > 0) {
+        setState(() => _selectedNumber = n);
+        return;
+      }
+    }
+  }
+
+  int get _adFillsLeft => (_maxAdFills - _adFillsUsed).clamp(0, _maxAdFills);
+
+  /// Hilfe: Farbe wählen → Werbung → diese Nummer komplett füllen (max. 4×).
+  Future<void> _helpFillWithAd() async {
+    final puzzle = _puzzle;
+    if (puzzle == null || _celebrating || _fillAdBusy) return;
+    final t = AppStrings.of(context);
+    if (_adFillsLeft <= 0) {
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.pixelAdFillsExhausted)),
+      );
+      return;
+    }
+
+    final open = <PaintSwatch>[
+      for (final s in _swatches)
+        if ((s.number ?? 0) > 0 && _remainingFor(s.number!) > 0) s,
+    ];
+    if (open.isEmpty) return;
+
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => _PixelFillColorPickerDialog(
+        title: t.pixelPickColorToFill,
+        swatches: open,
+        initialNumber: open.any((s) => s.number == _selectedNumber)
+            ? _selectedNumber
+            : (open.first.number ?? 1),
+        watchAdLabel: t.watchAd,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (_remainingFor(picked) <= 0) return;
+
+    setState(() => _fillAdBusy = true);
+    final earned = await AdsService.showRewardedForStars();
+    if (!mounted) return;
+    if (!earned) {
+      setState(() => _fillAdBusy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).adUnavailable)),
+      );
+      return;
+    }
+
+    final idx = picked - 1;
+    var added = 0;
+    setState(() {
+      for (var i = 0; i < puzzle.totalCells; i++) {
+        if (!_filled[i] && puzzle.cells[i] == idx) {
+          _filled[i] = true;
+          added++;
+        }
+      }
+      _filledCount += added;
+      _paintTick++;
+      _adFillsUsed = (_adFillsUsed + 1).clamp(0, _maxAdFills);
+      _selectedNumber = picked;
+      _fillAdBusy = false;
+    });
+    HapticFeedback.mediumImpact();
+    _scheduleAutoSave();
+
+    if (_remainingFor(picked) == 0) {
+      _advanceFromCompletedNumber();
+    }
+    if (_filledCount >= puzzle.totalCells) {
+      await _finish(rating: 3);
+    }
+  }
 
   Future<void> _onDonePressed() async {
     if (_celebrating) return;
@@ -740,6 +821,9 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                           swatches: _swatches,
                           selectedNumber: _selectedNumber,
                           remainingOf: _remainingFor,
+                          fillAdBusy: _fillAdBusy,
+                          adFillsLeft: _adFillsLeft,
+                          onHelpWithAd: () => unawaited(_helpFillWithAd()),
                           onSelect: (n) {
                             HapticFeedback.selectionClick();
                             setState(() => _selectedNumber = n);
@@ -1044,6 +1128,150 @@ class _PixelGridPainter extends CustomPainter {
     return oldDelegate.paintTick != paintTick ||
         oldDelegate.selectedNumber != selectedNumber ||
         oldDelegate.puzzle != puzzle;
+  }
+}
+
+class _PixelFillColorPickerDialog extends StatefulWidget {
+  const _PixelFillColorPickerDialog({
+    required this.title,
+    required this.swatches,
+    required this.initialNumber,
+    required this.watchAdLabel,
+  });
+
+  final String title;
+  final List<PaintSwatch> swatches;
+  final int initialNumber;
+  final String watchAdLabel;
+
+  @override
+  State<_PixelFillColorPickerDialog> createState() =>
+      _PixelFillColorPickerDialogState();
+}
+
+class _PixelFillColorPickerDialogState
+    extends State<_PixelFillColorPickerDialog> {
+  late int _picked;
+
+  @override
+  void initState() {
+    super.initState();
+    _picked = widget.initialNumber;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1A2744),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: const Color(0xFFFFD56A).withValues(alpha: 0.55),
+        ),
+      ),
+      title: Text(
+        widget.title,
+        style: const TextStyle(
+          color: Color(0xFFFFE7A0),
+          fontWeight: FontWeight.w800,
+          fontSize: 17,
+        ),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final s in widget.swatches)
+              _PickerSwatch(
+                color: s.color,
+                number: s.number ?? 0,
+                selected: s.number == _picked,
+                onTap: () => setState(() => _picked = s.number ?? _picked),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            AppStrings.of(context).cancel,
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.pop(context, _picked),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFE8C56A),
+            foregroundColor: const Color(0xFF4A3208),
+          ),
+          icon: const Icon(Icons.lightbulb_rounded, size: 18),
+          label: Text(widget.watchAdLabel),
+        ),
+      ],
+    );
+  }
+}
+
+class _PickerSwatch extends StatelessWidget {
+  const _PickerSwatch({
+    required this.color,
+    required this.number,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final int number;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = color.computeLuminance() > 0.45
+        ? const Color(0xFF1A1F2C)
+        : Colors.white;
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            border: Border.all(
+              color: selected ? const Color(0xFFFFE7A0) : Colors.white54,
+              width: selected ? 3 : 1.5,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFFD56A).withValues(alpha: 0.5),
+                      blurRadius: 10,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            '$number',
+            style: TextStyle(
+              color: ink,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

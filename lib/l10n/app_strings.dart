@@ -157,6 +157,14 @@ class AppStrings {
   String get back => _t('back');
   String get imageColors => _t('imageColors');
   String get pickNumber => _t('pickNumber');
+  String get pixelFillNumberAd => _t('pixelFillNumberAd');
+  String get pixelFillNumberAdHint => _t('pixelFillNumberAdHint');
+  String get pixelPickColorToFill => _t('pixelPickColorToFill');
+  String pixelAdFillsLeft(int n) =>
+      _t('pixelAdFillsLeft').replaceAll('{n}', '$n');
+  String get pixelAdFillsExhausted => _t('pixelAdFillsExhausted');
+  String get adUnavailable => _t('adUnavailable');
+  String get watchAd => _t('watchAd');
   String get templateSaved => _t('templateSaved');
   String get saveFailed => _t('saveFailed');
   String get sharingFailed => _t('sharingFailed');
@@ -328,6 +336,13 @@ const _en = {
   'back': 'Back',
   'imageColors': 'Image colors',
   'pickNumber': 'Pick a number',
+  'pixelFillNumberAd': 'Help',
+  'pixelFillNumberAdHint': 'Watch an ad to finish one color (up to 4×)',
+  'pixelPickColorToFill': 'Which color should we fill?',
+  'pixelAdFillsLeft': '{n} left',
+  'pixelAdFillsExhausted': 'Help used up — paint the rest yourself!',
+  'adUnavailable': 'Ad not ready — try again in a moment',
+  'watchAd': 'Watch ad',
   'templateSaved': 'Template saved to Photos',
   'saveFailed': 'Could not save',
   'sharingFailed': 'Sharing failed',
@@ -482,6 +497,13 @@ const _de = {
   'back': 'Zurück',
   'imageColors': 'Bildfarben',
   'pickNumber': 'Nummer wählen',
+  'pixelFillNumberAd': 'Hilfe',
+  'pixelFillNumberAdHint': 'Werbung ansehen und eine Farbe füllen (max. 4×)',
+  'pixelPickColorToFill': 'Welche Farbe soll gefüllt werden?',
+  'pixelAdFillsLeft': 'noch {n}',
+  'pixelAdFillsExhausted': 'Hilfe aufgebraucht — male den Rest selbst!',
+  'adUnavailable': 'Werbung noch nicht bereit — gleich nochmal versuchen',
+  'watchAd': 'Werbung ansehen',
   'templateSaved': 'Vorlage in Fotos gespeichert',
   'saveFailed': 'Speichern hat nicht geklappt',
   'sharingFailed': 'Teilen fehlgeschlagen',

@@ -205,6 +205,7 @@ class PixelProgressSnapshot {
     required this.filled,
     required this.selectedNumber,
     required this.completed,
+    this.adFillsUsed = 0,
   });
 
   final String pageId;
@@ -216,6 +217,8 @@ class PixelProgressSnapshot {
   final List<bool> filled;
   final int selectedNumber;
   final bool completed;
+  /// Wie oft Hilfe per Werbung genutzt wurde (max. 4).
+  final int adFillsUsed;
 
   int get filledCount => filled.where((f) => f).length;
 
@@ -245,6 +248,7 @@ class PixelProgressSnapshot {
         'filled': [for (final f in filled) f ? 1 : 0],
         'selectedNumber': selectedNumber,
         'completed': completed,
+        'adFillsUsed': adFillsUsed,
       };
 
   factory PixelProgressSnapshot.fromJson(Map<String, dynamic> json) {
@@ -267,6 +271,7 @@ class PixelProgressSnapshot {
       filled: filledRaw,
       selectedNumber: json['selectedNumber'] as int? ?? 1,
       completed: json['completed'] == true,
+      adFillsUsed: (json['adFillsUsed'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -276,6 +281,7 @@ class PixelProgressSnapshot {
     required List<bool> filled,
     required int selectedNumber,
     required bool completed,
+    int adFillsUsed = 0,
   }) {
     return PixelProgressSnapshot(
       pageId: pageId,
@@ -289,6 +295,7 @@ class PixelProgressSnapshot {
       filled: List<bool>.from(filled),
       selectedNumber: selectedNumber,
       completed: completed,
+      adFillsUsed: adFillsUsed,
     );
   }
 }
