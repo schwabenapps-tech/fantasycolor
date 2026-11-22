@@ -107,6 +107,7 @@ flutter:
     - assets/advent_2026.json
     - assets/puzzle_invalidate_ids.json
     - assets/sticker_catalog.json
+    - assets/star_economy.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

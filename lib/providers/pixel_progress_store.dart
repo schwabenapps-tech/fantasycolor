@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/pixel_puzzle.dart';
+import '../painting/pixel_quantizer.dart';
 
 /// Persistierter Pixel-/Malen-nach-Zahlen-Fortschritt inkl. Vorschaubild.
 class PixelProgressStore extends ChangeNotifier {
@@ -15,6 +16,7 @@ class PixelProgressStore extends ChangeNotifier {
 
   static const _prefsKey = 'pixel_progress_ids';
   static const _invalidateAppliedKey = 'puzzle_invalidate_applied';
+  static const _algoVersionKey = 'pixel_quantize_algo_version';
 
   final Set<String> _ids = <String>{};
   final Map<String, int> _versions = <String, int>{};
@@ -69,9 +71,22 @@ class PixelProgressStore extends ChangeNotifier {
     }
 
     await _invalidateStaleProgress(prefs);
+    await _invalidateOnAlgoBump(prefs);
 
     _ready = true;
     notifyListeners();
+  }
+
+  /// Neue Quantizer-Version → alle Pixel-Saves neu aufbauen.
+  Future<void> _invalidateOnAlgoBump(SharedPreferences prefs) async {
+    final current = PixelQuantizer.algoVersion;
+    final applied = prefs.getInt(_algoVersionKey) ?? 0;
+    if (applied == current) return;
+    final ids = _ids.toList(growable: false);
+    for (final id in ids) {
+      await clearProgress(id);
+    }
+    await prefs.setInt(_algoVersionKey, current);
   }
 
   /// Löscht Pixel-Fortschritt nur für neu gelistete Invalidate-IDs (Diff).

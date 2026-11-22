@@ -26,7 +26,9 @@ class AdsService {
   /// Consent war noch nicht bereit — Init später erneut versuchen.
   static bool _skippedDueToConsent = false;
   static InterstitialAd? _interstitial;
+  static RewardedAd? _rewarded;
   static bool _loading = false;
+  static bool _loadingRewarded = false;
   static bool _showing = false;
   static bool _listeningForConsent = false;
 
@@ -70,6 +72,7 @@ class AdsService {
       await MobileAds.instance.initialize();
       _initialized = true;
       await preloadInterstitial();
+      await preloadRewarded();
     } catch (e, st) {
       debugPrint('AdsService.initialize failed: $e\n$st');
       _initialized = false;
@@ -147,6 +150,100 @@ class AdsService {
   static Future<void> showEventContentUnlockInterstitial() async {
     await _ensureAdReadyForGate(timeout: const Duration(seconds: 3));
     await showInterstitial();
+  }
+
+  static Future<void> preloadRewarded() async {
+    if (!_initialized || _loadingRewarded || _rewarded != null) return;
+    _loadingRewarded = true;
+    try {
+      await RewardedAd.load(
+        adUnitId: AdsConfig.rewardedAdUnitId,
+        request: _kidsAdRequest,
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            _rewarded = ad;
+            _loadingRewarded = false;
+          },
+          onAdFailedToLoad: (error) {
+            debugPrint('Rewarded failed to load: $error');
+            _rewarded = null;
+            _loadingRewarded = false;
+          },
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('AdsService.preloadRewarded failed: $e\n$st');
+      _loadingRewarded = false;
+    }
+  }
+
+  /// Rewarded Video für Sterne. `true` wenn Nutzer die Belohnung verdient hat.
+  static Future<bool> showRewardedForStars() async {
+    if (!_initialized) await initialize();
+    if (!_initialized) return false;
+
+    if (_rewarded == null) {
+      if (!_loadingRewarded) unawaited(preloadRewarded());
+      final deadline = DateTime.now().add(const Duration(seconds: 4));
+      while (_rewarded == null && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+    }
+
+    final ad = _rewarded;
+    if (ad == null || _showing) {
+      unawaited(preloadRewarded());
+      return false;
+    }
+
+    _rewarded = null;
+    _showing = true;
+    final done = Completer<bool>();
+    var earned = false;
+
+    await AudioService.instance.pauseForInterruption();
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _showing = false;
+        unawaited(preloadRewarded());
+        unawaited(AudioService.instance.resumeAfterInterruption());
+        if (!done.isCompleted) done.complete(earned);
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Rewarded failed to show: $error');
+        ad.dispose();
+        _showing = false;
+        unawaited(preloadRewarded());
+        unawaited(AudioService.instance.resumeAfterInterruption());
+        if (!done.isCompleted) done.complete(false);
+      },
+    );
+
+    try {
+      await ad.show(
+        onUserEarnedReward: (ad, reward) {
+          earned = true;
+        },
+      );
+      return await done.future.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => earned,
+      );
+    } catch (e, st) {
+      debugPrint('AdsService.showRewardedForStars failed: $e\n$st');
+      try {
+        ad.dispose();
+      } catch (_) {}
+      unawaited(preloadRewarded());
+      return false;
+    } finally {
+      if (_showing) {
+        _showing = false;
+        unawaited(AudioService.instance.resumeAfterInterruption());
+      }
+    }
   }
 
   /// Kurz warten, bis eine Ad geladen ist (für Gates wie Druck).

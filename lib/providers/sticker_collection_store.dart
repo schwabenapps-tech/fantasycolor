@@ -11,11 +11,14 @@ class StickerCollectionStore extends ChangeNotifier {
   StickerCollectionStore();
 
   static const _ownedKey = 'sticker_owned_ids_v1';
+  static const _paintUnlockedKey = 'sticker_paint_unlocked_ids_v1';
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
   static const _coloringRewardedKey = 'sticker_coloring_rewarded_ids_v1';
   static const _puzzleRewardedKey = 'sticker_puzzle_rewarded_ids_v1';
 
   final Set<String> _owned = <String>{};
+  /// Mit Sternen freigeschaltet → im Ausmalen einfügbar.
+  final Set<String> _paintUnlocked = <String>{};
   final Set<String> _coloringRewarded = <String>{};
   final Set<String> _puzzleRewarded = <String>{};
   StickerCatalog? _catalog;
@@ -46,12 +49,18 @@ class StickerCollectionStore extends ChangeNotifier {
 
   bool owns(String id) => _owned.contains(id);
 
+  /// Darf im Ausmalen-Tray platziert werden (Sterne-Kauf).
+  bool canPlaceInColoring(String id) => _paintUnlocked.contains(id);
+
   Future<void> load() async {
     await _loadCatalogMerged();
     final prefs = await SharedPreferences.getInstance();
     _owned
       ..clear()
       ..addAll(prefs.getStringList(_ownedKey) ?? const <String>[]);
+    _paintUnlocked
+      ..clear()
+      ..addAll(prefs.getStringList(_paintUnlockedKey) ?? const <String>[]);
     _coloringRewarded
       ..clear()
       ..addAll(prefs.getStringList(_coloringRewardedKey) ?? const <String>[]);
@@ -76,11 +85,13 @@ class StickerCollectionStore extends ChangeNotifier {
   Future<void> resetCollection() async {
     await _ensureReady();
     _owned.clear();
+    _paintUnlocked.clear();
     _coloringRewarded.clear();
     _puzzleRewarded.clear();
     _lastDailyClaimDay = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
+    await prefs.remove(_paintUnlockedKey);
     await prefs.remove(_dailyClaimKey);
     await prefs.remove(_coloringRewardedKey);
     await prefs.remove(_puzzleRewardedKey);
@@ -152,17 +163,66 @@ class StickerCollectionStore extends ChangeNotifier {
     if (!_ready) await load();
   }
 
-  /// Schaltet Sticker frei. Returns entry wenn neu, sonst null.
-  Future<StickerEntry?> unlock(String stickerId) async {
+  /// Schaltet Sticker frei (Album/Geschenk). Returns entry wenn neu, sonst null.
+  /// Ohne [forPaint]: nicht im Ausmalen einfügbar — dafür Sterne-Kauf.
+  Future<StickerEntry?> unlock(
+    String stickerId, {
+    bool forPaint = false,
+  }) async {
     await _ensureReady();
-    if (_owned.contains(stickerId)) return null;
     final entry = _catalog?.byId(stickerId);
     if (entry == null) return null;
-    _owned.add(stickerId);
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_ownedKey, _owned.toList(growable: false)..sort());
+    final wasOwned = _owned.contains(stickerId);
+    if (wasOwned && !forPaint) return null;
+    if (!wasOwned) {
+      _owned.add(stickerId);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        _ownedKey,
+        _owned.toList(growable: false)..sort(),
+      );
+    }
+    if (forPaint) {
+      await _markPaintUnlocked(stickerId);
+    } else {
+      notifyListeners();
+    }
     return entry;
+  }
+
+  Future<void> _markPaintUnlocked(String stickerId) async {
+    if (_paintUnlocked.contains(stickerId)) {
+      notifyListeners();
+      return;
+    }
+    _paintUnlocked.add(stickerId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _paintUnlockedKey,
+      _paintUnlocked.toList(growable: false)..sort(),
+    );
+    notifyListeners();
+  }
+
+  /// Sterne-Kauf: Album + Ausmalen freischalten.
+  Future<StickerEntry?> unlockWithStars(String stickerId) async {
+    return unlock(stickerId, forPaint: true);
+  }
+
+  /// Alle Katalog-Stickers: freigeschaltete zuerst.
+  List<StickerEntry> paintTrayStickers() {
+    final cat = _catalog;
+    if (cat == null) return const [];
+    final unlocked = <StickerEntry>[];
+    final locked = <StickerEntry>[];
+    for (final s in cat.stickers) {
+      if (_paintUnlocked.contains(s.id)) {
+        unlocked.add(s);
+      } else {
+        locked.add(s);
+      }
+    }
+    return [...unlocked, ...locked];
   }
 
   Future<StickerEntry?> unlockForColoring(String coloringId) async {

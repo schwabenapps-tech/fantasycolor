@@ -8,7 +8,7 @@ import '../data/coloring_pages_loader.dart';
 import '../data/puzzle_images_loader.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
-import '../services/event_content_gate.dart';
+import '../services/star_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_page_image.dart';
@@ -20,7 +20,13 @@ import 'puzzle_screen.dart';
 /// Favoriten-Liste: nur Color / Puzzle-Karten.
 /// Gespeicherte Bilder öffnen auf einem eigenen Screen.
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({super.key});
+  const FavoritesScreen({
+    super.key,
+    this.embedded = false,
+  });
+
+  /// Als Hub-Tab: ohne eigenen Backdrop / Zurück-Button.
+  final bool embedded;
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
   static const coloringEmptyLogo = 'assets/images/malen_favorit.png';
@@ -71,6 +77,143 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final favorites = context.watch<FavoritesStore>();
+    final body = Column(
+      children: [
+        if (!widget.embedded)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 16, 4),
+            child: Row(
+              children: [
+                SilverBackButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 12),
+                Image.asset(
+                  FavoriteStarButton.asset,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Favorites',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xAA000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Row(
+              children: [
+                Image.asset(
+                  FavoriteStarButton.asset,
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Favorites',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: FutureBuilder<_FavoriteCatalog>(
+            future: _catalogFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(
+                  child: SizedBox(
+                    width: 34,
+                    height: 34,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Color(0xFFFFD56A),
+                    ),
+                  ),
+                );
+              }
+
+              final catalog = snapshot.data ??
+                  const _FavoriteCatalog(coloring: [], puzzles: []);
+              final coloringCount = favorites.coloringIds().length;
+              final puzzleCount = favorites.puzzleIds().length;
+
+              final scrollBottom = MediaQuery.paddingOf(context).bottom;
+              return ListView(
+                padding: EdgeInsets.fromLTRB(
+                  size.width * 0.05,
+                  12,
+                  size.width * 0.05,
+                  28 + scrollBottom,
+                ),
+                children: [
+                  _FavoriteCategoryCard(
+                    title: 'Color',
+                    subtitle: coloringCount == 0
+                        ? 'No coloring favorites yet'
+                        : '$coloringCount saved',
+                    logoAsset: FavoritesScreen.coloringEmptyLogo,
+                    icon: Icons.palette_rounded,
+                    count: coloringCount,
+                    onTap: () => _openCategory(
+                      title: 'Color',
+                      kind: FavoriteKind.coloring,
+                      emptyLabel: 'No coloring favorites yet',
+                      emptyLogoAsset: FavoritesScreen.coloringEmptyLogo,
+                      emptyIcon: Icons.palette_rounded,
+                      catalog: catalog.coloring,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _FavoriteCategoryCard(
+                    title: 'Puzzle',
+                    subtitle: puzzleCount == 0
+                        ? 'No puzzle favorites yet'
+                        : '$puzzleCount saved',
+                    logoAsset: FavoritesScreen.puzzleEmptyLogo,
+                    icon: Icons.extension_rounded,
+                    count: puzzleCount,
+                    onTap: () => _openCategory(
+                      title: 'Puzzle',
+                      kind: FavoriteKind.puzzle,
+                      emptyLabel: 'No puzzle favorites yet',
+                      emptyLogoAsset: FavoritesScreen.puzzleEmptyLogo,
+                      emptyIcon: Icons.extension_rounded,
+                      catalog: catalog.puzzles,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+
+    if (widget.embedded) return body;
 
     return Scaffold(
       body: Stack(
@@ -79,119 +222,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           const WinterHubBackdrop(
             fallbackAsset: FavoritesScreen.backgroundAsset,
           ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 16, 4),
-                  child: Row(
-                    children: [
-                      SilverBackButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                      const SizedBox(width: 12),
-                      Image.asset(
-                        FavoriteStarButton.asset,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Favorites',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0xAA000000),
-                              blurRadius: 8,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: FutureBuilder<_FavoriteCatalog>(
-                    future: _catalogFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const Center(
-                          child: SizedBox(
-                            width: 34,
-                            height: 34,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Color(0xFFFFD56A),
-                            ),
-                          ),
-                        );
-                      }
-
-                      final catalog = snapshot.data ??
-                          const _FavoriteCatalog(coloring: [], puzzles: []);
-                      final coloringCount = favorites.coloringIds().length;
-                      final puzzleCount = favorites.puzzleIds().length;
-
-                      return ListView(
-                        padding: EdgeInsets.fromLTRB(
-                          size.width * 0.05,
-                          12,
-                          size.width * 0.05,
-                          28,
-                        ),
-                        children: [
-                          _FavoriteCategoryCard(
-                            title: 'Color',
-                            subtitle: coloringCount == 0
-                                ? 'No coloring favorites yet'
-                                : '$coloringCount saved',
-                            logoAsset: FavoritesScreen.coloringEmptyLogo,
-                            icon: Icons.palette_rounded,
-                            count: coloringCount,
-                            onTap: () => _openCategory(
-                              title: 'Color',
-                              kind: FavoriteKind.coloring,
-                              emptyLabel: 'No coloring favorites yet',
-                              emptyLogoAsset:
-                                  FavoritesScreen.coloringEmptyLogo,
-                              emptyIcon: Icons.palette_rounded,
-                              catalog: catalog.coloring,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          _FavoriteCategoryCard(
-                            title: 'Puzzle',
-                            subtitle: puzzleCount == 0
-                                ? 'No puzzle favorites yet'
-                                : '$puzzleCount saved',
-                            logoAsset: FavoritesScreen.puzzleEmptyLogo,
-                            icon: Icons.extension_rounded,
-                            count: puzzleCount,
-                            onTap: () => _openCategory(
-                              title: 'Puzzle',
-                              kind: FavoriteKind.puzzle,
-                              emptyLabel: 'No puzzle favorites yet',
-                              emptyLogoAsset:
-                                  FavoritesScreen.puzzleEmptyLogo,
-                              emptyIcon: Icons.extension_rounded,
-                              catalog: catalog.puzzles,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+          SafeArea(child: body),
         ],
       ),
     );
@@ -369,7 +400,7 @@ class FavoriteImagesScreen extends StatelessWidget {
           : FavoritesScreen.puzzleEmptyLogo);
 
   Future<void> _open(BuildContext context, ColoringPage page) async {
-    final ok = await EventContentGate.ensureUnlocked(
+    final ok = await StarContentGate.ensureUnlocked(
       context,
       id: page.id,
       kind: kind,

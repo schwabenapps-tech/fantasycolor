@@ -8,9 +8,9 @@ enum PixelDifficulty {
   standard;
 
   /// Feines Raster: längere Seite — Motiv bleibt gut erkennbar.
-  int get maxSide => 96;
+  int get maxSide => 112;
 
-  int get colorCount => 20;
+  int get colorCount => 16;
 
   /// Für Fortschritts-JSON und alte Speichernamen (`easy`/`medium`/`hard`).
   static PixelDifficulty fromStorageName(String? _) =>

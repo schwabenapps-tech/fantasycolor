@@ -51,6 +51,7 @@ class RemotePackService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final packVersions = _readPackVersions(prefs);
       _newSince = _readNewSince(prefs);
+      _pruneNewSince();
       final root = await _packsRoot();
       var changed = false;
       final beforeSignature = _packsSignature(_packs);
@@ -58,7 +59,7 @@ class RemotePackService extends ChangeNotifier {
       for (final pack in remote.packs) {
         final localVersion = packVersions[pack.id] ?? 0;
         if (localVersion >= pack.version && await _packComplete(root, pack)) {
-          // Auch ohne Download: released_at / bekannte Seiten als neu merken.
+          // Auch ohne Download: Remote-IDs merken (ohne Bundle-Stems).
           _rememberNewPages(pack);
           continue;
         }
@@ -121,8 +122,11 @@ class RemotePackService extends ChangeNotifier {
     }
   }
 
-  /// Home/Galerie: Remote-Motiv innerhalb von [newBadgeDuration] als neu.
+  /// Home/Galerie: nur echte Remote-IDs innerhalb von [newBadgeDuration].
+  /// Bundle-Stems (`fee_clean_*`) werden absichtlich nicht markiert.
   bool isNewPage(String pageId, {DateTime? now}) {
+    if (!_isRemoteStyleId(pageId)) return false;
+
     final stored = _newSince[pageId];
     if (_isWithinNewBadge(stored, now: now)) return true;
 
@@ -131,11 +135,14 @@ class RemotePackService extends ChangeNotifier {
       if (!_isWithinNewBadge(released, now: now)) continue;
       for (final relative in pack.files) {
         if (!_isTrackedRemoteFile(relative)) continue;
-        if (_matchesRemotePageId(pack.id, relative, pageId)) return true;
+        if (remotePageId(pack.id, relative) == pageId) return true;
       }
     }
     return false;
   }
+
+  /// Remote-Page-/Sticker-IDs beginnen mit `remote_`.
+  static bool _isRemoteStyleId(String pageId) => pageId.startsWith('remote_');
 
   /// raw Stem-ID, normalisierte Stem-ID oder nackter normalize-Key.
   static bool _matchesRemotePageId(
@@ -154,24 +161,21 @@ class RemotePackService extends ChangeNotifier {
     final day = DateTime(released.year, released.month, released.day);
     for (final relative in pack.files) {
       if (!_isTrackedRemoteFile(relative)) continue;
-      final rawId = remotePageId(pack.id, relative);
-      // Auch Bundle-Stem (fee_clean_50), falls Remote wegen Dedup verworfen wird.
-      final stem = normalizeImageKey(relative.split('/').last);
-      // Sticker-Katalog-IDs: remote_{pack}_{normalizeImageKey} (Upload-Script).
-      final normalizedId =
-          stem.isEmpty ? null : 'remote_${pack.id}_$stem';
-      for (final key in {
-        rawId,
-        if (stem.isNotEmpty) stem,
-        ?normalizedId,
-      }) {
-        if (forceFresh) {
-          _newSince[key] = day;
-        } else {
-          _newSince.putIfAbsent(key, () => day);
-        }
+      // Nur Remote-IDs — keine Bundle-Stems, sonst kleben NEW-Badges überall.
+      final key = remotePageId(pack.id, relative);
+      if (forceFresh) {
+        _newSince[key] = day;
+      } else {
+        _newSince.putIfAbsent(key, () => day);
       }
     }
+  }
+
+  /// Abgelaufene + fälschlich gespeicherte Bundle-Stems entfernen.
+  void _pruneNewSince() {
+    _newSince.removeWhere(
+      (id, since) => !_isRemoteStyleId(id) || !_isWithinNewBadge(since),
+    );
   }
 
   /// Coloring/Puzzle/Stickers (ohne catalog.json).
@@ -425,6 +429,17 @@ class RemotePackService extends ChangeNotifier {
     }
     final prefs = await SharedPreferences.getInstance();
     _newSince = _readNewSince(prefs);
+    final before = _newSince.length;
+    _pruneNewSince();
+    if (_newSince.length != before) {
+      await prefs.setString(
+        _prefsNewSince,
+        jsonEncode({
+          for (final e in _newSince.entries)
+            e.key: e.value.toIso8601String().split('T').first,
+        }),
+      );
+    }
     _indexLoaded = true;
   }
 

@@ -19,6 +19,9 @@ class AdsConfig {
       'ca-app-pub-5511264969083689/1038177048';
   static const String iosInterstitialUnitId =
       'ca-app-pub-5511264969083689/6052673887';
+  /// TODO: echte Rewarded-Unit-IDs aus AdMob eintragen.
+  static const String androidRewardedUnitId = '';
+  static const String iosRewardedUnitId = '';
 
   // Google Sample / Test
   static const String _testAndroidAppId =
@@ -28,6 +31,10 @@ class AdsConfig {
       'ca-app-pub-3940256099942544/1033173712';
   static const String _testIosInterstitial =
       'ca-app-pub-3940256099942544/4411468910';
+  static const String _testAndroidRewarded =
+      'ca-app-pub-3940256099942544/5224354917';
+  static const String _testIosRewarded =
+      'ca-app-pub-3940256099942544/1712485313';
 
   static String get appId {
     if (useTestAds || kDebugMode) {
@@ -41,5 +48,16 @@ class AdsConfig {
       return Platform.isIOS ? _testIosInterstitial : _testAndroidInterstitial;
     }
     return Platform.isIOS ? iosInterstitialUnitId : androidInterstitialUnitId;
+  }
+
+  static String get rewardedAdUnitId {
+    if (useTestAds || kDebugMode) {
+      return Platform.isIOS ? _testIosRewarded : _testAndroidRewarded;
+    }
+    final live = Platform.isIOS ? iosRewardedUnitId : androidRewardedUnitId;
+    if (live.isEmpty) {
+      return Platform.isIOS ? _testIosRewarded : _testAndroidRewarded;
+    }
+    return live;
   }
 }

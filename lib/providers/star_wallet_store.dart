@@ -1,0 +1,256 @@
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../data/star_economy.dart';
+import '../services/advent_service.dart';
+import 'favorites_store.dart';
+
+/// Sterne-Guthaben + dauerhafte Freischaltungen + Completion-Ratings.
+class StarWalletStore extends ChangeNotifier {
+  StarWalletStore();
+
+  static const _balanceKey = 'star_wallet_balance_v1';
+  static const _unlockedColoringKey = 'star_unlocked_coloring_v1';
+  static const _unlockedPuzzleKey = 'star_unlocked_puzzle_v1';
+  static const _coloringRatingKey = 'star_coloring_rating_v1';
+  static const _puzzleRewardedKey = 'star_puzzle_rewarded_v1';
+
+  int _balance = 0;
+  /// Sterne-Show erst im Hub (nicht auf Level-Complete).
+  int _pendingHubStars = 0;
+  final Set<String> _unlockedColoring = {};
+  final Set<String> _unlockedPuzzle = {};
+  final Map<String, int> _coloringRatings = {};
+  final Set<String> _puzzleRewarded = {};
+  StarEconomy? _economy;
+  bool _ready = false;
+
+  bool get isReady => _ready;
+  int get balance => _balance;
+
+  int get pendingHubStars => _pendingHubStars;
+
+  void queueHubStarDisplay(int amount) {
+    if (amount <= 0) return;
+    _pendingHubStars += amount;
+    notifyListeners();
+  }
+
+  int takePendingHubStars() {
+    final n = _pendingHubStars;
+    _pendingHubStars = 0;
+    if (n > 0) notifyListeners();
+    return n;
+  }
+  StarEconomy? get economy => _economy;
+
+  Future<void> load() async {
+    _economy = await StarEconomy.load();
+    final prefs = await SharedPreferences.getInstance();
+    _balance = prefs.getInt(_balanceKey) ?? 0;
+    _unlockedColoring
+      ..clear()
+      ..addAll(prefs.getStringList(_unlockedColoringKey) ?? const []);
+    _unlockedPuzzle
+      ..clear()
+      ..addAll(prefs.getStringList(_unlockedPuzzleKey) ?? const []);
+    _puzzleRewarded
+      ..clear()
+      ..addAll(prefs.getStringList(_puzzleRewardedKey) ?? const []);
+    _coloringRatings
+      ..clear()
+      ..addAll(_decodeRatings(prefs.getStringList(_coloringRatingKey)));
+    // Advent-Türchen-Freischaltungen in die Wallet übernehmen.
+    final advent = AdventService.instance;
+    if (!advent.isReady) await advent.load();
+    _unlockedColoring.addAll(advent.unlockedColoringIds);
+    _unlockedPuzzle.addAll(advent.unlockedPuzzleIds);
+    _ready = true;
+    notifyListeners();
+  }
+
+  Map<String, int> _decodeRatings(List<String>? raw) {
+    final out = <String, int>{};
+    if (raw == null) return out;
+    for (final entry in raw) {
+      final i = entry.lastIndexOf(':');
+      if (i <= 0) continue;
+      final id = entry.substring(0, i);
+      final rating = int.tryParse(entry.substring(i + 1));
+      if (rating == null) continue;
+      out[id] = rating;
+    }
+    return out;
+  }
+
+  List<String> _encodeRatings() => [
+        for (final e in _coloringRatings.entries) '${e.key}:${e.value}',
+      ]..sort();
+
+  Future<void> _persistBalance() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_balanceKey, _balance);
+  }
+
+  Future<void> _persistUnlocks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _unlockedColoringKey,
+      _unlockedColoring.toList(growable: false)..sort(),
+    );
+    await prefs.setStringList(
+      _unlockedPuzzleKey,
+      _unlockedPuzzle.toList(growable: false)..sort(),
+    );
+  }
+
+  Future<void> _persistRatings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_coloringRatingKey, _encodeRatings());
+    await prefs.setStringList(
+      _puzzleRewardedKey,
+      _puzzleRewarded.toList(growable: false)..sort(),
+    );
+  }
+
+  static const adventUnlockCost = 25;
+
+  bool _isAdventLockedContent(String id, FavoriteKind kind) {
+    final advent = AdventService.instance;
+    return kind == FavoriteKind.puzzle
+        ? advent.isConfiguredPuzzle(id)
+        : advent.isConfiguredColoring(id);
+  }
+
+  bool requiresStars(String id, FavoriteKind kind) {
+    final unlocked =
+        kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
+    if (unlocked.contains(id)) return false;
+    final eco = _economy;
+    if (eco != null && eco.isLocked(id, kind)) return true;
+    // Advent-Motive: im Event-Screen gesperrt, bis Türchen / Sterne / Werbung.
+    return _isAdventLockedContent(id, kind);
+  }
+
+  int? unlockCost(String id, FavoriteKind kind) {
+    final fromEco = _economy?.costFor(id, kind);
+    if (fromEco != null) return fromEco;
+    if (_isAdventLockedContent(id, kind)) return adventUnlockCost;
+    return null;
+  }
+
+  bool isUnlocked(String id, FavoriteKind kind) {
+    final unlocked =
+        kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
+    if (unlocked.contains(id)) return true;
+    final ecoLocked = _economy?.isLocked(id, kind) ?? false;
+    if (!ecoLocked && !_isAdventLockedContent(id, kind)) return true;
+    return false;
+  }
+
+  /// Kostenlos freischalten (z. B. Advent-Geschenk).
+  Future<void> grantUnlock(String id, FavoriteKind kind) async {
+    if (!_ready) await load();
+    final set =
+        kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
+    if (set.contains(id)) return;
+    set.add(id);
+    await _persistUnlocks();
+    notifyListeners();
+  }
+
+  Future<bool> unlockWithStars(String id, FavoriteKind kind) async {
+    if (!_ready) await load();
+    if (!requiresStars(id, kind)) return true;
+    final cost = unlockCost(id, kind);
+    if (cost == null || _balance < cost) return false;
+    _balance -= cost;
+    final set =
+        kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
+    set.add(id);
+    await _persistBalance();
+    await _persistUnlocks();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> addStars(int amount) async {
+    if (amount <= 0) return;
+    if (!_ready) await load();
+    _balance += amount;
+    await _persistBalance();
+    notifyListeners();
+  }
+
+  Future<bool> spendStars(int amount) async {
+    if (amount <= 0) return true;
+    if (!_ready) await load();
+    if (_balance < amount) return false;
+    _balance -= amount;
+    await _persistBalance();
+    notifyListeners();
+    return true;
+  }
+
+  int coloringRating(String id) => _coloringRatings[id] ?? 0;
+
+  /// Speichert nur das Qualitäts-Rating (ohne Währungs-Sterne), z. B. Daily.
+  Future<void> recordColoringRating(String id, int rating) async {
+    if (rating < 1 || rating > 3) return;
+    if (!_ready) await load();
+    final prev = _coloringRatings[id] ?? 0;
+    if (rating <= prev) return;
+    _coloringRatings[id] = rating;
+    await _persistRatings();
+    notifyListeners();
+  }
+
+  /// Vergibt Sterne für neues/besseres Rating. Returns verdiente Sterne.
+  Future<int> awardColoringRating(String id, int rating) async {
+    if (rating < 1 || rating > 3) return 0;
+    if (!_ready) await load();
+    final eco = _economy;
+    if (eco == null) return 0;
+    final prev = _coloringRatings[id] ?? 0;
+    if (rating <= prev) return 0;
+    final prevCurrency = prev == 0 ? 0 : eco.currencyForColoringRating(prev);
+    final nextCurrency = eco.currencyForColoringRating(rating);
+    final gain = nextCurrency - prevCurrency;
+    _coloringRatings[id] = rating;
+    if (gain > 0) {
+      _balance += gain;
+      await _persistBalance();
+      queueHubStarDisplay(gain);
+    }
+    await _persistRatings();
+    notifyListeners();
+    return gain;
+  }
+
+  Future<int> awardPuzzleComplete(String id) async {
+    if (!_ready) await load();
+    if (_puzzleRewarded.contains(id)) return 0;
+    final gain = _economy?.puzzleCompleteReward ?? 5;
+    _puzzleRewarded.add(id);
+    _balance += gain;
+    await _persistBalance();
+    await _persistRatings();
+    queueHubStarDisplay(gain);
+    notifyListeners();
+    return gain;
+  }
+
+  Future<int> awardRewardedAd() async {
+    if (!_ready) await load();
+    final gain = _economy?.rewardedAdReward ?? 5;
+    _balance += gain;
+    await _persistBalance();
+    notifyListeners();
+    return gain;
+  }
+
+  int get stickerCost => _economy?.stickerCost ?? 15;
+
+  Set<String> get lockedColoringIds => _economy?.lockedIds(FavoriteKind.coloring) ?? {};
+  Set<String> get lockedPuzzleIds => _economy?.lockedIds(FavoriteKind.puzzle) ?? {};
+}

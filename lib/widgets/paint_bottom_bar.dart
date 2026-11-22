@@ -8,10 +8,13 @@ import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../providers/coloring_session.dart';
 import '../providers/coloring_sticker_placements_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
+import '../services/daily_quest_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
+import 'star_balance_pill.dart';
 import 'sticker_coverage_bar.dart';
 
 /// Untere Farbleiste: Tools + Kategorien/Farben/Stickers in einer scrollbaren Reihe.
@@ -100,6 +103,71 @@ class _ScrollablePaintTray extends StatelessWidget {
           PlacedSticker(stickerId: stickerId, x: 0.5, y: 0.5),
         );
     AnalyticsService.instance.logStickerPlaced(pageId);
+    if (!context.mounted) return;
+    final quest = context.read<DailyQuestService>();
+    final wallet = context.read<StarWalletStore>();
+    await quest.markStickerPlaced(pageId);
+    await quest.claimProgressRewards(wallet);
+  }
+
+  Future<void> _onStickerTap(
+    BuildContext context,
+    StickerEntry sticker,
+    bool unlocked,
+  ) async {
+    if (unlocked) {
+      await _placeSticker(context, sticker.id);
+      return;
+    }
+    final wallet = context.read<StarWalletStore>();
+    final store = context.read<StickerCollectionStore>();
+    final cost = wallet.stickerCost;
+    final t = AppStrings.of(context);
+    final buy = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1B2A40),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          t.unlockWithStarsTitle,
+          style: const TextStyle(
+            color: Color(0xFFFFF4C8),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(StarBalancePill.asset, width: 32, height: 32),
+            const SizedBox(width: 8),
+            Text(
+              '$cost',
+              style: const TextStyle(
+                color: Color(0xFFFFD56A),
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t.cancel),
+          ),
+          FilledButton(
+            onPressed: wallet.balance >= cost
+                ? () => Navigator.pop(ctx, true)
+                : null,
+            child: Text(t.unlock),
+          ),
+        ],
+      ),
+    );
+    if (buy != true || !context.mounted) return;
+    final ok = await wallet.spendStars(cost);
+    if (!ok || !context.mounted) return;
+    await store.unlockWithStars(sticker.id);
   }
 
   @override
@@ -107,10 +175,8 @@ class _ScrollablePaintTray extends StatelessWidget {
     final showingColors = session.showingColors;
     final showingStickers = session.showingStickers;
     final stickersStore = context.watch<StickerCollectionStore>();
-    final owned = [
-      for (final s in stickersStore.catalog?.stickers ?? const <StickerEntry>[])
-        if (stickersStore.owns(s.id)) s,
-    ];
+    final trayStickers = stickersStore.paintTrayStickers();
+    final stickerCost = context.watch<StarWalletStore>().stickerCost;
     final placements = context.watch<ColoringStickerPlacementsStore>();
     final canUndo =
         session.canUndo || placements.canUndo(pageId);
@@ -128,7 +194,7 @@ class _ScrollablePaintTray extends StatelessWidget {
     final stickerChip = !showingColors && !showingStickers ? 1 : 0;
     final recentBlock = recent.isEmpty ? 0 : recent.length + 1;
     final contentCount = showingStickers
-        ? 1 + (owned.isEmpty ? 1 : owned.length) // Info + Stickers
+        ? 1 + (trayStickers.isEmpty ? 1 : trayStickers.length) // Info + Stickers
         : showingColors
             ? recentBlock + swatches.length
             : stickerChip + categories.length;
@@ -162,7 +228,7 @@ class _ScrollablePaintTray extends StatelessWidget {
             return const Center(child: _StickerHelpButton());
           }
           i -= 1;
-          if (owned.isEmpty) {
+          if (trayStickers.isEmpty) {
             return const Center(
               child: Text(
                 'No stickers yet',
@@ -170,11 +236,16 @@ class _ScrollablePaintTray extends StatelessWidget {
               ),
             );
           }
-          final sticker = owned[i];
+          final sticker = trayStickers[i];
+          final unlocked = stickersStore.canPlaceInColoring(sticker.id);
           return Center(
             child: _TrayStickerChip(
               sticker: sticker,
-              onTap: () => unawaited(_placeSticker(context, sticker.id)),
+              locked: !unlocked,
+              lockCost: stickerCost,
+              onTap: () => unawaited(
+                _onStickerTap(context, sticker, unlocked),
+              ),
             ),
           );
         }
@@ -510,10 +581,14 @@ class _TrayStickerChip extends StatelessWidget {
   const _TrayStickerChip({
     required this.sticker,
     required this.onTap,
+    this.locked = false,
+    this.lockCost = 15,
   });
 
   final StickerEntry sticker;
   final VoidCallback onTap;
+  final bool locked;
+  final int lockCost;
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +607,62 @@ class _TrayStickerChip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: image,
+        child: SizedBox(
+          width: 58,
+          height: 58,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: Opacity(
+                  opacity: locked ? 0.45 : 1,
+                  child: image,
+                ),
+              ),
+              if (locked)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A2A40).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFFFFD56A).withValues(alpha: 0.9),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            StarBalancePill.asset,
+                            width: 14,
+                            height: 14,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '$lockCost',
+                            style: const TextStyle(
+                              color: Color(0xFFFFF4C8),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -20,6 +20,7 @@ class StickerDailyGiftOverlay extends StatefulWidget {
     this.choices,
     this.award,
     this.isDaily = false,
+    this.forPaint = false,
     this.title = 'Daily surprise!',
     this.subtitle = 'Pick a box for today’s reward',
     this.revealTitle = 'Daily reward!',
@@ -36,6 +37,9 @@ class StickerDailyGiftOverlay extends StatefulWidget {
 
   /// Daily: Claim markiert den Tag und unlocked die gewählte Box.
   final bool isDaily;
+
+  /// Auch im Ausmalen platzierbar freischalten.
+  final bool forPaint;
   final String title;
   final String subtitle;
   final String revealTitle;
@@ -152,7 +156,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
       AnalyticsService.instance.logStickerUnlock(won.id, source: 'daily');
       AnalyticsService.instance.logDailyBoxClaim(won.id);
     } else {
-      won = await store.unlock(chosen.id) ?? chosen;
+      won = await store.unlock(chosen.id, forPaint: widget.forPaint) ?? chosen;
       if (!mounted) return;
       AnalyticsService.instance.logStickerUnlock(won.id, source: widget.source);
     }

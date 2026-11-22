@@ -4,7 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/coloring_pages_loader.dart';
+import '../data/puzzle_images_loader.dart';
 import '../l10n/app_strings.dart';
+import '../models/coloring_page.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
@@ -53,23 +56,6 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
       _activeDoor = day;
       _reviewRewards = null;
     });
-  }
-
-  AdventReward? _contentForDoor(int day) {
-    final cfg = AdventService.instance.doorConfig(day);
-    if (cfg.coloringId != null && cfg.coloringId!.isNotEmpty) {
-      return AdventReward(
-        type: AdventRewardType.coloring,
-        id: cfg.coloringId!,
-      );
-    }
-    if (cfg.puzzleId != null && cfg.puzzleId!.isNotEmpty) {
-      return AdventReward(
-        type: AdventRewardType.puzzle,
-        id: cfg.puzzleId!,
-      );
-    }
-    return null;
   }
 
   Future<void> _onGiftFinished(int day, List<AdventReward> rewards) async {
@@ -157,13 +143,11 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
           if (_activeDoor != null && _reviewRewards == null)
             AdventGiftOverlay(
               day: _activeDoor!,
-              pulls: advent.doorConfig(_activeDoor!).pulls,
-              contentReward: _contentForDoor(_activeDoor!),
               onFinished: (rewards) =>
-                  _onGiftFinished(_activeDoor!, rewards),
+                  unawaited(_onGiftFinished(_activeDoor!, rewards)),
             ),
           if (_activeDoor != null && _reviewRewards != null)
-            _ReviewSheet(
+            AdventReviewOverlay(
               day: _activeDoor!,
               rewards: _reviewRewards!,
               onClose: () => setState(() {
@@ -294,8 +278,10 @@ class _DoorBaubleState extends State<_DoorBauble>
   }
 }
 
-class _ReviewSheet extends StatelessWidget {
-  const _ReviewSheet({
+/// Großes Vollbild-Overlay für bereits geöffnete Türchen (Hoch- + Querformat).
+class AdventReviewOverlay extends StatefulWidget {
+  const AdventReviewOverlay({
+    super.key,
     required this.day,
     required this.rewards,
     required this.onClose,
@@ -306,97 +292,264 @@ class _ReviewSheet extends StatelessWidget {
   final VoidCallback onClose;
 
   @override
+  State<AdventReviewOverlay> createState() => _AdventReviewOverlayState();
+}
+
+class _AdventReviewOverlayState extends State<AdventReviewOverlay> {
+  Map<String, ColoringPage> _pagesById = const {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadPages());
+  }
+
+  Future<void> _loadPages() async {
+    final needsColoring = widget.rewards.any(
+      (r) => r.type == AdventRewardType.coloring,
+    );
+    final needsPuzzle = widget.rewards.any(
+      (r) => r.type == AdventRewardType.puzzle,
+    );
+    final map = <String, ColoringPage>{};
+    if (needsColoring) {
+      for (final p in await loadColoringPages(shuffle: false)) {
+        map[p.id] = p;
+      }
+    }
+    if (needsPuzzle) {
+      for (final p in await loadPuzzleImages(shuffle: false)) {
+        map[p.id] = p;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _pagesById = map;
+      _loading = false;
+    });
+  }
+
+  String _labelFor(AdventReward r, AppStrings t) {
+    return switch (r.type) {
+      AdventRewardType.sticker => t.adventRewardSticker,
+      AdventRewardType.coloring => t.adventRewardColoring,
+      AdventRewardType.puzzle => t.adventRewardPuzzle,
+    };
+  }
+
+  String? _assetPathFor(AdventReward r, StickerCollectionStore store) {
+    if (r.type == AdventRewardType.sticker) {
+      return store.catalog?.byId(r.id)?.assetPath;
+    }
+    return _pagesById[r.id]?.assetPath;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final store = context.watch<StickerCollectionStore>();
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height;
 
     return Material(
-      color: Colors.black54,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Container(
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1B2A44),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.adventReviewTitle.replaceAll('{n}', '$day'),
+      color: Colors.black.withValues(alpha: 0.78),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: landscape ? 28 : 16,
+            vertical: landscape ? 12 : 16,
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      t.adventDoorTitle(widget.day),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: landscape ? 26 : 22,
+                        fontWeight: FontWeight.w900,
+                        shadows: const [
+                          Shadow(blurRadius: 10, color: Colors.black54),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: widget.onClose,
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : widget.rewards.isEmpty
+                        ? Center(
+                            child: Text(
+                              t.adventReviewEmpty,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 16,
+                              ),
+                            ),
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              const textReserve = 64.0;
+                              final n = widget.rewards.length.clamp(1, 3);
+                              final maxSide = landscape
+                                  ? (constraints.maxHeight - textReserve)
+                                      .clamp(120.0, 360.0)
+                                  : math.min(
+                                      (constraints.maxWidth / n) - 12,
+                                      constraints.maxHeight - textReserve,
+                                    ).clamp(120.0, 300.0);
+                              return Center(
+                                child: SingleChildScrollView(
+                                  scrollDirection: landscape
+                                      ? Axis.horizontal
+                                      : Axis.vertical,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minWidth: constraints.maxWidth,
+                                      minHeight: constraints.maxHeight,
+                                    ),
+                                    child: Flex(
+                                      direction: landscape
+                                          ? Axis.horizontal
+                                          : Axis.vertical,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        for (var i = 0;
+                                            i < widget.rewards.length;
+                                            i++) ...[
+                                          if (i > 0)
+                                            SizedBox(
+                                              width: landscape ? 20 : 0,
+                                              height: landscape ? 0 : 20,
+                                            ),
+                                          _ReviewGiftCard(
+                                            maxSide: maxSide,
+                                            maxHeight: constraints.maxHeight,
+                                            label: _labelFor(
+                                              widget.rewards[i],
+                                              t,
+                                            ),
+                                            subtitle: widget.rewards[i]
+                                                        .type ==
+                                                    AdventRewardType.sticker
+                                                ? null
+                                                : _pagesById[
+                                                        widget.rewards[i].id]
+                                                    ?.title,
+                                            assetPath: _assetPathFor(
+                                              widget.rewards[i],
+                                              store,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+              ),
+              TextButton(
+                onPressed: widget.onClose,
+                child: Text(
+                  t.streakQuestClose,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (rewards.isEmpty)
-                  Text(
-                    t.adventReviewEmpty,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      for (final r in rewards) _rewardChip(store, r, t),
-                    ],
-                  ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: onClose,
-                  child: Text(t.streakQuestClose),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _rewardChip(
-    StickerCollectionStore store,
-    AdventReward r,
-    AppStrings t,
-  ) {
-    if (r.type == AdventRewardType.sticker) {
-      final entry = store.catalog?.byId(r.id);
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: entry != null && isLocalImageAvailable(entry.assetPath)
-                ? Image(
-                    image: imageProviderFor(entry.assetPath),
-                    fit: BoxFit.contain,
-                  )
-                : const Icon(Icons.sticky_note_2, color: Colors.white70),
+class _ReviewGiftCard extends StatelessWidget {
+  const _ReviewGiftCard({
+    required this.maxSide,
+    required this.maxHeight,
+    required this.label,
+    required this.assetPath,
+    this.subtitle,
+  });
+
+  final double maxSide;
+  final double maxHeight;
+  final String label;
+  final String? subtitle;
+  final String? assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage =
+        assetPath != null && isLocalImageAvailable(assetPath!);
+    final hasSubtitle = subtitle != null && subtitle!.isNotEmpty;
+    final textBlock = 18.0 + (hasSubtitle ? 28.0 : 0) + 10.0;
+    final side = math.min(maxSide, maxHeight - textBlock).clamp(96.0, maxSide);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFFFFD56A),
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
-          Text(
-            t.adventRewardSticker,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
+        if (hasSubtitle) ...[
+          const SizedBox(height: 4),
+          SizedBox(
+            width: side,
+            child: Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
-      );
-    }
-    return Chip(
-      label: Text(
-        r.type == AdventRewardType.coloring
-            ? t.adventRewardColoring
-            : t.adventRewardPuzzle,
-      ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: side,
+          height: side,
+          child: hasImage
+              ? Image(
+                  image: imageProviderFor(assetPath!),
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                )
+              : Icon(
+                  Icons.card_giftcard_rounded,
+                  color: Colors.white.withValues(alpha: 0.55),
+                  size: side * 0.45,
+                ),
+        ),
+      ],
     );
   }
 }

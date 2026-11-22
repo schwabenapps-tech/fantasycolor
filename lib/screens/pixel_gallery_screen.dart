@@ -1,15 +1,21 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../data/puzzle_images_loader.dart';
+import '../data/coloring_pages_loader.dart';
+import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
+import '../providers/coloring_progress_store.dart';
 import '../providers/pixel_mode_unlock_store.dart';
 import '../providers/pixel_progress_store.dart';
+import '../providers/pixel_ready_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../services/ads_service.dart';
+import '../services/daily_quest_service.dart';
 import '../utils/app_layout.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/progress_badge.dart';
@@ -17,9 +23,7 @@ import '../widgets/silver_back_button.dart';
 import 'pixel_paint_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Galerie für den fortgeschrittenen Pixel-/Malen-nach-Zahlen-Modus.
-///
-/// Nutzt die Puzzle-Bilder als Vorlagen für quantisierte Pixel-Bilder.
+/// Pixelart nur für zu 100 % ausgemalte Ausmalbilder.
 class PixelGalleryScreen extends StatefulWidget {
   const PixelGalleryScreen({super.key});
 
@@ -38,7 +42,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
   @override
   void initState() {
     super.initState();
-    _pagesFuture = loadPuzzleImages();
+    _pagesFuture = loadColoringPages(shuffle: false);
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -48,6 +52,28 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_syncReadyFromExisting());
+    });
+  }
+
+  Future<void> _syncReadyFromExisting() async {
+    if (!mounted) return;
+    final progress = context.read<ColoringProgressStore>();
+    final wallet = context.read<StarWalletStore>();
+    final ready = context.read<PixelReadyStore>();
+    final quest = context.read<DailyQuestService>();
+    if (!progress.isReady) await progress.load();
+    if (!wallet.isReady) await wallet.load();
+    if (!ready.isReady) await ready.load();
+    await ready.syncFromCompletedColoring(
+      progressIds: progress.progressIds,
+      coloringRating: wallet.coloringRating,
+      extraIds: [
+        for (final t in quest.tasks)
+          if ((t.isColoring || t.isRecolor) && quest.isTaskDone(t)) t.pageId,
+      ],
+    );
   }
 
   @override
@@ -58,25 +84,25 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
 
   Future<void> _openPage(ColoringPage page) async {
     HapticFeedback.selectionClick();
+    final readyStore = context.read<PixelReadyStore>();
     final store = context.read<PixelProgressStore>();
+    final coloringProgress = context.read<ColoringProgressStore>();
+    if (!readyStore.isPaintUnlocked(page.id)) {
+      await AdsService.showEventContentUnlockInterstitial();
+      if (!mounted) return;
+      await readyStore.unlockPaint(page.id);
+    }
+    if (!mounted) return;
+
     final existing = await store.loadSnapshot(page.id);
+    final sourceBytes = await coloringProgress.loadProgressBytes(page.id);
 
     if (!mounted) return;
 
+    PixelProgressSnapshot? resume;
     if (existing != null && !existing.completed && existing.filledCount > 0) {
-      await Navigator.of(context).push(
-        AppPageRoute<void>(
-        builder: (_) => PixelPaintScreen(
-                page: page,
-                difficulty: PixelDifficulty.standard,
-                resumeSnapshot: existing,
-              ),
-      ),
-      );
-      return;
-    }
-
-    if (existing != null) {
+      resume = existing;
+    } else if (existing != null) {
       await store.clearProgress(page.id);
     }
     if (!mounted) return;
@@ -84,19 +110,23 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     await Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => PixelPaintScreen(
-              page: page,
-              difficulty: PixelDifficulty.standard,
-            ),
+          page: page,
+          difficulty: PixelDifficulty.standard,
+          sourceBytes: sourceBytes,
+          resumeSnapshot: resume,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final tileHeight = layout.galleryTileHeight;
     final tileWidth = layout.galleryTileWidth;
+    final ready = context.watch<PixelReadyStore>();
 
     return Scaffold(
       body: Stack(
@@ -128,14 +158,22 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                         );
                       }
 
-                      final pages = snapshot.data ?? const <ColoringPage>[];
+                      final all = snapshot.data ?? const <ColoringPage>[];
+                      final pages = [
+                        for (final p in all)
+                          if (ready.isReadyFor(p.id)) p,
+                      ];
                       if (pages.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'No pixel images found',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              t.pixelArtEmpty,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         );
@@ -148,10 +186,10 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                             padding: EdgeInsets.symmetric(
                               horizontal: size.width * 0.08,
                             ),
-                            child: const Text(
-                              'Paint by numbers',
+                            child: Text(
+                              t.pixelArt,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Color(0xFFFFE7A0),
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
@@ -161,7 +199,7 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Pick an image · tap the numbers',
+                            t.pixelArtHint,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.65),
@@ -197,6 +235,8 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                                           pixelProgress.versionOf(page.id),
                                       previewFile: pixelProgress
                                           .previewFileFor(page.id),
+                                      requiresAdUnlock:
+                                          !ready.isPaintUnlocked(page.id),
                                       onTap: () => _openPage(page),
                                     );
                                   },
@@ -234,20 +274,12 @@ Future<void> openPixelModeUnlockOnly(BuildContext context) async {
   await unlock.unlock();
 }
 
-/// Einstieg aus der normalen Mal-Galerie: Freischaltung per Interstitial.
+/// Einstieg aus dem Color-Hub — Bilder einzeln per Werbung freischalten.
 Future<void> openPixelModeFromGallery(BuildContext context) async {
-  final unlock = context.read<PixelModeUnlockStore>();
-  if (!unlock.isUnlocked) {
-    final wantsUnlock = await showPixelUnlockDialog(context);
-    if (wantsUnlock != true || !context.mounted) return;
-    await openPixelModeUnlockOnly(context);
-    if (!context.mounted) return;
-  }
-
   await Navigator.of(context).push(
     AppPageRoute<void>(
-        builder: (_) => const PixelGalleryScreen(),
-      ),
+      builder: (_) => const PixelGalleryScreen(),
+    ),
   );
 }
 
@@ -375,6 +407,7 @@ class _PixelPageTile extends StatelessWidget {
     required this.progressVersion,
     required this.previewFile,
     required this.onTap,
+    this.requiresAdUnlock = false,
   });
 
   final ColoringPage page;
@@ -385,6 +418,7 @@ class _PixelPageTile extends StatelessWidget {
   final int progressVersion;
   final File? previewFile;
   final VoidCallback onTap;
+  final bool requiresAdUnlock;
 
   @override
   Widget build(BuildContext context) {
@@ -458,38 +492,22 @@ class _PixelPageTile extends StatelessWidget {
                       done: isCompleted,
                     ),
                   ),
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.grid_on_rounded,
-                            size: 14,
-                            color: Color(0xFFFFE7A0),
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Pixel',
-                            style: TextStyle(
-                              color: Color(0xFFFFE7A0),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                if (requiresAdUnlock)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.lock_rounded,
+                          color: Colors.white,
+                          size: 36,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/paint_catalog.dart';
-import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../painting/coloring_bitmap.dart';
@@ -13,13 +12,15 @@ import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../providers/coloring_sticker_placements_store.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_ready_store.dart';
 import '../providers/recent_content_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
-import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/coloring_sticker_export.dart';
+import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
 import '../services/streak_service.dart';
 import '../utils/app_page_route.dart';
@@ -28,7 +29,6 @@ import '../widgets/coloring_sticker_layer.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
-import '../widgets/sticker_daily_gift_overlay.dart';
 import 'puzzle_screen.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
@@ -55,7 +55,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   Timer? _autoSaveTimer;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
   Uint8List? _finishedPng;
-  List<StickerEntry>? _giftChoices;
+  int _earnedStars = 0;
+  int _finishRating = 0;
 
   bool _recentRecorded = false;
 
@@ -186,7 +187,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
 
   Future<void> _finish() async {
     if (_celebrating) return;
-    // Done + Sticker nur ab 90 % Ausmal-Anteil.
+    // Done ab 1★ (~40 % Coverage).
     if (!_session.meetsStickerCoverage) return;
 
     _autoSaveTimer?.cancel();
@@ -199,23 +200,43 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     _finishedPng = saved ?? await _session.renderColoredPng();
 
     if (!mounted) return;
-    final store = context.read<StickerCollectionStore>();
-    await store.load();
-    List<StickerEntry>? choices;
-    // Advent-Saison: klassische Completion-Sticker aus.
-    if (AdventService.classicRewardsEnabled() &&
-        store.canRewardColoring(widget.page.id)) {
-      final offered = store.choicesForColoring(widget.page.id);
-      if (offered.isNotEmpty) choices = offered;
+    final rating = _session.starRating;
+    final wallet = context.read<StarWalletStore>();
+    final quest = context.read<DailyQuestService>();
+    final isDaily = quest.isTodaysQuestTarget(widget.page.id, coloring: true);
+    // Daily: Rating speichern (für Pixelart), aber keine Währungs-Sterne.
+    if (isDaily) {
+      await wallet.recordColoringRating(widget.page.id, rating);
+    } else {
+      await wallet.awardColoringRating(widget.page.id, rating);
+    }
+    await quest.markColoringDone(widget.page.id);
+    await quest.claimProgressRewards(wallet);
+
+    // Daily-fertig ODER 3★ / ~100 % → Pixelart-Galerie (wiederverwendbar).
+    if (isDaily ||
+        _session.starRating >= 3 ||
+        _session.isFullyComplete) {
+      if (!mounted) return;
+      final pixelReady = context.read<PixelReadyStore>();
+      await pixelReady.markReady(widget.page.id);
+    }
+    if (_session.isFullyComplete) {
+      if (!mounted) return;
+      final stickers = context.read<StickerCollectionStore>();
+      if (stickers.canRewardColoring(widget.page.id)) {
+        await stickers.unlockForColoring(widget.page.id);
+        await stickers.markColoringRewarded(widget.page.id);
+      }
     }
 
     if (!mounted) return;
-    // Bild kurz in Ruhe zeigen, dann Sticker-Wahl / Level-Complete.
     await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _giftChoices = choices;
+      _finishRating = rating;
+      _earnedStars = 0;
     });
     unawaited(AudioService.instance.playLevelComplete());
     unawaited(StreakService.instance.recordPlayDay());
@@ -415,27 +436,13 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                 ),
               ],
             ),
-            if (_celebrating && _giftChoices != null)
-              StickerDailyGiftOverlay(
-                choices: _giftChoices,
-                source: 'coloring',
-                title: t.pickAGift,
-                subtitle: t.eachBoxDifferent,
-                revealTitle: t.newSticker,
-                onClosed: () {
-                  unawaited(
-                    context
-                        .read<StickerCollectionStore>()
-                        .markColoringRewarded(widget.page.id),
-                  );
-                  setState(() => _giftChoices = null);
-                },
-              ),
-            if (_celebrating && _giftChoices == null)
+            if (_celebrating)
               LevelCompleteOverlay(
                 key: _levelKey,
                 title: t.wonderful,
-                subtitle: t.levelComplete,
+                ratingStars: _finishRating,
+                earnedStars: _earnedStars,
+                fallbackSubtitle: t.levelComplete,
                 actions: [
                   LevelCompleteActionButton(
                     icon: Icons.download_rounded,

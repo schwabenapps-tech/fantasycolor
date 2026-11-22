@@ -10,12 +10,19 @@ import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
 import '../painting/pixel_export.dart';
 import '../painting/pixel_quantizer.dart';
+import '../l10n/app_strings.dart';
 import '../providers/pixel_progress_store.dart';
+import '../providers/pixel_ready_store.dart';
+import '../providers/star_wallet_store.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
+import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
 import '../utils/image_source.dart';
+import '../widgets/level_complete_overlay.dart';
 import '../widgets/pixel_paint_rail.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_daily_gift_overlay.dart';
 
 /// Interaktives Malen-nach-Zahlen auf einem quantisierten Pixel-Raster.
 class PixelPaintScreen extends StatefulWidget {
@@ -24,11 +31,14 @@ class PixelPaintScreen extends StatefulWidget {
     required this.page,
     required this.difficulty,
     this.resumeSnapshot,
+    this.sourceBytes,
   });
 
   final ColoringPage page;
   final PixelDifficulty difficulty;
   final PixelProgressSnapshot? resumeSnapshot;
+  /// Fertiges Ausmal-PNG — sonst Asset-Vorlage.
+  final Uint8List? sourceBytes;
 
   static const _paperBackground = 'assets/images/ausmalhintergund.png';
 
@@ -48,6 +58,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   bool _celebrating = false;
   bool _showFinishActions = false;
   bool _exitAdShown = false;
+  bool _stickerGiftShown = false;
+  int _finishRating = 0;
   bool _saveInFlight = false;
   bool _saveDirty = false;
   bool _saveCompletedFlag = false;
@@ -119,10 +131,16 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       return puzzle;
     }
 
-    final puzzle = await PixelQuantizer.fromAsset(
-      widget.page.assetPath,
-      difficulty: widget.difficulty,
-    );
+    final source = widget.sourceBytes;
+    final puzzle = source != null
+        ? await PixelQuantizer.fromBytes(
+            source,
+            difficulty: widget.difficulty,
+          )
+        : await PixelQuantizer.fromAsset(
+            widget.page.assetPath,
+            difficulty: widget.difficulty,
+          );
     _puzzle = puzzle;
     _filled = List<bool>.filled(puzzle.totalCells, false);
     _filledCount = 0;
@@ -343,9 +361,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     });
     _scheduleAutoSave();
 
-    if (_filledCount >= puzzle.totalCells) {
-      unawaited(_onComplete());
-    } else if (_remainingFor(_selectedNumber) == 0) {
+    if (_remainingFor(_selectedNumber) == 0) {
       for (final swatch in _swatches) {
         final n = swatch.number ?? 0;
         if (n > 0 && _remainingFor(n) > 0) {
@@ -356,27 +372,86 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     }
   }
 
-  Future<void> _onComplete() async {
+  double get _fillRatio {
+    final puzzle = _puzzle;
+    if (puzzle == null || puzzle.totalCells <= 0) return 0;
+    return _filledCount / puzzle.totalCells;
+  }
+
+  int get _rating => PixelReadyStore.starRatingForFill(_fillRatio);
+
+  Future<void> _onDonePressed() async {
     if (_celebrating) return;
-    final puzzle = _puzzle!;
+    final rating = _rating;
+    if (rating < 1) {
+      if (!mounted) return;
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).colorMoreForDone)),
+      );
+      return;
+    }
+    await _finish(rating: rating);
+  }
+
+  Future<void> _finish({required int rating}) async {
+    if (_celebrating) return;
+    final puzzle = _puzzle;
+    if (puzzle == null) return;
+
     setState(() {
       _celebrating = true;
-      _showFinishActions = false;
+      _showFinishActions = true;
+      _finishRating = rating;
     });
     HapticFeedback.mediumImpact();
 
-    final allFilled = List<bool>.filled(puzzle.totalCells, true);
     _finishedPng = await PixelExporter.renderPng(
       puzzle: puzzle,
-      filled: allFilled,
+      filled: List<bool>.from(_filled),
       cellSize: 24,
       emptyAsLightGray: false,
     );
-    await _persistProgress(completed: true);
+    await _persistProgress(completed: rating >= 2);
 
-    await _celebrateController.forward(from: 0);
+    if (mounted) {
+      final quest = context.read<DailyQuestService>();
+      final wallet = context.read<StarWalletStore>();
+      await quest.markPixelDone(widget.page.id);
+      await quest.claimProgressRewards(wallet);
+    }
+  }
+
+  Future<void> _maybeOfferStickerAfterStars() async {
+    if (_finishRating < 2 || _stickerGiftShown || !mounted) return;
+    final ready = context.read<PixelReadyStore>();
+    if (ready.stickerRewarded(widget.page.id)) return;
+    _stickerGiftShown = true;
+    await _offerStickerGift();
     if (!mounted) return;
-    setState(() => _showFinishActions = true);
+    await ready.markStickerRewarded(widget.page.id);
+  }
+
+  Future<void> _offerStickerGift() async {
+    final store = context.read<StickerCollectionStore>();
+    final t = AppStrings.of(context);
+    final choices = store.offerChoices(count: 3);
+    if (choices.isEmpty) return;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.62),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, _, _) => StickerDailyGiftOverlay(
+        choices: choices,
+        forPaint: true,
+        title: t.pickAGift,
+        subtitle: t.eachBoxDifferent,
+        revealTitle: t.newSticker,
+        source: 'pixel_${widget.page.id}',
+        onClosed: () => Navigator.of(ctx).maybePop(),
+      ),
+    );
   }
 
   Future<void> _saveToPhotos() async {
@@ -647,6 +722,14 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                             right: 16 + railWidth,
                             child: _ProgressPill(progress: progress),
                           ),
+                          if (!_celebrating && _rating >= 1)
+                            Positioned(
+                              top: 12,
+                              right: 16 + railWidth + 88,
+                              child: _DoneChip(
+                                onPressed: () => unawaited(_onDonePressed()),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -663,28 +746,30 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                           },
                         ),
                       ),
-                    if (_celebrating)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          ignoring: _showFinishActions,
-                          child: AnimatedBuilder(
-                            animation: _celebrateController,
-                            builder: (context, _) {
-                              return CustomPaint(
-                                painter: _SparklePainter(
-                                  progress: _celebrateController.value,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
                     if (_showFinishActions)
                       Positioned.fill(
-                        child: _FinishOverlay(
-                          title: widget.page.title,
-                          onSave: () => unawaited(_saveToPhotos()),
-                          onClose: () => unawaited(_closeAfterFinish()),
+                        child: LevelCompleteOverlay(
+                          title: AppStrings.of(context).wonderful,
+                          ratingStars: _finishRating,
+                          earnedStars: 0,
+                          fallbackSubtitle:
+                              AppStrings.of(context).levelComplete,
+                          onReady: () =>
+                              unawaited(_maybeOfferStickerAfterStars()),
+                          actions: [
+                            LevelCompleteActionButton(
+                              icon: Icons.download_rounded,
+                              label: AppStrings.of(context).photos,
+                              onPressed: () => unawaited(_saveToPhotos()),
+                            ),
+                            LevelCompleteActionButton(
+                              icon: Icons.check_rounded,
+                              label: AppStrings.of(context).done,
+                              filled: false,
+                              onPressed: () =>
+                                  unawaited(_closeAfterFinish()),
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -692,6 +777,40 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DoneChip extends StatelessWidget {
+  const _DoneChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: const Color(0xFFE8C56A).withValues(alpha: 0.95),
+            border: Border.all(color: const Color(0xFFC9A03A)),
+          ),
+          child: Text(
+            t.done,
+            style: const TextStyle(
+              color: Color(0xFF4A3208),
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
         ),
       ),
     );
@@ -731,155 +850,6 @@ class _ZoomResetChip extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FinishOverlay extends StatelessWidget {
-  const _FinishOverlay({
-    required this.title,
-    required this.onSave,
-    required this.onClose,
-  });
-
-  final String title;
-  final VoidCallback onSave;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.45),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.55,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF2B3B66),
-                  Color(0xFF1A2744),
-                ],
-              ),
-              border: Border.all(
-                color: const Color(0xFFFFD56A).withValues(alpha: 0.55),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: Color(0xFFFFD56A),
-                    size: 36,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Wonderful!',
-                    style: TextStyle(
-                      color: Color(0xFFFFE7A0),
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Dein Pixelbild ist fertig.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FinishButton(
-                          label: 'Photos',
-                          filled: true,
-                          onPressed: onSave,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _FinishButton(
-                          label: 'Done',
-                          filled: false,
-                          onPressed: onClose,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FinishButton extends StatelessWidget {
-  const _FinishButton({
-    required this.label,
-    required this.filled,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool filled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          height: 46,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            gradient: filled
-                ? const LinearGradient(
-                    colors: [
-                      Color(0xFFFFF0C2),
-                      Color(0xFFFFD56A),
-                      Color(0xFFE0A93A),
-                    ],
-                  )
-                : null,
-            color: filled ? null : Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: filled
-                  ? const Color(0xFFFFE7A0)
-                  : Colors.white.withValues(alpha: 0.28),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: filled
-                    ? const Color(0xFF2A2410)
-                    : Colors.white.withValues(alpha: 0.9),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
           ),
         ),
       ),
@@ -1077,31 +1047,3 @@ class _PixelGridPainter extends CustomPainter {
   }
 }
 
-class _SparklePainter extends CustomPainter {
-  _SparklePainter({required this.progress});
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rnd = math.Random(42);
-    final paint = Paint()..color = const Color(0xFFFFE7A0);
-    for (var i = 0; i < 28; i++) {
-      final t = (progress + i * 0.03) % 1.0;
-      final x = rnd.nextDouble() * size.width;
-      final y = rnd.nextDouble() * size.height * (0.3 + t * 0.7);
-      final r = 1.5 + rnd.nextDouble() * 3.5 * (1 - (t - 0.5).abs() * 2);
-      paint.color = Color.lerp(
-        const Color(0xFFFFE7A0),
-        const Color(0xFFFFB347),
-        rnd.nextDouble(),
-      )!
-          .withValues(alpha: (1 - t) * 0.85);
-      canvas.drawCircle(Offset(x, y), r, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparklePainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}

@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../data/event_tags.dart';
-
 /// Advent 1.–25.12. — Claims, Pull-Counts, Season-Gates.
 class AdventService extends ChangeNotifier {
   AdventService._();
@@ -24,10 +22,9 @@ class AdventService extends ChangeNotifier {
 
   bool get isReady => _ready;
 
-  /// TEMP: Winter-Hub-UI erzwingen (Schnee/Backdrop) — ohne Türchen freizuschalten.
-  /// Türchen folgen immer dem echten Kalenderdatum.
-  /// Vor Store-Release auf `false` setzen.
-  static const bool debugForceWinterTest = true;
+  /// TEMP: Winter-Hub-UI erzwingen (nur für lokale Tests).
+  /// Advent-Türchen starten immer erst ab 1.12. (echtes Datum).
+  static const bool debugForceWinterTest = false;
 
   /// Kalenderdatum für Türchen / Advent-Season (immer echt, kein Fake-25.12.).
   static DateTime _effectiveNow([DateTime? now]) => now ?? DateTime.now();
@@ -77,10 +74,22 @@ class AdventService extends ChangeNotifier {
   Set<String> get unlockedColoringIds => Set.unmodifiable(_unlockedColoring);
   Set<String> get unlockedPuzzleIds => Set.unmodifiable(_unlockedPuzzle);
 
+  /// Alle in advent_2026.json gesetzten Ausmal-/Puzzle-IDs (für Event-Screen).
+  Set<String> get configuredColoringIds => {
+        for (final d in _doors.values)
+          if (d.coloringId != null && d.coloringId!.isNotEmpty) d.coloringId!,
+      };
+
+  Set<String> get configuredPuzzleIds => {
+        for (final d in _doors.values)
+          if (d.puzzleId != null && d.puzzleId!.isNotEmpty) d.puzzleId!,
+      };
+
+  bool isConfiguredColoring(String id) => configuredColoringIds.contains(id);
+  bool isConfiguredPuzzle(String id) => configuredPuzzleIds.contains(id);
+
   Future<void> load() async {
     try {
-      // Winter-Event aus event_tags.json nach Asset-Update neu lesen.
-      EventTags.clearCache();
       await _loadConfig();
       final prefs = await SharedPreferences.getInstance();
       _claims = _decodeClaims(prefs.getString(_claimsKey));
@@ -90,6 +99,17 @@ class AdventService extends ChangeNotifier {
       _unlockedPuzzle = {
         ...(prefs.getStringList(_unlockedPuzzleKey) ?? const <String>[]),
       };
+      // Claims → freigeschaltete IDs (auch ältere Saves ohne Unlock-Liste).
+      for (final rewards in _claims.values) {
+        for (final r in rewards) {
+          if (r.type == AdventRewardType.coloring && r.id.isNotEmpty) {
+            _unlockedColoring.add(r.id);
+          }
+          if (r.type == AdventRewardType.puzzle && r.id.isNotEmpty) {
+            _unlockedPuzzle.add(r.id);
+          }
+        }
+      }
     } catch (e, st) {
       debugPrint('AdventService.load failed: $e\n$st');
     }
@@ -111,27 +131,13 @@ class AdventService extends ChangeNotifier {
           if (day < 1 || day > 25) continue;
           doors[day] = AdventDoorConfig(
             day: day,
-            pulls: (map['pulls'] as num?)?.toInt() ?? 1,
-            special: map['special'] == true,
+            pulls: (map['pulls'] as num?)?.toInt() ?? _defaultPulls(day),
+            special: map['special'] == true || day >= 24,
+            bonusStars: (map['bonusStars'] as num?)?.toInt() ??
+                (day == 25 ? 20 : 0),
+            stickerId: map['stickerId']?.toString(),
             coloringId: map['coloringId']?.toString(),
             puzzleId: map['puzzleId']?.toString(),
-          );
-        }
-      }
-      final content = json['content_rewards'];
-      if (content is Map) {
-        for (final entry in content.entries) {
-          final day = int.tryParse(entry.key.toString()) ?? 0;
-          if (day < 1 || day > 25) continue;
-          final rawReward = entry.value;
-          if (rawReward is! Map) continue;
-          final map = Map<String, dynamic>.from(rawReward);
-          final existing = doors[day] ??
-              AdventDoorConfig(day: day, pulls: day == 25 ? 3 : 1);
-          doors[day] = existing.copyWith(
-            coloringId: map['coloringId']?.toString() ?? existing.coloringId,
-            puzzleId: map['puzzleId']?.toString() ?? existing.puzzleId,
-            special: true,
           );
         }
       }
@@ -141,8 +147,9 @@ class AdventService extends ChangeNotifier {
           d,
           () => AdventDoorConfig(
             day: d,
-            pulls: d == 25 ? 3 : (d == 24 ? 2 : 1),
-            special: d == 24 || d == 25 || {6, 13, 20}.contains(d),
+            pulls: _defaultPulls(d),
+            special: d >= 24,
+            bonusStars: d == 25 ? 20 : 0,
           ),
         );
       }
@@ -153,12 +160,44 @@ class AdventService extends ChangeNotifier {
         for (var d = 1; d <= 25; d++)
           d: AdventDoorConfig(
             day: d,
-            pulls: d == 25 ? 3 : (d == 24 || {6, 13, 20}.contains(d) ? 2 : 1),
-            special: d == 24 || d == 25 || {6, 13, 20}.contains(d),
+            pulls: _defaultPulls(d),
+            special: d >= 24,
+            bonusStars: d == 25 ? 20 : 0,
           ),
       };
     }
   }
+
+  static int _defaultPulls(int day) {
+    if (day == 25) return 3;
+    if (day == 24) return 2;
+    return 1;
+  }
+
+  /// Abwechselnd Sticker → Ausmalen → Puzzle; 24 = zwei, 25 = alle drei.
+  static List<AdventRewardType> rewardTypesForDay(int day) {
+    if (day == 25) {
+      return const [
+        AdventRewardType.sticker,
+        AdventRewardType.coloring,
+        AdventRewardType.puzzle,
+      ];
+    }
+    if (day == 24) {
+      return const [
+        AdventRewardType.coloring,
+        AdventRewardType.puzzle,
+      ];
+    }
+    const cycle = [
+      AdventRewardType.sticker,
+      AdventRewardType.coloring,
+      AdventRewardType.puzzle,
+    ];
+    return [cycle[(day - 1) % 3]];
+  }
+
+  int bonusStarsFor(int day) => doorConfig(day).bonusStars;
 
   AdventDoorConfig doorConfig(int day) =>
       _doors[day] ?? AdventDoorConfig(day: day, pulls: 1);
@@ -270,6 +309,8 @@ class AdventDoorConfig {
     required this.day,
     required this.pulls,
     this.special = false,
+    this.bonusStars = 0,
+    this.stickerId,
     this.coloringId,
     this.puzzleId,
   });
@@ -277,12 +318,17 @@ class AdventDoorConfig {
   final int day;
   final int pulls;
   final bool special;
+  final int bonusStars;
+  /// Explizite Advent-Assets — erst setzen, wenn die Dateien da sind.
+  final String? stickerId;
   final String? coloringId;
   final String? puzzleId;
 
   AdventDoorConfig copyWith({
     int? pulls,
     bool? special,
+    int? bonusStars,
+    String? stickerId,
     String? coloringId,
     String? puzzleId,
   }) {
@@ -290,6 +336,8 @@ class AdventDoorConfig {
       day: day,
       pulls: pulls ?? this.pulls,
       special: special ?? this.special,
+      bonusStars: bonusStars ?? this.bonusStars,
+      stickerId: stickerId ?? this.stickerId,
       coloringId: coloringId ?? this.coloringId,
       puzzleId: puzzleId ?? this.puzzleId,
     );

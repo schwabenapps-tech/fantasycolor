@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
@@ -20,13 +22,20 @@ import '../services/audio_service.dart';
 import '../services/event_content_gate.dart';
 import '../services/notification_service.dart';
 import '../services/remote_pack_service.dart';
+import '../services/daily_quest_service.dart';
+import '../services/star_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
+import '../utils/app_route_observer.dart';
 import '../utils/asset_precache.dart';
 import '../widgets/catalog_gallery_body.dart';
+import '../widgets/daily_quest_overlay.dart';
+import '../widgets/daily_quest_pill.dart';
+import '../widgets/daily_quest_reward.dart';
 import '../widgets/event_hub_portal.dart';
+import '../widgets/star_balance_pill.dart';
+import '../widgets/star_earn_overlay.dart';
 import '../widgets/sticker_album_overlay.dart';
-import '../widgets/sticker_daily_gift_overlay.dart';
 import '../widgets/welcome_portal_overlay.dart';
 import '../widgets/winter_atmosphere_overlay.dart';
 import 'advent_calendar_screen.dart';
@@ -38,7 +47,7 @@ import 'print_templates_screen.dart';
 import 'puzzle_screen.dart';
 import 'settings_screen.dart';
 
-/// Zentraler Einstieg: Tabs Home / Puzzle / Malen / Events + Top-Aktionen.
+/// Zentraler Einstieg: Bottom-Nav + Topbar (Sterne / Daily / Utilities).
 class HubScreen extends StatefulWidget {
   const HubScreen({super.key});
 
@@ -52,12 +61,13 @@ class HubScreen extends StatefulWidget {
   /// Neben dem Stickeralbum — Datei ersetzen, wenn neues Asset fertig ist.
   static const adventButtonAsset = 'assets/images/advent_menu_button.png';
 
+
   @override
   State<HubScreen> createState() => _HubScreenState();
 }
 
 class _HubScreenState extends State<HubScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, RouteAware {
   static const _welcomeSeenKey = 'welcome_portal_seen_v1';
 
   late final AnimationController _fadeController;
@@ -67,9 +77,8 @@ class _HubScreenState extends State<HubScreen>
   bool _showWelcome = false;
   bool _showAlbum = false;
   bool _showAlbumPicker = false;
+  bool _flushingCelebrations = false;
   StickerAlbumKind _albumKind = StickerAlbumKind.classic;
-  bool _showDaily = false;
-  bool _dailyChecked = false;
   int _heardGeneration = -1;
 
   Future<_HubCatalog>? _catalogFuture;
@@ -126,15 +135,10 @@ class _HubScreenState extends State<HubScreen>
   Future<void> _maybeShowWelcome() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool(_welcomeSeenKey) == true) {
-        await _maybeShowDailyGift();
-        return;
-      }
+      if (prefs.getBool(_welcomeSeenKey) == true) return;
       if (!mounted) return;
       setState(() => _showWelcome = true);
-    } catch (_) {
-      await _maybeShowDailyGift();
-    }
+    } catch (_) {}
   }
 
   Future<void> _dismissWelcome() async {
@@ -144,32 +148,20 @@ class _HubScreenState extends State<HubScreen>
     } catch (_) {}
     if (!mounted) return;
     setState(() => _showWelcome = false);
-    await _maybeShowDailyGift();
   }
 
-  Future<void> _maybeShowDailyGift() async {
-    if (_dailyChecked || !mounted) return;
-    _dailyChecked = true;
-    // Advent 1.–25.12.: klassische Daily-Box aus.
-    if (!AdventService.classicRewardsEnabled()) return;
-    var ready = false;
-    for (var i = 0; i < 20; i++) {
-      final store = context.read<StickerCollectionStore>();
-      if (store.isReady) {
-        ready = store.canClaimDaily;
-        break;
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      if (!mounted) return;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
     }
-    if (!ready || !mounted) return;
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (!mounted) return;
-    setState(() => _showDaily = true);
   }
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     RemotePackService.instance.removeListener(_onRemoteChanged);
     _fadeController.dispose();
     _homeScroll.dispose();
@@ -180,15 +172,58 @@ class _HubScreenState extends State<HubScreen>
     super.dispose();
   }
 
-  void _open(Widget screen, {required String world}) {
+  @override
+  void didPopNext() {
+    // Zurück aus Ausmalen/Puzzle/… → Daily-Liste + Sterne-Show.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_flushHubCelebrations());
+    });
+  }
+
+  /// Daily-Belohnung + verdiente Sterne erst hier im Hub.
+  Future<void> _flushHubCelebrations() async {
+    if (!mounted || _flushingCelebrations) return;
+    _flushingCelebrations = true;
+    try {
+      final quest = context.read<DailyQuestService>();
+      final wallet = context.read<StarWalletStore>();
+      final pending = await quest.takePendingHubCelebration();
+      if (!mounted) return;
+
+      if (pending != null) {
+        if (pending.openList) {
+          await DailyQuestOverlay.show(context);
+          if (!mounted) return;
+        }
+        if (pending.stickers > 0 || pending.stars > 0) {
+          await DailyQuestReward.maybeShow(
+            context,
+            stickerCount: pending.stickers,
+            bonusStars: pending.stars,
+          );
+          if (!mounted) return;
+        }
+      }
+
+      final earned = wallet.takePendingHubStars();
+      if (earned > 0 && mounted) {
+        await StarEarnOverlay.show(context, amount: earned);
+      }
+    } finally {
+      _flushingCelebrations = false;
+    }
+  }
+
+  Future<void> _open(Widget screen, {required String world}) async {
     AnalyticsService.instance.logOpenWorld(world);
     AnalyticsService.instance.logScreen(world);
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         settings: RouteSettings(name: world),
         builder: (_) => screen,
       ),
     );
+    if (mounted) await _flushHubCelebrations();
   }
 
   void _openAlbum() {
@@ -216,27 +251,24 @@ class _HubScreenState extends State<HubScreen>
     _open(const AdventCalendarScreen(), world: 'advent');
   }
 
-  void _openFavorites() {
-    _open(const FavoritesScreen(), world: 'favoriten');
-  }
-
   void _openPrint() {
     _open(const PrintTemplatesScreen(), world: 'drucken');
   }
 
-  void _openSettings() {
+  Future<void> _openSettings() async {
     AnalyticsService.instance.logOpenWorld('settings');
     AnalyticsService.instance.logScreen('settings');
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         settings: const RouteSettings(name: 'settings'),
         builder: (_) => const SettingsScreen(),
       ),
     );
+    if (mounted) await _flushHubCelebrations();
   }
 
   Future<void> _openColoring(ColoringPage page) async {
-    final ok = await EventContentGate.ensureUnlocked(
+    final ok = await StarContentGate.ensureUnlocked(
       context,
       id: page.id,
       kind: FavoriteKind.coloring,
@@ -248,10 +280,11 @@ class _HubScreenState extends State<HubScreen>
         builder: (_) => ColoringPreviewScreen(page: page),
       ),
     );
+    if (mounted) await _flushHubCelebrations();
   }
 
   Future<void> _openPuzzle(ColoringPage page) async {
-    final ok = await EventContentGate.ensureUnlocked(
+    final ok = await StarContentGate.ensureUnlocked(
       context,
       id: page.id,
       kind: FavoriteKind.puzzle,
@@ -263,6 +296,7 @@ class _HubScreenState extends State<HubScreen>
         builder: (_) => PuzzleScreen(puzzle: page),
       ),
     );
+    if (mounted) await _flushHubCelebrations();
   }
 
   void _selectTab(int i) {
@@ -273,18 +307,19 @@ class _HubScreenState extends State<HubScreen>
         0 => 'hub_home',
         1 => 'hub_puzzle',
         2 => 'hub_color',
-        _ => 'hub_events',
+        3 => 'hub_events',
+        _ => 'hub_favorites',
       },
     );
   }
 
-  void _openEventWorld({
+  Future<void> _openEventWorld({
     required ContentEvent event,
     required GallerySection coloring,
     required GallerySection puzzle,
     required EventTags tags,
-  }) {
-    Navigator.of(context).push(
+  }) async {
+    await Navigator.of(context).push(
       AppPageRoute<void>(
         builder: (_) => EventWorldHubScreen(
           title: event.title,
@@ -298,6 +333,7 @@ class _HubScreenState extends State<HubScreen>
         ),
       ),
     );
+    if (mounted) await _flushHubCelebrations();
   }
 
   @override
@@ -319,127 +355,146 @@ class _HubScreenState extends State<HubScreen>
           if (winterUi) const WinterAtmosphereOverlay(),
           FadeTransition(
             opacity: _fadeAnimation,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  _HubTopBar(
+            // Content vollflächig; Bottom-Nav als transparentes Overlay,
+            // damit Kacheln darunter durchscrollen.
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                SafeArea(
+                  bottom: false,
+                  maintainBottomViewPadding: true,
+                  child: Column(
+                    children: [
+                      _HubTopBar(
+                        onAlbum: _openAlbum,
+                        onAdvent: winterUi ? _openAdvent : null,
+                        onPrint: _openPrint,
+                        onSettings: _openSettings,
+                      ),
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final clearance =
+                                _HubBottomNav.clearance(context);
+                            final mq = MediaQuery.of(context);
+                            return MediaQuery(
+                              data: mq.copyWith(
+                                padding: mq.padding.copyWith(
+                                  bottom: clearance,
+                                ),
+                              ),
+                              child: FutureBuilder<_HubCatalog>(
+                                key: ValueKey(
+                                  'hub_catalog_$_heardGeneration',
+                                ),
+                                future: _catalogFuture,
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState !=
+                                      ConnectionState.done) {
+                                    return const Center(
+                                      child: SizedBox(
+                                        width: 34,
+                                        height: 34,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                          color: Color(0xFFE8EEF8),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  final data = snapshot.data;
+                                  if (data == null) {
+                                    return const Center(
+                                      child: Text(
+                                        'No content found',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  return switch (_tabIndex) {
+                                    1 => CatalogGalleryBody(
+                                        catalog: data.puzzle,
+                                        tags: data.tags,
+                                        kind: CatalogGalleryKind.puzzle,
+                                        categoryTitle: t.puzzle,
+                                        showEventHubs: false,
+                                        showCategoryTitle: false,
+                                        includePastEventPages: false,
+                                        showPreviewButton: true,
+                                        onOpenPage: _openPuzzle,
+                                        gridScroll: _puzzleGridScroll,
+                                        rowScroll: _puzzleRowScroll,
+                                      ),
+                                    2 => CatalogGalleryBody(
+                                        catalog: data.coloring,
+                                        tags: data.tags,
+                                        kind: CatalogGalleryKind.coloring,
+                                        categoryTitle: t.color,
+                                        showEventHubs: false,
+                                        showCategoryTitle: false,
+                                        includePastEventPages: false,
+                                        onOpenPage: _openColoring,
+                                        gridScroll: _colorGridScroll,
+                                        rowScroll: _colorRowScroll,
+                                      ),
+                                    3 => _EventsTab(
+                                        catalog: data,
+                                        onOpenEvent:
+                                            (event, coloring, puzzle) {
+                                          _openEventWorld(
+                                            event: event,
+                                            coloring: coloring,
+                                            puzzle: puzzle,
+                                            tags: data.tags,
+                                          );
+                                        },
+                                      ),
+                                    4 =>
+                                      const FavoritesScreen(embedded: true),
+                                    _ => _HomeTab(
+                                        catalog: data,
+                                        scrollController: _homeScroll,
+                                        onOpenColoring: _openColoring,
+                                        onOpenPuzzle: _openPuzzle,
+                                        onOpenEvent:
+                                            (event, coloring, puzzle) {
+                                          _openEventWorld(
+                                            event: event,
+                                            coloring: coloring,
+                                            puzzle: puzzle,
+                                            tags: data.tags,
+                                          );
+                                        },
+                                      ),
+                                  };
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _HubBottomNav(
                     tabIndex: _tabIndex,
                     onSelectTab: _selectTab,
-                    onAlbum: _openAlbum,
-                    onAdvent: winterUi ? _openAdvent : null,
-                    onPrint: _openPrint,
-                    onFavorites: _openFavorites,
-                    onSettings: _openSettings,
                   ),
-                  Expanded(
-                    child: FutureBuilder<_HubCatalog>(
-                      key: ValueKey('hub_catalog_$_heardGeneration'),
-                      future: _catalogFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState != ConnectionState.done) {
-                          return const Center(
-                            child: SizedBox(
-                              width: 34,
-                              height: 34,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Color(0xFFE8EEF8),
-                              ),
-                            ),
-                          );
-                        }
-                        final data = snapshot.data;
-                        if (data == null) {
-                          return const Center(
-                            child: Text(
-                              'No content found',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                              ),
-                            ),
-                          );
-                        }
-
-                        // Nur aktiver Tab — IndexedStack mit vielen Galerien
-                        // macht Drehen schwer und streckt Zwischenframes.
-                        return switch (_tabIndex) {
-                          1 => CatalogGalleryBody(
-                              catalog: data.puzzle,
-                              tags: data.tags,
-                              kind: CatalogGalleryKind.puzzle,
-                              categoryTitle: t.puzzle,
-                              showEventHubs: false,
-                              showCategoryTitle: false,
-                              includePastEventPages: false,
-                              showPreviewButton: true,
-                              onOpenPage: _openPuzzle,
-                              gridScroll: _puzzleGridScroll,
-                              rowScroll: _puzzleRowScroll,
-                            ),
-                          2 => CatalogGalleryBody(
-                              catalog: data.coloring,
-                              tags: data.tags,
-                              kind: CatalogGalleryKind.coloring,
-                              categoryTitle: t.color,
-                              showEventHubs: false,
-                              showCategoryTitle: false,
-                              includePastEventPages: false,
-                              onOpenPage: _openColoring,
-                              gridScroll: _colorGridScroll,
-                              rowScroll: _colorRowScroll,
-                            ),
-                          3 => _EventsTab(
-                              catalog: data,
-                              onOpenEvent: (event, coloring, puzzle) {
-                                _openEventWorld(
-                                  event: event,
-                                  coloring: coloring,
-                                  puzzle: puzzle,
-                                  tags: data.tags,
-                                );
-                              },
-                            ),
-                          _ => _HomeTab(
-                              catalog: data,
-                              scrollController: _homeScroll,
-                              onOpenColoring: _openColoring,
-                              onOpenPuzzle: _openPuzzle,
-                              onOpenEvent: (event, coloring, puzzle) {
-                                _openEventWorld(
-                                  event: event,
-                                  coloring: coloring,
-                                  puzzle: puzzle,
-                                  tags: data.tags,
-                                );
-                              },
-                            ),
-                        };
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           if (_showWelcome)
             WelcomePortalOverlay(
               onFinished: () => unawaited(_dismissWelcome()),
-            ),
-          if (_showDaily)
-            Builder(
-              builder: (context) {
-                final strings = AppStrings.of(context);
-                return StickerDailyGiftOverlay(
-                  isDaily: true,
-                  title: strings.dailySurprise,
-                  subtitle: strings.pickBoxToday,
-                  revealTitle: strings.dailyReward,
-                  onClosed: () {
-                    if (mounted) setState(() => _showDaily = false);
-                  },
-                );
-              },
             ),
           if (_showAlbumPicker)
             _AlbumPickerOverlay(
@@ -618,244 +673,168 @@ class _HubCatalog {
 
 class _HubTopBar extends StatelessWidget {
   const _HubTopBar({
-    required this.tabIndex,
-    required this.onSelectTab,
     required this.onAlbum,
     required this.onPrint,
-    required this.onFavorites,
     required this.onSettings,
     this.onAdvent,
   });
 
-  final int tabIndex;
-  final ValueChanged<int> onSelectTab;
   final VoidCallback onAlbum;
   final VoidCallback? onAdvent;
   final VoidCallback onPrint;
-  final VoidCallback onFavorites;
   final VoidCallback onSettings;
 
-  Widget _leftActions() {
+  @override
+  Widget build(BuildContext context) {
     final winter = onAdvent != null;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _StickerBookButton(
-          onPressed: onAlbum,
-          winter: winter,
-        ),
-        if (winter) ...[
-          const SizedBox(width: 6),
-          _AdventMenuButton(onPressed: onAdvent!),
+    final width = MediaQuery.sizeOf(context).width;
+    final narrow = width < 420;
+    final printSize = narrow ? 44.0 : 54.0;
+    final settingsSize = narrow ? 42.0 : 50.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(narrow ? 4 : 8, 4, narrow ? 4 : 8, 4),
+      child: Row(
+        children: [
+          _StickerBookButton(
+            onPressed: onAlbum,
+            winter: winter,
+            compact: narrow,
+          ),
+          if (winter) ...[
+            SizedBox(width: narrow ? 2 : 6),
+            _AdventMenuButton(onPressed: onAdvent!, compact: narrow),
+          ],
+          SizedBox(width: narrow ? 4 : 8),
+          DailyQuestPill(compact: narrow || winter),
+          const Spacer(),
+          StarBalancePill(compact: narrow),
+          SizedBox(width: narrow ? 4 : 8),
+          _PlainIconButton(
+            semanticLabel: 'Print',
+            asset: HubScreen.printLogo,
+            size: printSize,
+            onPressed: onPrint,
+          ),
+          SizedBox(width: narrow ? 2 : 6),
+          _PlainIconButton(
+            semanticLabel: 'Settings',
+            asset: HubScreen.settingsLogo,
+            size: settingsSize,
+            onPressed: onSettings,
+          ),
         ],
-      ],
+      ),
     );
   }
+}
 
-  Widget _tabs({
-    required AppStrings t,
-    required bool tablet,
-    required bool portrait,
-  }) {
-    final tabGap = portrait ? (tablet ? 16.0 : 12.0) : (tablet ? 14.0 : 10.0);
-    final logoSize = portrait
-        ? (tablet ? 58.0 : 52.0)
-        : (tablet ? 60.0 : 54.0);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _TopTabIcon(
-          selected: tabIndex == 0,
-          semanticLabel: t.home,
-          onTap: () => onSelectTab(0),
-          child: _TabLogo(
-            asset: HubScreen.homeLogo,
-            selected: tabIndex == 0,
-            size: logoSize,
-          ),
-        ),
-        SizedBox(width: tabGap),
-        _TopTabIcon(
-          selected: tabIndex == 1,
-          semanticLabel: t.puzzle,
-          onTap: () => onSelectTab(1),
-          child: _TabLogo(
-            asset: HubScreen.puzzleLogo,
-            selected: tabIndex == 1,
-            size: logoSize,
-          ),
-        ),
-        SizedBox(width: tabGap),
-        _TopTabIcon(
-          selected: tabIndex == 2,
-          semanticLabel: t.color,
-          onTap: () => onSelectTab(2),
-          child: _TabLogo(
-            asset: HubScreen.coloringLogo,
-            selected: tabIndex == 2,
-            size: logoSize,
-          ),
-        ),
-        SizedBox(width: tabGap),
-        _TopTabIcon(
-          selected: tabIndex == 3,
-          semanticLabel: t.events,
-          onTap: () => onSelectTab(3),
-          child: _TabLogo(
-            asset: HubScreen.eventsLogo,
-            selected: tabIndex == 3,
-            size: logoSize,
-          ),
-        ),
-      ],
-    );
-  }
+class _HubBottomNav extends StatelessWidget {
+  const _HubBottomNav({
+    required this.tabIndex,
+    required this.onSelectTab,
+  });
 
-  Widget _actions() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PlainIconButton(
-          semanticLabel: 'Print',
-          asset: HubScreen.printLogo,
-          size: 62,
-          onPressed: onPrint,
-        ),
-        const SizedBox(width: 10),
-        _PlainIconButton(
-          semanticLabel: 'Favorites',
-          asset: FavoriteStarButton.asset,
-          size: 58,
-          onPressed: onFavorites,
-        ),
-        const SizedBox(width: 8),
-        _PlainIconButton(
-          semanticLabel: 'Settings',
-          asset: HubScreen.settingsLogo,
-          size: 56,
-          onPressed: onSettings,
-        ),
-      ],
-    );
+  final int tabIndex;
+  final ValueChanged<int> onSelectTab;
+
+  /// Platz unter Scroll-Inhalten, damit Letzte Kacheln über die Icons kommen.
+  static double clearance(BuildContext context) {
+    final tablet = AppLayout.of(context).isTablet;
+    final logo = tablet ? 48.0 : 42.0;
+    // logo + label + vert. Padding + float margin + Home-Indicator
+    return logo + 16 + 16 + 8 + MediaQuery.viewPaddingOf(context).bottom;
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final layout = AppLayout.of(context);
-    final tablet = layout.isTablet;
-    final portrait = layout.isPortrait;
+    final logoSize = layout.isTablet ? 48.0 : 42.0;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
-    // Portrait: Aktionen oben, Tabs darunter — sonst wird alles gequetscht.
-    if (portrait) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    Widget item({
+      required int index,
+      required String label,
+      required String asset,
+    }) {
+      final selected = tabIndex == index;
+      return Expanded(
+        child: InkWell(
+          onTap: () => onSelectTab(index),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _leftActions(),
-                const Spacer(),
-                _actions(),
+                AnimatedScale(
+                  scale: selected ? 1.1 : 0.94,
+                  duration: const Duration(milliseconds: 180),
+                  child: Opacity(
+                    opacity: selected ? 1 : 0.78,
+                    child: Image.asset(
+                      asset,
+                      width: logoSize,
+                      height: logoSize,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected
+                        ? StarBalancePill.ink
+                        : StarBalancePill.ink.withValues(alpha: 0.72),
+                    fontSize: 10,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 4),
-            _tabs(t: t, tablet: tablet, portrait: true),
-          ],
+          ),
         ),
       );
     }
 
-    // Tabs echt mittig: Seiten-Icons in einer Row, Tabs als Overlay zentriert.
+    // Floating Tray über dem Content — Scroll läuft darunter durch.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 8 + bottomInset),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: StarBalancePill.fill.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: StarBalancePill.border.withValues(alpha: 0.95),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: StarBalancePill.glow.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Row(
             children: [
-              _leftActions(),
-              const Spacer(),
-              _actions(),
+              item(index: 0, label: t.home, asset: HubScreen.homeLogo),
+              item(index: 1, label: t.puzzle, asset: HubScreen.puzzleLogo),
+              item(index: 2, label: t.color, asset: HubScreen.coloringLogo),
+              item(index: 3, label: t.events, asset: HubScreen.eventsLogo),
+              item(
+                index: 4,
+                label: t.favorites,
+                asset: FavoriteStarButton.asset,
+              ),
             ],
           ),
-          _tabs(t: t, tablet: tablet, portrait: false),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopTabIcon extends StatelessWidget {
-  const _TopTabIcon({
-    required this.selected,
-    required this.semanticLabel,
-    required this.onTap,
-    required this.child,
-  });
-
-  final bool selected;
-  final String semanticLabel;
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: semanticLabel,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: selected
-                ? Colors.white.withValues(alpha: 0.14)
-                : Colors.transparent,
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFFFFE7A0).withValues(alpha: 0.7)
-                  : Colors.transparent,
-              width: 1.5,
-            ),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _TabLogo extends StatelessWidget {
-  const _TabLogo({
-    required this.asset,
-    required this.selected,
-    this.size = 50,
-  });
-
-  final String asset;
-  final bool selected;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: selected ? 1.08 : 0.94,
-      duration: const Duration(milliseconds: 160),
-      child: Opacity(
-        opacity: selected ? 1 : 0.78,
-        child: Image.asset(
-          asset,
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.medium,
         ),
       ),
     );
@@ -1028,13 +1007,14 @@ class _EventsTab extends StatelessWidget {
       );
     }
 
+    final scrollBottom = MediaQuery.paddingOf(context).bottom;
     return ListView(
       key: const PageStorageKey<String>('hub_events_list'),
       padding: EdgeInsets.fromLTRB(
         layout.hubHorizontalPadding * 0.55,
         8,
         layout.hubHorizontalPadding * 0.55,
-        20,
+        20 + scrollBottom,
       ),
       children: [
         if (live.isNotEmpty) ...[
@@ -1251,9 +1231,10 @@ class _HomeTabState extends State<_HomeTab> {
             size.width * 0.72,
           );
 
+    final scrollBottom = MediaQuery.paddingOf(context).bottom;
     return ListView(
       controller: widget.scrollController,
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16 + scrollBottom),
       children: [
         _SectionHeader(title: t.recentlyUsed),
         if (recentItems.isEmpty)
@@ -1331,7 +1312,7 @@ class _HomeTabState extends State<_HomeTab> {
             _HomeRow(
               label: t.newPuzzle,
               pages: newPuzzles,
-              isNew: (_) => true,
+              isNew: (id) => tags.isNewPuzzle(id),
               isHalloween: (id) => halloweenPuzzle.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
                 tags,
@@ -1346,7 +1327,7 @@ class _HomeTabState extends State<_HomeTab> {
             _HomeRow(
               label: t.newColor,
               pages: newColoring,
-              isNew: (_) => true,
+              isNew: (id) => tags.isNewColoring(id),
               isHalloween: (id) => halloweenColor.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
                 tags,
@@ -1510,6 +1491,12 @@ class _HomeRecentRow extends StatelessWidget {
               showPreviewButton: kind == FavoriteKind.puzzle,
               favoriteKind: kind,
               requiresAdUnlock: requiresAdUnlock(page.id, kind),
+              starLockCost: context.watch<StarWalletStore>().requiresStars(
+                        page.id,
+                        kind,
+                      )
+                  ? context.read<StarWalletStore>().unlockCost(page.id, kind)
+                  : null,
               onTap: () => kind == FavoriteKind.puzzle
                   ? onOpenPuzzle(page)
                   : onOpenColoring(page),
@@ -1594,6 +1581,13 @@ class _HomeRow extends StatelessWidget {
                   showPreviewButton: showPreviewButton,
                   favoriteKind: favoriteKind,
                   requiresAdUnlock: requiresAdUnlock(page.id),
+                  starLockCost: context
+                          .watch<StarWalletStore>()
+                          .requiresStars(page.id, favoriteKind)
+                      ? context
+                          .read<StarWalletStore>()
+                          .unlockCost(page.id, favoriteKind)
+                      : null,
                   onTap: () => onOpen(page),
                 ),
               );
@@ -1609,10 +1603,12 @@ class _StickerBookButton extends StatelessWidget {
   const _StickerBookButton({
     required this.onPressed,
     this.winter = false,
+    this.compact = false,
   });
 
   final VoidCallback onPressed;
   final bool winter;
+  final bool compact;
 
   static const classicAsset = 'assets/images/buch_icon.png';
   static const winterAsset = 'assets/images/christmas.album.png';
@@ -1620,7 +1616,7 @@ class _StickerBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 68.0 : 58.0;
+    final size = side >= 600 ? 68.0 : (compact ? 46.0 : 58.0);
     return Semantics(
       button: true,
       label: winter ? 'Christmas album' : 'Sticker album',
@@ -1640,23 +1636,67 @@ class _StickerBookButton extends StatelessWidget {
   }
 }
 
-class _AdventMenuButton extends StatelessWidget {
-  const _AdventMenuButton({required this.onPressed});
+class _AdventMenuButton extends StatefulWidget {
+  const _AdventMenuButton({
+    required this.onPressed,
+    this.compact = false,
+  });
 
   final VoidCallback onPressed;
+  final bool compact;
+
+  @override
+  State<_AdventMenuButton> createState() => _AdventMenuButtonState();
+}
+
+class _AdventMenuButtonState extends State<_AdventMenuButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _bounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _bounce = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void dispose() {
+    _bounce.dispose();
+    super.dispose();
+  }
+
+  void _syncBounce(bool shouldBounce) {
+    if (shouldBounce) {
+      if (!_bounce.isAnimating) {
+        unawaited(_bounce.repeat(reverse: true));
+      }
+    } else if (_bounce.isAnimating) {
+      _bounce.stop();
+      _bounce.value = 0;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
     final advent = context.watch<AdventService>();
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 68.0 : 58.0;
+    final size = side >= 600 ? 68.0 : (widget.compact ? 46.0 : 58.0);
     final badge = advent.openableUnopenedCount;
+    final shouldBounce = badge > 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncBounce(shouldBounce);
+    });
+
     return Semantics(
       button: true,
       label: t.adventCalendar,
       child: GestureDetector(
-        onTap: onPressed,
+        onTap: widget.onPressed,
         child: SizedBox(
           width: size,
           height: size,
@@ -1664,13 +1704,21 @@ class _AdventMenuButton extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                child: Image.asset(
-                  HubScreen.adventButtonAsset,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.medium,
+                child: AnimatedBuilder(
+                  animation: _bounce,
+                  builder: (context, child) {
+                    final tBounce = shouldBounce ? _bounce.value : 0.0;
+                    final scale = 1.0 + 0.08 * math.sin(tBounce * math.pi);
+                    return Transform.scale(scale: scale, child: child);
+                  },
+                  child: Image.asset(
+                    HubScreen.adventButtonAsset,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                  ),
                 ),
               ),
-                  if (badge > 0)
+              if (badge > 0)
                 Positioned(
                   right: -2,
                   top: -2,

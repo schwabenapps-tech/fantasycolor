@@ -8,22 +8,20 @@ import 'package:provider/provider.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
-import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../providers/favorites_store.dart';
 import '../providers/recent_content_store.dart';
-import '../providers/sticker_collection_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../services/ads_service.dart';
-import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
+import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
 import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
-import '../widgets/sticker_daily_gift_overlay.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -31,12 +29,16 @@ class PuzzleScreen extends StatefulWidget {
     super.key,
     required this.puzzle,
     this.customImage,
+    this.initialDifficulty,
   });
 
   final ColoringPage puzzle;
 
   /// Optional: ausgemaltes Bild (sonst Asset aus [puzzle]).
   final ImageProvider? customImage;
+
+  /// z. B. Daily-Quest „Medium/Schwer“ startet bereits auf Medium.
+  final PuzzleDifficulty? initialDifficulty;
 
   /// Wählt ein Raster möglichst nah an [targetCount], mit passendem Seitenverhältnis.
   static ({int cols, int rows}) gridForDisplayAspect(
@@ -110,7 +112,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _revealing = false;
   bool _celebrating = false;
   bool _exitAdShown = false;
-  List<StickerEntry>? _giftChoices;
+  int _earnedStars = 0;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
@@ -180,12 +182,15 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   Future<void> _restorePreferences() async {
     final saved = await PuzzlePreferences.load();
     if (!mounted) return;
-    if (saved.difficulty == _difficulty && saved.style == _pieceStyle) {
+    final forced = widget.initialDifficulty;
+    final nextDifficulty = forced ?? saved.difficulty;
+    final nextStyle = saved.style;
+    if (nextDifficulty == _difficulty && nextStyle == _pieceStyle) {
       return;
     }
     setState(() {
-      _difficulty = saved.difficulty;
-      _pieceStyle = saved.style;
+      _difficulty = nextDifficulty;
+      _pieceStyle = nextStyle;
       _reset();
     });
   }
@@ -253,7 +258,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _solved = false;
     _revealing = false;
     _celebrating = false;
-    _giftChoices = null;
+    _earnedStars = 0;
     _popPiece = null;
     _shakeSlot = null;
     _hoverSlot = null;
@@ -572,18 +577,19 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     await _revealController.forward(from: 0);
     if (!mounted) return;
 
-    List<StickerEntry>? choices;
-    // Sticker nur ab Pro (schwer) — einmal pro Puzzle.
-    // Advent-Saison: klassische Completion-Belohnungen aus.
-    if (AdventService.classicRewardsEnabled() &&
-        _difficulty.tier == PuzzleTier.expert) {
-      final store = context.read<StickerCollectionStore>();
-      await store.load();
-      if (store.canRewardPuzzle(widget.puzzle.id)) {
-        final offered = store.choicesForPuzzle(widget.puzzle.id);
-        if (offered.isNotEmpty) choices = offered;
-      }
+    final wallet = context.read<StarWalletStore>();
+    final quest = context.read<DailyQuestService>();
+    final isDaily =
+        quest.isTodaysQuestTarget(widget.puzzle.id, coloring: false);
+    // Daily-Einzelaufgaben: keine normalen Abschluss-Sterne.
+    if (!isDaily) {
+      await wallet.awardPuzzleComplete(widget.puzzle.id);
     }
+    await quest.markPuzzleDone(
+      widget.puzzle.id,
+      tier: _difficulty.tier,
+    );
+    await quest.claimProgressRewards(wallet);
 
     if (!mounted) return;
     // Fertiges Motiv kurz in Ruhe zeigen.
@@ -591,7 +597,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _giftChoices = choices;
+      _earnedStars = 0;
     });
     unawaited(AudioService.instance.playLevelComplete());
     unawaited(StreakService.instance.recordPlayDay());
@@ -961,27 +967,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
               ],
             ),
           ),
-          if (_celebrating && _giftChoices != null)
-            StickerDailyGiftOverlay(
-              choices: _giftChoices,
-              source: 'puzzle',
-              title: AppStrings.of(context).pickAGift,
-              subtitle: AppStrings.of(context).eachBoxDifferent,
-              revealTitle: AppStrings.of(context).newSticker,
-              onClosed: () {
-                unawaited(
-                  context
-                      .read<StickerCollectionStore>()
-                      .markPuzzleRewarded(widget.puzzle.id),
-                );
-                setState(() => _giftChoices = null);
-              },
-            ),
-          if (_celebrating && _giftChoices == null)
+          if (_celebrating)
             LevelCompleteOverlay(
               key: _levelKey,
               title: AppStrings.of(context).wonderful,
-              subtitle: AppStrings.of(context).levelComplete,
+              ratingStars: 3,
+              earnedStars: _earnedStars,
+              fallbackSubtitle: AppStrings.of(context).levelComplete,
               actions: [
                 LevelCompleteActionButton(
                   icon: Icons.download_rounded,

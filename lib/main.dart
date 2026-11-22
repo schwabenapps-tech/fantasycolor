@@ -11,12 +11,16 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'data/coloring_pages_loader.dart';
+import 'data/puzzle_images_loader.dart';
 import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
 import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
+import 'providers/pixel_ready_store.dart';
 import 'providers/recent_content_store.dart';
+import 'providers/star_wallet_store.dart';
 import 'providers/sticker_collection_store.dart';
 import 'screens/hub_screen.dart';
 import 'screens/start_screen.dart';
@@ -27,12 +31,14 @@ import 'services/analytics_service.dart';
 import 'services/app_update_service.dart';
 import 'services/audio_service.dart';
 import 'services/consent_service.dart';
+import 'services/daily_quest_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/device_id_service.dart';
 import 'services/notification_service.dart';
 import 'services/remote_pack_service.dart';
 import 'services/streak_service.dart';
 import 'utils/app_page_route.dart';
+import 'utils/app_route_observer.dart';
 import 'utils/image_source.dart';
 import 'widgets/force_update_overlay.dart';
 import 'widgets/orientation_snap.dart';
@@ -78,8 +84,11 @@ Future<void> main() async {
   final progress = ColoringProgressStore();
   final pixelUnlock = PixelModeUnlockStore();
   final pixelProgress = PixelProgressStore();
+  final pixelReady = PixelReadyStore();
   final stickers = StickerCollectionStore();
   final recent = RecentContentStore();
+  final stars = StarWalletStore();
+  final dailyQuest = DailyQuestService();
 
   // Schwere Init erst nach dem ersten Frame — UI darf nie am Boot hängen.
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -91,11 +100,27 @@ Future<void> main() async {
     unawaited(progress.load());
     unawaited(pixelUnlock.load());
     unawaited(pixelProgress.load());
+    unawaited(pixelReady.load());
     unawaited(recent.load());
+    unawaited(stars.load());
     unawaited(() async {
       await stickers.load();
       await RemotePackService.instance.sync();
       await stickers.reloadCatalog();
+      final coloring = await loadColoringPages(shuffle: false);
+      final puzzles = await loadPuzzleImages(shuffle: false);
+      final pools = await DailyQuestService.freePools(
+        allColoring: [for (final p in coloring) p.id],
+        allPuzzle: [for (final p in puzzles) p.id],
+      );
+      await pixelReady.load();
+      final readyIds = pixelReady.ids.toList(growable: false);
+      await dailyQuest.load(
+        freeColoringIds: pools.coloring,
+        freePuzzleIds: pools.puzzle,
+        pixelReadyIds: readyIds,
+        finishedColoringIds: readyIds,
+      );
     }());
     unawaited(WakelockPlus.enable());
   });
@@ -106,8 +131,11 @@ Future<void> main() async {
       progress: progress,
       pixelUnlock: pixelUnlock,
       pixelProgress: pixelProgress,
+      pixelReady: pixelReady,
       stickers: stickers,
       recent: recent,
+      stars: stars,
+      dailyQuest: dailyQuest,
     ),
   );
 }
@@ -139,8 +167,11 @@ class FantasyColorApp extends StatefulWidget {
     this.progress,
     this.pixelUnlock,
     this.pixelProgress,
+    this.pixelReady,
     this.stickers,
     this.recent,
+    this.stars,
+    this.dailyQuest,
   });
 
   /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
@@ -148,8 +179,11 @@ class FantasyColorApp extends StatefulWidget {
   final ColoringProgressStore? progress;
   final PixelModeUnlockStore? pixelUnlock;
   final PixelProgressStore? pixelProgress;
+  final PixelReadyStore? pixelReady;
   final StickerCollectionStore? stickers;
   final RecentContentStore? recent;
+  final StarWalletStore? stars;
+  final DailyQuestService? dailyQuest;
 
   @override
   State<FantasyColorApp> createState() => _FantasyColorAppState();
@@ -168,10 +202,15 @@ class _FantasyColorAppState extends State<FantasyColorApp>
       widget.pixelUnlock ?? PixelModeUnlockStore();
   late final PixelProgressStore _pixelProgress =
       widget.pixelProgress ?? PixelProgressStore();
+  late final PixelReadyStore _pixelReady =
+      widget.pixelReady ?? PixelReadyStore();
   late final StickerCollectionStore _stickers =
       widget.stickers ?? StickerCollectionStore();
   late final RecentContentStore _recent =
       widget.recent ?? RecentContentStore();
+  late final StarWalletStore _stars = widget.stars ?? StarWalletStore();
+  late final DailyQuestService _dailyQuest =
+      widget.dailyQuest ?? DailyQuestService();
   late final ColoringStickerPlacementsStore _stickerPlacements =
       ColoringStickerPlacementsStore();
 
@@ -188,6 +227,12 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     });
     if (widget.stickers == null) {
       unawaited(_stickers.load());
+    }
+    if (widget.stars == null) {
+      unawaited(_stars.load());
+    }
+    if (widget.dailyQuest == null) {
+      unawaited(_dailyQuest.load());
     }
   }
 
@@ -250,8 +295,11 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(value: _progress),
         ChangeNotifierProvider.value(value: _pixelUnlock),
         ChangeNotifierProvider.value(value: _pixelProgress),
+        ChangeNotifierProvider.value(value: _pixelReady),
         ChangeNotifierProvider.value(value: _stickers),
         ChangeNotifierProvider.value(value: _recent),
+        ChangeNotifierProvider.value(value: _stars),
+        ChangeNotifierProvider.value(value: _dailyQuest),
         ChangeNotifierProvider.value(value: _stickerPlacements),
         ChangeNotifierProvider.value(
           value: AudioService.instance,
@@ -278,6 +326,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         navigatorKey: _navigatorKey,
         navigatorObservers: [
           if (Firebase.apps.isNotEmpty) AnalyticsService.instance.observer,
+          appRouteObserver,
         ],
         // App-UI bewusst Englisch (Store/Produkt). Übersetzungs-Tabellen
         // bleiben für später; Gerätelocale steuert die UI vorerst nicht.

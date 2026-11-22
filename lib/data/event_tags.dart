@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 
 import '../models/coloring_page.dart';
+import '../services/advent_service.dart';
 import '../services/remote_pack_service.dart';
 import 'event_catalog.dart';
 
@@ -164,6 +165,7 @@ class EventTags {
   }
 
   /// Bundle-Events + Remote-Pack-Events (Remote überschreibt gleiche ID).
+  /// Advent-Türchen-IDs werden ins Winter-/Weihnachts-Event gemerged.
   List<ContentEvent> allEvents() {
     final byId = <String, ContentEvent>{
       for (final e in events) e.id: e,
@@ -180,6 +182,29 @@ class EventTags {
           endsAt: remote.endsAt ?? existing.endsAt,
           coloringIds: {...existing.coloringIds, ...remote.coloringIds},
           puzzleIds: {...existing.puzzleIds, ...remote.puzzleIds},
+        );
+      }
+    }
+    final advent = AdventService.instance;
+    final adventColoring = advent.configuredColoringIds;
+    final adventPuzzle = advent.configuredPuzzleIds;
+    if (adventColoring.isNotEmpty || adventPuzzle.isNotEmpty) {
+      String? winterKey;
+      for (final id in byId.keys) {
+        if (id.contains('winter') || id.contains('christmas')) {
+          winterKey = id;
+          break;
+        }
+      }
+      if (winterKey != null) {
+        final existing = byId[winterKey]!;
+        byId[winterKey] = ContentEvent(
+          id: existing.id,
+          title: existing.title,
+          startsAt: existing.startsAt,
+          endsAt: existing.endsAt,
+          coloringIds: {...existing.coloringIds, ...adventColoring},
+          puzzleIds: {...existing.puzzleIds, ...adventPuzzle},
         );
       }
     }

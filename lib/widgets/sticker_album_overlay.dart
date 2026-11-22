@@ -9,10 +9,12 @@ import 'package:share_plus/share_plus.dart';
 
 import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
 import '../services/analytics_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
+import 'star_balance_pill.dart';
 
 Widget _stickerImage(
   String assetPath, {
@@ -143,7 +145,69 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
     }
   }
 
-  void _openPreview(StickerEntry sticker, bool owned) {
+  Future<void> _openPreview(StickerEntry sticker, bool owned) async {
+    if (!owned) {
+      final wallet = context.read<StarWalletStore>();
+      final cost = wallet.stickerCost;
+      final t = AppStrings.of(context);
+      final buy = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1B2A40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            t.unlockWithStarsTitle,
+            style: const TextStyle(
+              color: Color(0xFFFFF4C8),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(StarBalancePill.asset, width: 32, height: 32),
+              const SizedBox(width: 8),
+              Text(
+                '$cost',
+                style: const TextStyle(
+                  color: Color(0xFFFFD56A),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(t.cancel),
+            ),
+            FilledButton(
+              onPressed: wallet.balance >= cost
+                  ? () => Navigator.pop(ctx, true)
+                  : null,
+              child: Text(t.unlock),
+            ),
+          ],
+        ),
+      );
+      if (buy == true && mounted) {
+        final ok = await wallet.spendStars(cost);
+        if (ok && mounted) {
+          await context
+              .read<StickerCollectionStore>()
+              .unlockWithStars(sticker.id);
+          if (!mounted) return;
+          setState(() {
+            _preview = sticker;
+            _previewOwned = true;
+          });
+          return;
+        }
+      }
+      return;
+    }
     setState(() {
       _preview = sticker;
       _previewOwned = owned;
@@ -383,9 +447,11 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
                                                         sticker: s,
                                                         owned: owned,
                                                         onTap: () =>
-                                                            _openPreview(
-                                                          s,
-                                                          owned,
+                                                            unawaited(
+                                                          _openPreview(
+                                                            s,
+                                                            owned,
+                                                          ),
                                                         ),
                                                       );
                                                     },

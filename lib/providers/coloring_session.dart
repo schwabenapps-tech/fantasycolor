@@ -201,11 +201,27 @@ class ColoringSession extends ChangeNotifier {
     return value;
   }
 
-  /// Mindestens so viel ausmalen, bevor Done/Sticker freigeschaltet werden.
-  static const stickerUnlockCoverage = 0.90;
+  /// Mindestens so viel ausmalen, bevor Done freigeschaltet wird (1★).
+  static const stickerUnlockCoverage = 0.40;
+  static const star1Coverage = 0.40;
+  static const star2Coverage = 0.70;
+  static const star3Coverage = 0.90;
+  /// ~100 % → Sticker-Belohnung + Pixelart freischalten.
+  static const fullCompleteCoverage = 0.99;
 
   bool get meetsStickerCoverage =>
       paintedCoverageRatio() >= stickerUnlockCoverage;
+
+  bool get isFullyComplete =>
+      paintedCoverageRatio() >= fullCompleteCoverage;
+
+  int get starRating {
+    final c = paintedCoverageRatio();
+    if (c >= star3Coverage) return 3;
+    if (c >= star2Coverage) return 2;
+    if (c >= star1Coverage) return 1;
+    return 0;
+  }
 
   /// Mindestens etwas ausgemalt (kein leeres Vorlagen-PNG speichern).
   bool get hasPaintedContent {

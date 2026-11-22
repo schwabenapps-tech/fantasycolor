@@ -84,6 +84,13 @@ class AppStrings {
   String get adventRewardSticker => _t('adventRewardSticker');
   String get adventRewardColoring => _t('adventRewardColoring');
   String get adventRewardPuzzle => _t('adventRewardPuzzle');
+  String adventDoorTitle(int n) =>
+      _t('adventDoorTitle').replaceAll('{n}', '$n');
+  String get adventTapBox => _t('adventTapBox');
+  String get adventOpenTwoBoxes => _t('adventOpenTwoBoxes');
+  String get adventOpenThreeBoxes => _t('adventOpenThreeBoxes');
+  String adventBoxesLeft(int n) =>
+      _t('adventBoxesLeft').replaceAll('{n}', '$n');
   String get notifyAdventTitle => _t('notifyAdventTitle');
   String get notifyAdventBody => _t('notifyAdventBody');
   String get stickerRulesBody => _t('stickerRulesBody');
@@ -109,7 +116,30 @@ class AppStrings {
   String get newPuzzle => _t('newPuzzle');
   String get lastEvent => _t('lastEvent');
   String get unlockWithAd => _t('unlockWithAd');
+  String get unlockWithStarsTitle => _t('unlockWithStarsTitle');
+  String get unlock => _t('unlock');
+  String get earnStarsTitle => _t('earnStarsTitle');
+  String get dailyQuest => _t('dailyQuest');
+  String get dailyQuestIncentive => _t('dailyQuestIncentive');
+  String get dailyTaskColor => _t('dailyTaskColor');
+  String get dailyTaskPuzzleAny => _t('dailyTaskPuzzleAny');
+  String get dailyTaskPuzzleHard => _t('dailyTaskPuzzleHard');
+  String get dailyTaskPlaceSticker => _t('dailyTaskPlaceSticker');
+  String get dailyTaskPixel => _t('dailyTaskPixel');
+  String get dailyTaskRecolor => _t('dailyTaskRecolor');
+  String get pixelArt => _t('pixelArt');
+  String get pixelArtHint => _t('pixelArtHint');
+  String get pixelArtEmpty => _t('pixelArtEmpty');
   String get recentlyUsed => _t('recentlyUsed');
+
+  String earnStarsSubtitle(int n) =>
+      _t('earnStarsSubtitle').replaceAll('{n}', '$n');
+
+  String watchAdForStars(int n) =>
+      _t('watchAdForStars').replaceAll('{n}', '$n');
+
+  String yourStars(int n) => _t('yourStars').replaceAll('{n}', '$n');
+
   String get recentlyUsedEmpty => _t('recentlyUsedEmpty');
   String get notifyTitle => _t('notifyTitle');
   String get notifyBody => _t('notifyBody');
@@ -193,7 +223,7 @@ const _en = {
   'colorBeforeSave': 'Color a little first before saving.',
   'wonderful': 'Wonderful!',
   'levelComplete': 'Level complete',
-  'photos': 'Photos',
+  'photos': 'Save',
   'asPuzzle': 'As puzzle',
   'couldNotLoadImage': 'Could not load image',
   'pickAGift': 'Pick a gift!',
@@ -215,14 +245,20 @@ const _en = {
   'adventRewardSticker': 'Sticker',
   'adventRewardColoring': 'Coloring page',
   'adventRewardPuzzle': 'Puzzle',
+  'adventDoorTitle': 'Door {n}',
+  'adventTapBox': 'Tap the Christmas box!',
+  'adventOpenTwoBoxes': 'Open both Christmas boxes!',
+  'adventOpenThreeBoxes': 'Open all three Christmas boxes!',
+  'adventBoxesLeft': '{n} left',
   'notifyAdventTitle': 'Your Advent door is open ✨',
   'notifyAdventBody': 'A Christmas bauble is waiting — come open today’s gift!',
   'stickerRulesBody':
-      '• Finish a coloring page (about 90% painted) to earn a sticker — once per picture until you reset it.\n'
-      '• Solve a puzzle on Pro difficulty to earn a sticker — once per puzzle.\n'
-      '• Easy and Medium puzzles do not give stickers.\n'
-      '• Each day you can pick a daily surprise gift box.\n'
-      '• Every sticker unlocks only once — no duplicates.\n'
+      '• Finish a coloring page at 100% to earn a sticker (once per picture until reset) and unlock it for Pixel Art. Daily finishes also unlock Pixel Art.\n'
+      '• Solve a puzzle on Pro for a sticker — once. Easy and Medium do not give stickers.\n'
+      '• Daily quests (bell): up to 3 random tasks (color, puzzle, place sticker, pixel art, recolor) → 2 stickers + 10 stars.\n'
+      '• Advent calendar doors can gift stickers too.\n'
+      '• To place a sticker on a coloring page, unlock it with stars (15★) — album gifts stay locked for paint until then.\n'
+      '• Each sticker unlocks only once — no duplicates.\n'
       '• Collect them all to download the free sticker pack.',
   'stickerPlaceHelpTitle': 'Stickers on your picture',
   'stickerPlaceHelpBody':
@@ -254,6 +290,24 @@ const _en = {
   'newPuzzle': 'New puzzle',
   'lastEvent': 'Last event',
   'unlockWithAd': 'Watch ad',
+  'unlockWithStarsTitle': 'Unlock with stars',
+  'unlock': 'Unlock',
+  'earnStarsTitle': 'Earn stars',
+  'earnStarsSubtitle': 'Watch a short video to earn {n} stars.',
+  'watchAdForStars': 'Watch ad · +{n}',
+  'yourStars': 'You have {n} stars',
+  'dailyQuest': 'Daily quest',
+  'dailyQuestIncentive':
+      'Finish all 3 tasks — then back home for stickers and +10 bonus stars!',
+  'dailyTaskColor': 'Color this picture completely (100%)',
+  'dailyTaskPuzzleAny': 'Finish this puzzle — any piece count',
+  'dailyTaskPuzzleHard': 'Finish this puzzle on Medium or Hard',
+  'dailyTaskPlaceSticker': 'Place at least one sticker on this picture',
+  'dailyTaskPixel': 'Finish this picture in Pixel Art',
+  'dailyTaskRecolor': 'Reset this finished picture and color it again',
+  'pixelArt': 'Pixel Art',
+  'pixelArtHint': 'Finished coloring pages appear here (including daily quests)',
+  'pixelArtEmpty': 'Finish a coloring page (or a daily) to unlock Pixel Art',
   'recentlyUsed': 'Recently used',
   'recentlyUsedEmpty': 'Open a coloring page or puzzle to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
@@ -322,7 +376,7 @@ const _de = {
   'colorBeforeSave': 'Male erst ein bisschen, bevor du speicherst.',
   'wonderful': 'Wunderbar!',
   'levelComplete': 'Level geschafft',
-  'photos': 'Fotos',
+  'photos': 'Speichern',
   'asPuzzle': 'Als Puzzle',
   'couldNotLoadImage': 'Bild konnte nicht geladen werden',
   'pickAGift': 'Wähle ein Geschenk!',
@@ -344,14 +398,20 @@ const _de = {
   'adventRewardSticker': 'Sticker',
   'adventRewardColoring': 'Ausmalbild',
   'adventRewardPuzzle': 'Puzzle',
+  'adventDoorTitle': 'Türchen {n}',
+  'adventTapBox': 'Tippe auf die Weihnachtsbox!',
+  'adventOpenTwoBoxes': 'Öffne beide Weihnachtsboxen!',
+  'adventOpenThreeBoxes': 'Öffne alle drei Weihnachtsboxen!',
+  'adventBoxesLeft': 'Noch {n}',
   'notifyAdventTitle': 'Dein Advents-Türchen ist offen ✨',
   'notifyAdventBody':
       'Eine Weihnachtskugel wartet — hol dir das Geschenk von heute!',
   'stickerRulesBody':
-      '• Male ein Bild zu etwa 90 % aus, um einen Sticker zu verdienen — einmal pro Bild, bis du es zurücksetzt.\n'
-      '• Löse ein Puzzle auf Pro-Schwierigkeit für einen Sticker — einmal pro Puzzle.\n'
-      '• Easy- und Medium-Puzzles geben keine Sticker.\n'
-      '• Jeden Tag kannst du eine Überraschungs-Box öffnen.\n'
+      '• Male ein Bild zu 100 % fertig aus → Sticker (einmal pro Bild, bis Reset) und freigeschaltet für Pixel Art. Daily-fertig zählt auch für Pixel Art.\n'
+      '• Puzzle auf Pro → Sticker (einmal). Easy und Medium geben keine.\n'
+      '• Tägliche Aufgaben (Glocke): bis zu 3 zufällige Tasks (Malen, Puzzle, Sticker setzen, Pixel Art, neu ausmalen) → 2 Sticker + 10 Sterne.\n'
+      '• Im Adventskalender kannst du auch Stickers als Geschenk bekommen.\n'
+      '• Zum Platzieren auf dem Bild: mit Sternen freischalten (15★) — Album-Geschenke sind erst dann im Malen nutzbar.\n'
       '• Jeder Sticker nur einmal — keine Duplikate.\n'
       '• Sammle alle, um das Sticker-Pack herunterzuladen.',
   'stickerPlaceHelpTitle': 'Stickers auf dem Bild',
@@ -384,10 +444,28 @@ const _de = {
   'newPuzzle': 'Neu Puzzle',
   'lastEvent': 'Letztes Event',
   'unlockWithAd': 'Werbung',
+  'unlockWithStarsTitle': 'Mit Sternen freischalten',
+  'unlock': 'Freischalten',
+  'earnStarsTitle': 'Sterne holen',
+  'earnStarsSubtitle': 'Schau ein kurzes Video und erhalte {n} Sterne.',
+  'watchAdForStars': 'Werbung · +{n}',
+  'yourStars': 'Du hast {n} Sterne',
+  'dailyQuest': 'Tagesaufgabe',
+  'dailyQuestIncentive':
+      'Alle 3 Aufgaben schaffen — zurück im Menü warten Sticker und +10 Bonus-Sterne!',
+  'dailyTaskColor': 'Male dieses Bild zu 100 % fertig aus',
+  'dailyTaskPuzzleAny': 'Löse dieses Puzzle — beliebige Teilezahl',
+  'dailyTaskPuzzleHard': 'Löse dieses Puzzle auf Mittel oder Schwer',
+  'dailyTaskPlaceSticker': 'Setze mindestens einen Sticker auf dieses Bild',
+  'dailyTaskPixel': 'Male dieses Bild in Pixel Art fertig',
+  'dailyTaskRecolor': 'Setze dieses fertige Bild zurück und male es neu aus',
+  'pixelArt': 'Pixel Art',
+  'pixelArtHint': 'Fertige Ausmalbilder erscheinen hier (auch aus Dailys)',
+  'pixelArtEmpty': 'Male ein Bild fertig (oder eine Daily), um Pixel Art freizuschalten',
   'recentlyUsed': 'Zuletzt benutzt',
   'recentlyUsedEmpty': 'Öffne ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',
-  'notifyBody': 'Dein täglicher Sticker ist bereit — komm und wähle eine Box!',
+  'notifyBody': 'Deine Tagesaufgabe wartet — hol dir die Überraschung!',
   'notifyStreakTitle': 'Halte die Magie am Leben!',
   'notifyStreakBody': 'Male heute ein bisschen und lass deinen Streak leuchten.',
   'streakQuestTitle': 'Magie-Streak',
@@ -449,7 +527,7 @@ const _es = {
   'colorBeforeSave': 'Colorea un poco antes de guardar.',
   'wonderful': '¡Maravilloso!',
   'levelComplete': 'Nivel completado',
-  'photos': 'Fotos',
+  'photos': 'Guardar',
   'asPuzzle': 'Como puzzle',
   'couldNotLoadImage': 'No se pudo cargar la imagen',
   'pickAGift': '¡Elige un regalo!',
@@ -460,10 +538,11 @@ const _es = {
   'dailyReward': '¡Recompensa diaria!',
   'stickerAlbum': 'Álbum de stickers',
   'stickerRulesBody':
-      '• Termina un coloreable (~90 %) para ganar un sticker — una vez por imagen hasta reiniciarla.\n'
-      '• Completa un puzzle en dificultad Pro para ganar un sticker — una vez por puzzle.\n'
-      '• Easy y Medium no dan stickers.\n'
-      '• Cada día puedes abrir una caja sorpresa.\n'
+      '• Termina un coloreable al 100 % → sticker (una vez por imagen hasta reiniciar).\n'
+      '• Puzzle en Pro → sticker (una vez). Easy y Medium no dan stickers.\n'
+      '• Misiones diarias (campana): completa las 3 → 2 stickers + 10 estrellas.\n'
+      '• El calendario de Adviento también puede regalar stickers.\n'
+      '• Para colocarlos al colorear: desbloquéalos con estrellas (15★).\n'
       '• Cada sticker solo una vez — sin duplicados.\n'
       '• Consíguelos todos para descargar el pack.',
   'stickerPlaceHelpTitle': 'Stickers en tu dibujo',
@@ -561,7 +640,7 @@ const _fr = {
   'colorBeforeSave': 'Colorie un peu avant d’enregistrer.',
   'wonderful': 'Merveilleux !',
   'levelComplete': 'Niveau terminé',
-  'photos': 'Photos',
+  'photos': 'Enregistrer',
   'asPuzzle': 'En puzzle',
   'couldNotLoadImage': 'Impossible de charger l’image',
   'pickAGift': 'Choisis un cadeau !',
@@ -572,10 +651,11 @@ const _fr = {
   'dailyReward': 'Récompense du jour !',
   'stickerAlbum': 'Album de stickers',
   'stickerRulesBody':
-      '• Termine un coloriage (~90 %) pour gagner un sticker — une fois par image jusqu’à reset.\n'
-      '• Finis un puzzle en difficulté Pro pour un sticker — une fois par puzzle.\n'
-      '• Easy et Medium ne donnent pas de stickers.\n'
-      '• Chaque jour, ouvre une boîte surprise.\n'
+      '• Termine un coloriage à 100 % → sticker (une fois par image jusqu’au reset).\n'
+      '• Puzzle en Pro → sticker (une fois). Easy et Medium n’en donnent pas.\n'
+      '• Quêtes du jour (cloche) : les 3 terminées → 2 stickers + 10 étoiles.\n'
+      '• Le calendrier de l’Avent peut aussi offrir des stickers.\n'
+      '• Pour les placer en coloriage : débloque-les avec des étoiles (15★).\n'
       '• Chaque sticker une seule fois — pas de doublons.\n'
       '• Collecte-les tous pour télécharger le pack.',
   'stickerPlaceHelpTitle': 'Stickers sur ton dessin',
@@ -673,7 +753,7 @@ const _pt = {
   'colorBeforeSave': 'Colorir um pouco antes de guardar.',
   'wonderful': 'Maravilhoso!',
   'levelComplete': 'Nível concluído',
-  'photos': 'Fotos',
+  'photos': 'Guardar',
   'asPuzzle': 'Como puzzle',
   'couldNotLoadImage': 'Não foi possível carregar a imagem',
   'pickAGift': 'Escolhe um presente!',
@@ -684,10 +764,11 @@ const _pt = {
   'dailyReward': 'Recompensa diária!',
   'stickerAlbum': 'Álbum de stickers',
   'stickerRulesBody':
-      '• Termina um colorir (~90 %) para ganhar um sticker — uma vez por imagem até reiniciar.\n'
-      '• Completa um puzzle em dificuldade Pro para um sticker — uma vez por puzzle.\n'
-      '• Easy e Medium não dão stickers.\n'
-      '• Todos os dias podes abrir uma caixa surpresa.\n'
+      '• Termina um colorir a 100 % → sticker (uma vez por imagem até reiniciar).\n'
+      '• Puzzle em Pro → sticker (uma vez). Easy e Medium não dão stickers.\n'
+      '• Missões diárias (sino): completa as 3 → 2 stickers + 10 estrelas.\n'
+      '• O calendário do Advento também pode oferecer stickers.\n'
+      '• Para colocar ao colorir: desbloqueia com estrelas (15★).\n'
       '• Cada sticker só uma vez — sem duplicados.\n'
       '• Junta todos para descarregar o pack.',
   'stickerPlaceHelpTitle': 'Stickers na tua imagem',
@@ -785,7 +866,7 @@ const _it = {
   'colorBeforeSave': 'Colora un po’ prima di salvare.',
   'wonderful': 'Meraviglioso!',
   'levelComplete': 'Livello completato',
-  'photos': 'Foto',
+  'photos': 'Salva',
   'asPuzzle': 'Come puzzle',
   'couldNotLoadImage': 'Impossibile caricare l’immagine',
   'pickAGift': 'Scegli un regalo!',
@@ -796,10 +877,11 @@ const _it = {
   'dailyReward': 'Ricompensa del giorno!',
   'stickerAlbum': 'Album sticker',
   'stickerRulesBody':
-      '• Completa un disegno (~90 %) per uno sticker — una volta per immagine fino al reset.\n'
-      '• Risolvi un puzzle in difficoltà Pro per uno sticker — una volta per puzzle.\n'
-      '• Easy e Medium non danno sticker.\n'
-      '• Ogni giorno puoi aprire una scatola sorpresa.\n'
+      '• Completa un disegno al 100 % → sticker (una volta per immagine fino al reset).\n'
+      '• Puzzle in Pro → sticker (una volta). Easy e Medium non ne danno.\n'
+      '• Missioni giornaliere (campana): completa tutte e 3 → 2 sticker + 10 stelle.\n'
+      '• Il calendario dell’Avvento può regalare sticker.\n'
+      '• Per posarli sul disegno: sbloccali con stelle (15★).\n'
       '• Ogni sticker una sola volta — niente duplicati.\n'
       '• Collezionali tutti per scaricare il pack.',
   'stickerPlaceHelpTitle': 'Stickers sul disegno',
@@ -897,7 +979,7 @@ const _nl = {
   'colorBeforeSave': 'Kleur eerst een beetje voordat je opslaat.',
   'wonderful': 'Geweldig!',
   'levelComplete': 'Level voltooid',
-  'photos': 'Foto’s',
+  'photos': 'Opslaan',
   'asPuzzle': 'Als puzzel',
   'couldNotLoadImage': 'Afbeelding kon niet worden geladen',
   'pickAGift': 'Kies een cadeau!',
@@ -908,10 +990,11 @@ const _nl = {
   'dailyReward': 'Dagelijkse beloning!',
   'stickerAlbum': 'Stickeralbum',
   'stickerRulesBody':
-      '• Maak een kleurplaat (~90 %) af voor een sticker — één keer per plaat tot reset.\n'
-      '• Maak een puzzel op Pro-niveau af voor een sticker — één keer per puzzel.\n'
-      '• Easy en Medium geven geen stickers.\n'
-      '• Elke dag kun je een verrassingsdoos openen.\n'
+      '• Maak een kleurplaat 100 % af → sticker (één keer per plaat tot reset).\n'
+      '• Puzzel op Pro → sticker (één keer). Easy en Medium geven er geen.\n'
+      '• Dagelijkse quests (bel): alle 3 klaar → 2 stickers + 10 sterren.\n'
+      '• De adventskalender kan ook stickers geven.\n'
+      '• Om te plakken op een tekening: ontgrendel met sterren (15★).\n'
       '• Elke sticker maar één keer — geen duplicaten.\n'
       '• Verzamel ze allemaal om het pack te downloaden.',
   'stickerPlaceHelpTitle': 'Stickers op je tekening',
@@ -1009,7 +1092,7 @@ const _pl = {
   'colorBeforeSave': 'Pokoloruj trochę, zanim zapiszesz.',
   'wonderful': 'Wspaniale!',
   'levelComplete': 'Poziom ukończony',
-  'photos': 'Zdjęcia',
+  'photos': 'Zapisz',
   'asPuzzle': 'Jako puzzle',
   'couldNotLoadImage': 'Nie udało się wczytać obrazu',
   'pickAGift': 'Wybierz prezent!',
@@ -1020,10 +1103,11 @@ const _pl = {
   'dailyReward': 'Codzienna nagroda!',
   'stickerAlbum': 'Album naklejek',
   'stickerRulesBody':
-      '• Ukończ kolorowankę (~90 %), by zdobyć naklejkę — raz na obraz do resetu.\n'
-      '• Ułóż puzzle na poziomie Pro, by zdobyć naklejkę — raz na puzzle.\n'
-      '• Easy i Medium nie dają naklejek.\n'
-      '• Codziennie możesz otworzyć niespodziankę.\n'
+      '• Ukończ kolorowankę w 100 % → naklejka (raz na obraz do resetu).\n'
+      '• Puzzle na Pro → naklejka (raz). Easy i Medium nie dają.\n'
+      '• Codzienne zadania (dzwonek): ukończ wszystkie 3 → 2 naklejki + 10 gwiazdek.\n'
+      '• Kalendarz adwentowy też może dawać naklejki.\n'
+      '• By umieścić na rysunku: odblokuj gwiazdkami (15★).\n'
       '• Każda naklejka tylko raz — bez duplikatów.\n'
       '• Zbierz wszystkie, by pobrać paczkę.',
   'stickerPlaceHelpTitle': 'Naklejki na obrazku',
@@ -1121,7 +1205,7 @@ const _tr = {
   'colorBeforeSave': 'Kaydetmeden önce biraz boya.',
   'wonderful': 'Harika!',
   'levelComplete': 'Seviye tamamlandı',
-  'photos': 'Fotoğraflar',
+  'photos': 'Kaydet',
   'asPuzzle': 'Yapboz olarak',
   'couldNotLoadImage': 'Görsel yüklenemedi',
   'pickAGift': 'Bir hediye seç!',
@@ -1132,10 +1216,11 @@ const _tr = {
   'dailyReward': 'Günlük ödül!',
   'stickerAlbum': 'Çıkartma albümü',
   'stickerRulesBody':
-      '• Yaklaşık %90 boyayınca sticker kazanırsın — sıfırlayana kadar resim başına bir kez.\n'
-      '• Pro zorlukta puzzle bitirince sticker — puzzle başına bir kez.\n'
-      '• Easy ve Medium sticker vermez.\n'
-      '• Her gün sürpriz kutu açabilirsin.\n'
+      '• %100 boyayınca sticker — sıfırlayana kadar resim başına bir kez.\n'
+      '• Pro puzzle → sticker (bir kez). Easy ve Medium vermez.\n'
+      '• Günlük görevler (zil): 3’ünü bitir → 2 sticker + 10 yıldız.\n'
+      '• Advent takvimi de sticker verebilir.\n'
+      '• Boyamaya koymak için yıldızla aç (15★).\n'
       '• Her sticker yalnızca bir kez — kopya yok.\n'
       '• Hepsini topla, paketi indir.',
   'stickerPlaceHelpTitle': 'Resimdeki çıkartmalar',

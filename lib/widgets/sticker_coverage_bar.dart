@@ -23,9 +23,9 @@ class StickerCoverageBar extends StatelessWidget {
       listenable: session,
       builder: (context, _) {
         final ratio = session.paintedCoverageRatio();
-        final ready = ratio >= ColoringSession.stickerUnlockCoverage;
-        final display = (ratio / ColoringSession.stickerUnlockCoverage)
-            .clamp(0.0, 1.0);
+        final ready = ratio >= ColoringSession.star3Coverage;
+        final display =
+            (ratio / ColoringSession.star3Coverage).clamp(0.0, 1.0);
         return IgnorePointer(
           child: Row(
             children: [

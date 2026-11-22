@@ -11,14 +11,26 @@ import '../screens/puzzle_screen.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
 
+/// Auswahl aus der Puzzle-Vorschau (Play).
+typedef PuzzlePreviewChoice = ({
+  PuzzleDifficulty difficulty,
+  PuzzlePieceStyle style,
+});
+
 /// Großes Puzzle-Vorschaubild mit Schnittlinien — als Overlay, kein eigener Screen.
 class PuzzlePreviewOverlay {
   PuzzlePreviewOverlay._();
 
-  /// `true` = Nutzer will das Puzzle starten.
-  static Future<bool> show(BuildContext context, ColoringPage page) {
+  /// `null` = abgebrochen; sonst gewählte Einstellungen + Play.
+  static Future<PuzzlePreviewChoice?> show(
+    BuildContext context,
+    ColoringPage page, {
+    Set<PuzzleTier> lockedTiers = const {},
+    Set<PuzzleDifficulty> lockedDifficulties = const {},
+    PuzzleDifficulty? initialDifficulty,
+  }) {
     HapticFeedback.selectionClick();
-    return showGeneralDialog<bool>(
+    return showGeneralDialog<PuzzlePreviewChoice>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Puzzle preview',
@@ -27,8 +39,11 @@ class PuzzlePreviewOverlay {
       pageBuilder: (context, animation, secondaryAnimation) {
         return _PuzzlePreviewBody(
           page: page,
-          onClose: () => Navigator.of(context).pop(false),
-          onPlay: () => Navigator.of(context).pop(true),
+          lockedTiers: lockedTiers,
+          lockedDifficulties: lockedDifficulties,
+          initialDifficulty: initialDifficulty,
+          onClose: () => Navigator.of(context).pop(),
+          onPlay: (choice) => Navigator.of(context).pop(choice),
         );
       },
       transitionBuilder: (context, anim, secondaryAnimation, child) {
@@ -42,7 +57,7 @@ class PuzzlePreviewOverlay {
           ),
         );
       },
-    ).then((value) => value ?? false);
+    );
   }
 }
 
@@ -51,20 +66,52 @@ class _PuzzlePreviewBody extends StatefulWidget {
     required this.page,
     required this.onClose,
     required this.onPlay,
+    this.lockedTiers = const {},
+    this.lockedDifficulties = const {},
+    this.initialDifficulty,
   });
 
   final ColoringPage page;
   final VoidCallback onClose;
-  final VoidCallback onPlay;
+  final ValueChanged<PuzzlePreviewChoice> onPlay;
+  final Set<PuzzleTier> lockedTiers;
+  final Set<PuzzleDifficulty> lockedDifficulties;
+  final PuzzleDifficulty? initialDifficulty;
 
   @override
   State<_PuzzlePreviewBody> createState() => _PuzzlePreviewBodyState();
 }
 
 class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
-  PuzzleDifficulty _difficulty = PuzzleDifficulty.medium30;
+  PuzzleDifficulty _difficulty = PuzzleDifficulty.medium42;
   PuzzlePieceStyle _style = PuzzlePieceStyle.jigsaw;
   bool _ready = false;
+
+  bool _isTierLocked(PuzzleTier tier) => widget.lockedTiers.contains(tier);
+
+  bool _isDifficultyLocked(PuzzleDifficulty d) =>
+      _isTierLocked(d.tier) || widget.lockedDifficulties.contains(d);
+
+  PuzzleDifficulty _firstAllowedInTier(PuzzleTier tier) {
+    for (final d in PuzzleDifficulty.forTier(tier)) {
+      if (!_isDifficultyLocked(d)) return d;
+    }
+    // Fallback: irgendeine erlaubte Difficulty.
+    for (final d in PuzzleDifficulty.values) {
+      if (!_isDifficultyLocked(d)) return d;
+    }
+    return PuzzleDifficulty.medium42;
+  }
+
+  PuzzleDifficulty _clampDifficulty(PuzzleDifficulty d) {
+    if (!_isDifficultyLocked(d)) return d;
+    if (!_isTierLocked(d.tier)) return _firstAllowedInTier(d.tier);
+    for (final tier in PuzzleTier.values) {
+      if (_isTierLocked(tier)) continue;
+      return _firstAllowedInTier(tier);
+    }
+    return PuzzleDifficulty.medium42;
+  }
 
   @override
   void initState() {
@@ -75,8 +122,9 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   Future<void> _loadPrefs() async {
     final saved = await PuzzlePreferences.load();
     if (!mounted) return;
+    final forced = widget.initialDifficulty;
     setState(() {
-      _difficulty = saved.difficulty;
+      _difficulty = _clampDifficulty(forced ?? saved.difficulty);
       _style = saved.style;
       _ready = true;
     });
@@ -90,17 +138,18 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   }
 
   void _setTier(PuzzleTier tier) {
+    if (_isTierLocked(tier)) return;
     HapticFeedback.selectionClick();
-    final options = PuzzleDifficulty.forTier(tier);
     setState(() {
-      if (!options.contains(_difficulty)) {
-        _difficulty = options.first;
+      if (_isDifficultyLocked(_difficulty) || _difficulty.tier != tier) {
+        _difficulty = _firstAllowedInTier(tier);
       }
     });
     unawaited(_persist());
   }
 
   void _setDifficulty(PuzzleDifficulty difficulty) {
+    if (_isDifficultyLocked(difficulty)) return;
     HapticFeedback.selectionClick();
     setState(() => _difficulty = difficulty);
     unawaited(_persist());
@@ -115,7 +164,7 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   Future<void> _play() async {
     await _persist();
     if (!mounted) return;
-    widget.onPlay();
+    widget.onPlay((difficulty: _difficulty, style: _style));
   }
 
   @override
@@ -136,6 +185,8 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
     final settings = _PreviewSettingsPanel(
       difficulty: _difficulty,
       style: _style,
+      lockedTiers: widget.lockedTiers,
+      lockedDifficulties: widget.lockedDifficulties,
       onTier: _setTier,
       onDifficulty: _setDifficulty,
       onStyle: _setStyle,
@@ -298,6 +349,8 @@ class _PreviewSettingsPanel extends StatelessWidget {
   const _PreviewSettingsPanel({
     required this.difficulty,
     required this.style,
+    required this.lockedTiers,
+    required this.lockedDifficulties,
     required this.onTier,
     required this.onDifficulty,
     required this.onStyle,
@@ -305,6 +358,8 @@ class _PreviewSettingsPanel extends StatelessWidget {
 
   final PuzzleDifficulty difficulty;
   final PuzzlePieceStyle style;
+  final Set<PuzzleTier> lockedTiers;
+  final Set<PuzzleDifficulty> lockedDifficulties;
   final ValueChanged<PuzzleTier> onTier;
   final ValueChanged<PuzzleDifficulty> onDifficulty;
   final ValueChanged<PuzzlePieceStyle> onStyle;
@@ -359,7 +414,9 @@ class _PreviewSettingsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'Wie magisch soll dein Puzzle sein?',
+                lockedTiers.isEmpty
+                    ? 'Wie magisch soll dein Puzzle sein?'
+                    : 'Für die Tagesaufgabe: Leicht ist gesperrt.',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 12.5,
@@ -376,6 +433,7 @@ class _PreviewSettingsPanel extends StatelessWidget {
                     _PreviewChip(
                       label: tier.label,
                       selected: difficulty.tier == tier,
+                      locked: lockedTiers.contains(tier),
                       onTap: () => onTier(tier),
                     ),
                 ],
@@ -391,6 +449,8 @@ class _PreviewSettingsPanel extends StatelessWidget {
                     _PreviewChip(
                       label: '${d.targetPieces}',
                       selected: difficulty == d,
+                      locked: lockedDifficulties.contains(d) ||
+                          lockedTiers.contains(d.tier),
                       onTap: () => onDifficulty(d),
                     ),
                 ],
@@ -452,56 +512,80 @@ class _PreviewChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.locked = false,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: selected
-                ? LinearGradient(
-                    colors: [
-                      const Color(0xFFFFD56A).withValues(alpha: 0.35),
-                      const Color(0xFFFFB347).withValues(alpha: 0.22),
-                    ],
-                  )
-                : null,
-            color: selected ? null : Colors.white.withValues(alpha: 0.07),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFFFFD56A)
-                  : Colors.white.withValues(alpha: 0.2),
-              width: selected ? 1.6 : 1,
+    final Gradient? gradient = (!locked && selected)
+        ? LinearGradient(
+            colors: [
+              const Color(0xFFFFD56A).withValues(alpha: 0.35),
+              const Color(0xFFFFB347).withValues(alpha: 0.22),
+            ],
+          )
+        : null;
+    return Opacity(
+      opacity: locked ? 0.38 : 1,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: locked ? null : onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: gradient,
+              color: locked
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : (selected ? null : Colors.white.withValues(alpha: 0.07)),
+              border: Border.all(
+                color: locked
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : selected
+                        ? const Color(0xFFFFD56A)
+                        : Colors.white.withValues(alpha: 0.2),
+                width: selected && !locked ? 1.6 : 1,
+              ),
+              boxShadow: selected && !locked
+                  ? [
+                      BoxShadow(
+                        color:
+                            const Color(0xFFFFD56A).withValues(alpha: 0.22),
+                        blurRadius: 10,
+                      ),
+                    ]
+                  : null,
             ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFD56A).withValues(alpha: 0.22),
-                      blurRadius: 10,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? const Color(0xFFFFF3C4)
-                  : Colors.white.withValues(alpha: 0.88),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (locked) ...[
+                  Icon(
+                    Icons.lock_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected && !locked
+                        ? const Color(0xFFFFF3C4)
+                        : Colors.white.withValues(alpha: 0.88),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

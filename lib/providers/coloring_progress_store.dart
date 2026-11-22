@@ -25,6 +25,8 @@ class ColoringProgressStore extends ChangeNotifier {
 
   bool hasProgress(String id) => _ids.contains(id);
 
+  Set<String> get progressIds => Set.unmodifiable(_ids);
+
   int versionOf(String id) => _versions[id] ?? 0;
 
   Future<void> load() async {

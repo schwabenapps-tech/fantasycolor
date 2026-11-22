@@ -2,18 +2,31 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Gemeinsame Level-Complete-Ansicht: Fade-in, Konfetti, Buttons, Fade-out.
+import 'star_balance_pill.dart';
+
+/// Gemeinsame Level-Complete-Ansicht: Fade-in, Konfetti, fliegende Sterne, Buttons.
 class LevelCompleteOverlay extends StatefulWidget {
   const LevelCompleteOverlay({
     super.key,
     required this.title,
-    required this.subtitle,
     required this.actions,
+    this.ratingStars = 0,
+    this.earnedStars = 0,
+    this.fallbackSubtitle,
     this.onReady,
   });
 
   final String title;
-  final String subtitle;
+
+  /// 1–3 Qualitäts-Sterne, die nacheinander hochfliegen.
+  final int ratingStars;
+
+  /// Verdiente Wallet-Sterne (+N). 0 = keine Anzeige (z.B. Daily-Aufgabe).
+  final int earnedStars;
+
+  /// Wenn weder Rating noch Earn: Fallback-Text.
+  final String? fallbackSubtitle;
+
   final List<Widget> actions;
 
   /// Nach Fade-in + kurzem Moment (Buttons sichtbar).
@@ -27,10 +40,13 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
     with TickerProviderStateMixin {
   late final AnimationController _fade;
   late final AnimationController _confetti;
+  late final AnimationController _stars;
   late final Animation<double> _fadeAnim;
   late final Animation<double> _scaleAnim;
   bool _showActions = false;
   bool _dismissing = false;
+
+  int get _rating => widget.ratingStars.clamp(0, 3);
 
   @override
   void initState() {
@@ -43,6 +59,11 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
       vsync: this,
       duration: const Duration(milliseconds: 2800),
     )..repeat();
+    final starMs = _rating <= 0 ? 1 : (520 + _rating * 480);
+    _stars = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: starMs),
+    );
     _fadeAnim = CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic);
     _scaleAnim = Tween<double>(begin: 0.86, end: 1.0).animate(
       CurvedAnimation(parent: _fade, curve: Curves.easeOutBack),
@@ -53,6 +74,13 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
   Future<void> _runIntro() async {
     await _fade.forward();
     if (!mounted) return;
+    if (_rating > 0) {
+      await _stars.forward();
+      if (!mounted) return;
+      // Kurz sitzen lassen, dann Geschenk / Buttons.
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+      if (!mounted) return;
+    }
     setState(() => _showActions = true);
     widget.onReady?.call();
   }
@@ -69,13 +97,19 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
   void dispose() {
     _fade.dispose();
     _confetti.dispose();
+    _stars.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final landscape = size.width > size.height;
+    // Hochkant deutlich höher; Querformat etwas hoch, aber nicht am Rand.
+    final topPad = landscape ? size.height * 0.14 : size.height * 0.12;
+
     return AnimatedBuilder(
-      animation: Listenable.merge([_fade, _confetti]),
+      animation: Listenable.merge([_fade, _confetti, _stars]),
       builder: (context, _) {
         final t = _fadeAnim.value;
         return Opacity(
@@ -92,7 +126,10 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                   intensity: t,
                 ),
               ),
-              Center(
+              Positioned(
+                left: 16,
+                right: 16,
+                top: topPad,
                 child: Transform.scale(
                   scale: _scaleAnim.value,
                   child: Column(
@@ -103,7 +140,7 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: const Color(0xFFFFD56A),
-                          fontSize: 38,
+                          fontSize: landscape ? 34 : 38,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.1,
                           shadows: [
@@ -120,29 +157,61 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                           ],
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        widget.subtitle,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          shadows: const [
-                            Shadow(
-                              color: Color(0xAA000000),
-                              blurRadius: 8,
-                            ),
-                          ],
+                      // Platzhalter: Abstand Titel → Sterne (Flug im Fullscreen-Layer).
+                      if (_rating > 0)
+                        SizedBox(height: landscape ? 118 : 132),
+                      if (widget.earnedStars > 0) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '+${widget.earnedStars}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: const Color(0xFFFFF4C8),
+                            fontSize: landscape ? 36 : 42,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            shadows: [
+                              Shadow(
+                                color: const Color(0xFFFFD56A)
+                                    .withValues(alpha: 0.5),
+                                blurRadius: 16,
+                              ),
+                              const Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ] else if (_rating <= 0 &&
+                          (widget.fallbackSubtitle ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          widget.fallbackSubtitle!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xAA000000),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       AnimatedOpacity(
                         opacity: _showActions ? 1 : 0,
                         duration: const Duration(milliseconds: 280),
                         child: IgnorePointer(
                           ignoring: !_showActions,
                           child: Padding(
-                            padding: const EdgeInsets.only(top: 26),
+                            padding: EdgeInsets.only(
+                              top: landscape ? 56 : 72,
+                            ),
                             child: Wrap(
                               alignment: WrapAlignment.center,
                               spacing: 12,
@@ -156,10 +225,88 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                   ),
                 ),
               ),
+              if (_rating > 0)
+                IgnorePointer(
+                  child: _FlyingRatingStars(
+                    count: _rating,
+                    progress: _stars.value,
+                    // Weiter unter „Wonderful“, damit nichts auf die Überschrift springt.
+                    landY: topPad + (landscape ? 92 : 108),
+                    screenSize: size,
+                  ),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Sterne fliegen nacheinander vom unteren Rand unter den Titel.
+class _FlyingRatingStars extends StatelessWidget {
+  const _FlyingRatingStars({
+    required this.count,
+    required this.progress,
+    required this.landY,
+    required this.screenSize,
+  });
+
+  final int count;
+  final double progress;
+  final double landY;
+  final Size screenSize;
+
+  static const _starSize = 92.0;
+  static const _gap = 16.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final rowWidth = count * _starSize + (count - 1) * _gap;
+    final originX = (screenSize.width - rowWidth) / 2;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        for (var i = 0; i < count; i++)
+          _buildStar(i, originX),
+      ],
+    );
+  }
+
+  Widget _buildStar(int index, double originX) {
+    // Klar gestaffelt: einer nach dem anderen.
+    final slot = 1.0 / count;
+    final start = index * slot * 0.92;
+    final local = ((progress - start) / (slot * 0.88)).clamp(0.0, 1.0);
+    final fly = Curves.easeOutBack.transform(local);
+    final settled = local >= 0.98;
+
+    final targetX = originX + index * (_starSize + _gap);
+    final startY = screenSize.height + _starSize;
+    final y = startY + (landY - startY) * fly;
+    final spin = settled ? 0.0 : (1.0 - fly) * math.pi * 3.0;
+
+    final opacity = local <= 0 ? 0.0 : (local * 3).clamp(0.0, 1.0);
+    final scale = 0.55 + 0.45 * fly;
+
+    return Positioned(
+      left: targetX,
+      top: y,
+      child: Opacity(
+        opacity: opacity,
+        child: Transform.rotate(
+          angle: spin,
+          child: Transform.scale(
+            scale: scale,
+            child: Image.asset(
+              StarBalancePill.asset,
+              width: _starSize,
+              height: _starSize,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -265,11 +412,12 @@ class LevelCompleteActionButton extends StatelessWidget {
                     ],
                   )
                 : null,
-            color: filled ? null : Colors.white.withValues(alpha: 0.12),
+            color: filled ? null : const Color(0xFF2A3D58),
             border: Border.all(
               color: filled
                   ? const Color(0xFFFFE7A0)
-                  : Colors.white.withValues(alpha: 0.35),
+                  : Colors.white.withValues(alpha: 0.72),
+              width: filled ? 1 : 1.5,
             ),
             boxShadow: filled
                 ? [
@@ -278,7 +426,13 @@ class LevelCompleteActionButton extends StatelessWidget {
                       blurRadius: 12,
                     ),
                   ]
-                : null,
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

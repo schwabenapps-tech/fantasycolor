@@ -9,10 +9,12 @@ import '../models/coloring_page.dart';
 import '../l10n/app_strings.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../screens/favorites_screen.dart';
 import '../services/ads_service.dart';
 import '../services/analytics_service.dart';
 import '../services/event_content_gate.dart';
+import '../services/star_content_gate.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/catalog_gallery_body.dart';
@@ -65,10 +67,19 @@ class EventPackGalleryScreen extends StatelessWidget {
     );
   }
 
+  int? _starLockCost(BuildContext context, String id) {
+    if (_print) return null;
+    final kind =
+        _coloring ? FavoriteKind.coloring : FavoriteKind.puzzle;
+    final wallet = context.watch<StarWalletStore>();
+    if (!wallet.requiresStars(id, kind)) return null;
+    return wallet.unlockCost(id, kind);
+  }
+
   Future<void> _open(BuildContext context, ColoringPage page) async {
     switch (kind) {
       case CatalogGalleryKind.coloring:
-        final ok = await EventContentGate.ensureUnlocked(
+        final ok = await StarContentGate.ensureUnlocked(
           context,
           id: page.id,
           kind: FavoriteKind.coloring,
@@ -81,7 +92,7 @@ class EventPackGalleryScreen extends StatelessWidget {
           ),
         );
       case CatalogGalleryKind.puzzle:
-        final ok = await EventContentGate.ensureUnlocked(
+        final ok = await StarContentGate.ensureUnlocked(
           context,
           id: page.id,
           kind: FavoriteKind.puzzle,
@@ -171,6 +182,8 @@ class EventPackGalleryScreen extends StatelessWidget {
                                           : FavoriteKind.puzzle,
                                       requiresAdUnlock:
                                           _requiresAdUnlock(page.id),
+                                      starLockCost:
+                                          _starLockCost(context, page.id),
                                       onTap: () => _open(context, page),
                                     );
                                   },
@@ -212,6 +225,10 @@ class EventPackGalleryScreen extends StatelessWidget {
                                                 : FavoriteKind.puzzle,
                                             requiresAdUnlock:
                                                 _requiresAdUnlock(page.id),
+                                            starLockCost: _starLockCost(
+                                              context,
+                                              page.id,
+                                            ),
                                             onTap: () =>
                                                 _open(context, page),
                                           ),
@@ -252,6 +269,7 @@ class GalleryPageTile extends StatelessWidget {
     this.favoriteKind = FavoriteKind.coloring,
     this.showFavoriteButton = true,
     this.requiresAdUnlock = false,
+    this.starLockCost,
   });
 
   final ColoringPage page;
@@ -263,42 +281,68 @@ class GalleryPageTile extends StatelessWidget {
   final bool showFavoriteButton;
   /// Motiv aus dem letzten Event — Badge bis zur Ad-Freischaltung.
   final bool requiresAdUnlock;
+  /// Stern-Preis wenn noch nicht freigeschaltet.
+  final int? starLockCost;
   final VoidCallback onTap;
 
   Future<void> _openPreview(BuildContext context) async {
-    final play = await PuzzlePreviewOverlay.show(context, page);
-    if (play && context.mounted) onTap();
+    final choice = await PuzzlePreviewOverlay.show(context, page);
+    if (choice != null && context.mounted) onTap();
+  }
+
+  /// Stern sitzt an der echten Bild-Ecke (Aspect-Box), nicht der Letterbox-Kachel.
+  Widget _pictureStack({required BoxFit fit}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        final badgeSize = (side * 0.38).clamp(42.0, 60.0);
+        return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: ColoredBox(
+                color: Colors.white.withValues(alpha: 0.95),
+                child: ColoringPageImage(
+                  page: page,
+                  fit: fit,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            if (starLockCost != null)
+              Positioned(
+                // Leicht über den Innenrand in den Holzrahmen.
+                left: -6,
+                bottom: -6,
+                child: _StarLockBadge(
+                  cost: starLockCost!,
+                  size: badgeSize,
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final aspect = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
     final framed = GalleryFrame(
       style: isHalloween
           ? GalleryFrameStyle.halloween
           : GalleryFrameStyle.fantasy,
       showHalloweenBadge: false,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: compact
-            ? SizedBox.expand(
-                child: ColoredBox(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  child: ColoringPageImage(
-                    page: page,
-                    fit: BoxFit.cover,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              )
-            : ColoredBox(
-                color: Colors.white.withValues(alpha: 0.95),
-                child: ColoringPageImage(
-                  page: page,
-                  fit: BoxFit.contain,
-                  borderRadius: BorderRadius.circular(14),
-                ),
+      child: compact
+          ? _pictureStack(fit: BoxFit.cover)
+          : Center(
+              child: AspectRatio(
+                aspectRatio: aspect,
+                child: _pictureStack(fit: BoxFit.cover),
               ),
-      ),
+            ),
     );
 
     final starSize = compact ? 34.0 : 42.0;
@@ -308,6 +352,7 @@ class GalleryPageTile extends StatelessWidget {
 
     return Stack(
       fit: StackFit.expand,
+      clipBehavior: Clip.none,
       children: [
         Positioned.fill(
           child: GestureDetector(onTap: onTap, child: framed),
@@ -318,7 +363,7 @@ class GalleryPageTile extends StatelessWidget {
             top: inset,
             child: const NewBadge(),
           ),
-        if (requiresAdUnlock)
+        if (starLockCost == null && requiresAdUnlock)
           Positioned(
             left: inset,
             bottom: inset,
@@ -327,7 +372,7 @@ class GalleryPageTile extends StatelessWidget {
               compact: compact,
             ),
           )
-        else if (!showPreviewButton)
+        else if (starLockCost == null && !showPreviewButton)
           Selector<ColoringProgressStore, bool>(
             selector: (_, store) => store.hasProgress(page.id),
             builder: (context, hasProgress, _) {
@@ -393,3 +438,68 @@ class GalleryPageTile extends StatelessWidget {
     );
   }
 }
+
+/// Stern-Preis als Siegel an der Bild-Ecke, Zahl mittig auf dem Stern.
+class _StarLockBadge extends StatelessWidget {
+  const _StarLockBadge({required this.cost, required this.size});
+
+  final int cost;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fontSize = cost >= 100 ? size * 0.26 : size * 0.30;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size * 0.72,
+            height: size * 0.72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+          ),
+          Image.asset(
+            'assets/images/sternicon.png',
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+          Text(
+            '$cost',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: const Color(0xFF2A1A08),
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              height: 1,
+              shadows: const [
+                Shadow(
+                  color: Color(0xEEFFF4C8),
+                  blurRadius: 4,
+                ),
+                Shadow(
+                  color: Color(0xAAFFF4C8),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
