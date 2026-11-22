@@ -9,8 +9,11 @@ import '../models/pixel_puzzle.dart';
 import '../models/puzzle_settings.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_sticker_placements_store.dart';
+import '../providers/favorites_store.dart';
 import '../providers/pixel_progress_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
+import '../screens/advent_calendar_screen.dart';
 import '../screens/coloring_preview_screen.dart';
 import '../screens/pixel_paint_screen.dart';
 import '../screens/puzzle_screen.dart';
@@ -18,6 +21,7 @@ import '../services/daily_quest_service.dart';
 import '../utils/app_page_route.dart';
 import 'coloring_page_image.dart';
 import 'daily_quest_pill.dart';
+import 'earn_stars_sheet.dart';
 import 'puzzle_preview_overlay.dart';
 import 'star_balance_pill.dart';
 
@@ -58,6 +62,30 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
   }
 
   Future<void> _openTask(DailyQuestTask task, ColoringPage? page) async {
+    if (task.isUnlockChoice) {
+      await _completeUnlockChoice(task);
+      return;
+    }
+    if (task.isWatchAd) {
+      final nav = Navigator.of(context, rootNavigator: true);
+      Navigator.of(context).pop();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final ctx = nav.context;
+      if (!ctx.mounted) return;
+      await EarnStarsSheet.show(ctx);
+      return;
+    }
+    if (task.isAdventDoor) {
+      final nav = Navigator.of(context, rootNavigator: true);
+      Navigator.of(context).pop();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final ctx = nav.context;
+      if (!ctx.mounted) return;
+      await nav.push(
+        AppPageRoute<void>(builder: (_) => const AdventCalendarScreen()),
+      );
+      return;
+    }
     if (page == null) return;
     // Root-Navigator behalten — nach Dialog-pop ist dieser State disposed.
     final nav = Navigator.of(context, rootNavigator: true);
@@ -66,26 +94,24 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
     final ctx = nav.context;
     if (!ctx.mounted) return;
 
-    if (task.isColoring || task.isPlaceSticker || task.isRecolor) {
-      if (task.isRecolor) {
-        // Fertiges Bild zurücksetzen und neu ausmalen.
-        final progress = ctx.read<ColoringProgressStore>();
-        final stickers = ctx.read<StickerCollectionStore>();
-        final placements = ctx.read<ColoringStickerPlacementsStore>();
-        await progress.clearProgress(page.id);
-        await stickers.clearColoringRewarded(page.id);
-        await placements.setPlacements(page.id, const []);
-        if (!ctx.mounted) return;
-      }
+    if (task.isColoring ||
+        task.isPlaceSticker ||
+        task.isRecolor ||
+        task.isColoringThreeStar ||
+        task.isEventFinish) {
       await nav.push(
         AppPageRoute<void>(
-          builder: (_) => ColoringPreviewScreen(page: page),
+          builder: (_) => ColoringPreviewScreen(
+            page: page,
+            // Recolor: Farben-Zurückzieh-Animation, dann blanke Vorlage.
+            recycleReset: task.isRecolor,
+          ),
         ),
       );
       return;
     }
 
-    if (task.isPixel) {
+    if (task.isPixel || task.isPixelThreeStar) {
       final progress = ctx.read<ColoringProgressStore>();
       final pixelStore = ctx.read<PixelProgressStore>();
       final colored = await progress.loadProgressBytes(page.id);
@@ -109,16 +135,53 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
       return;
     }
 
-    final challenge =
-        task.puzzleRequirement == DailyQuestPuzzleRequirement.mediumOrHard;
+    final req = task.puzzleRequirement;
+    // Daily nennt genau eine Stufe: Easy / Medium / Schwer.
+    final lockedTiers = switch (req) {
+      DailyQuestPuzzleRequirement.any => {
+          PuzzleTier.medium,
+          PuzzleTier.expert,
+        },
+      DailyQuestPuzzleRequirement.mediumOrHard => {
+          PuzzleTier.easy,
+          PuzzleTier.expert,
+        },
+      DailyQuestPuzzleRequirement.hardOnly => {
+          PuzzleTier.easy,
+          PuzzleTier.medium,
+        },
+    };
+    final lockedDifficulties = switch (req) {
+      DailyQuestPuzzleRequirement.any => {
+          PuzzleDifficulty.medium30,
+          PuzzleDifficulty.medium42,
+          PuzzleDifficulty.medium64,
+          PuzzleDifficulty.expert80,
+          PuzzleDifficulty.expert100,
+          PuzzleDifficulty.expert120,
+        },
+      DailyQuestPuzzleRequirement.mediumOrHard => {
+          PuzzleDifficulty.expert80,
+          PuzzleDifficulty.expert100,
+          PuzzleDifficulty.expert120,
+        },
+      DailyQuestPuzzleRequirement.hardOnly => {
+          PuzzleDifficulty.medium30,
+          PuzzleDifficulty.medium42,
+          PuzzleDifficulty.medium64,
+        },
+    };
+    final initial = switch (req) {
+      DailyQuestPuzzleRequirement.any => PuzzleDifficulty.easy12,
+      DailyQuestPuzzleRequirement.mediumOrHard => PuzzleDifficulty.medium42,
+      DailyQuestPuzzleRequirement.hardOnly => PuzzleDifficulty.expert80,
+    };
     final choice = await PuzzlePreviewOverlay.show(
       ctx,
       page,
-      lockedTiers: challenge ? {PuzzleTier.easy} : const {},
-      lockedDifficulties:
-          challenge ? {PuzzleDifficulty.medium30} : const {},
-      initialDifficulty:
-          challenge ? PuzzleDifficulty.medium42 : null,
+      lockedTiers: lockedTiers,
+      lockedDifficulties: lockedDifficulties,
+      initialDifficulty: initial,
     );
     if (choice == null || !ctx.mounted) return;
 
@@ -126,6 +189,71 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
       AppPageRoute<void>(
         builder: (_) => PuzzleScreen(
           puzzle: page,
+          initialDifficulty: choice.difficulty,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _completeUnlockChoice(DailyQuestTask task) async {
+    final t = AppStrings.of(context);
+    final wallet = context.read<StarWalletStore>();
+    final quest = context.read<DailyQuestService>();
+    final coloring = await loadColoringPages(shuffle: false);
+    final puzzles = await loadPuzzleImages(shuffle: false);
+    if (!mounted) return;
+
+    final locked = <({ColoringPage page, FavoriteKind kind})>[
+      for (final page in coloring)
+        if (wallet.requiresStars(page.id, FavoriteKind.coloring))
+          (page: page, kind: FavoriteKind.coloring),
+      for (final page in puzzles)
+        if (wallet.requiresStars(page.id, FavoriteKind.puzzle))
+          (page: page, kind: FavoriteKind.puzzle),
+    ];
+
+    if (locked.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.dailyUnlockEmpty)),
+      );
+      await quest.markUnlockChoiceDone();
+      await quest.claimProgressRewards(wallet);
+      return;
+    }
+
+    final picked = await showDialog<({ColoringPage page, FavoriteKind kind})>(
+      context: context,
+      builder: (ctx) => _DailyUnlockPickerDialog(items: locked),
+    );
+    if (picked == null || !mounted) return;
+
+    await wallet.grantUnlock(picked.page.id, picked.kind);
+    await quest.markUnlockChoiceDone();
+    await quest.claimProgressRewards(wallet);
+    if (!mounted) return;
+
+    // Daily zu, dann freigeschaltetes Motiv direkt öffnen.
+    final nav = Navigator.of(context, rootNavigator: true);
+    Navigator.of(context).pop(); // Daily-Dialog
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    final ctx = nav.context;
+    if (!ctx.mounted) return;
+
+    if (picked.kind == FavoriteKind.coloring) {
+      await nav.push(
+        AppPageRoute<void>(
+          builder: (_) => ColoringPreviewScreen(page: picked.page),
+        ),
+      );
+      return;
+    }
+
+    final choice = await PuzzlePreviewOverlay.show(ctx, picked.page);
+    if (choice == null || !ctx.mounted) return;
+    await nav.push(
+      AppPageRoute<void>(
+        builder: (_) => PuzzleScreen(
+          puzzle: picked.page,
           initialDifficulty: choice.difficulty,
         ),
       ),
@@ -243,11 +371,21 @@ class _TaskCard extends StatelessWidget {
 
   String _brief(AppStrings t) {
     if (task.isPlaceSticker) return t.dailyTaskPlaceSticker;
+    if (task.isPixelThreeStar) return t.dailyTaskPixelThreeStar;
     if (task.isPixel) return t.dailyTaskPixel;
     if (task.isRecolor) return t.dailyTaskRecolor;
+    if (task.isUnlockChoice) return t.dailyTaskUnlockChoice;
+    if (task.isWatchAd) return t.dailyTaskWatchAd;
+    if (task.isColoringThreeStar) return t.dailyTaskColorThreeStar;
+    if (task.isEventFinish) return t.dailyTaskEventFinish;
+    if (task.isAdventDoor) return t.dailyTaskAdventDoor;
     if (task.isColoring) return t.dailyTaskColor;
-    if (task.puzzleRequirement == DailyQuestPuzzleRequirement.mediumOrHard) {
-      return t.dailyTaskPuzzleHard;
+    if (task.isPuzzle) {
+      return switch (task.puzzleRequirement) {
+        DailyQuestPuzzleRequirement.hardOnly => t.dailyTaskPuzzleExpert,
+        DailyQuestPuzzleRequirement.mediumOrHard => t.dailyTaskPuzzleHard,
+        DailyQuestPuzzleRequirement.any => t.dailyTaskPuzzleAny,
+      };
     }
     return t.dailyTaskPuzzleAny;
   }
@@ -292,19 +430,42 @@ class _TaskCard extends StatelessWidget {
                                 ),
                               ),
                             )
-                          : page == null
+                          : task.isUnlockChoice
                               ? Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: Colors.black.withValues(alpha: 0.35),
+                                  Icons.lock_open_rounded,
+                                  color: StarBalancePill.ink
+                                      .withValues(alpha: 0.75),
+                                  size: 30,
                                 )
-                              : Opacity(
-                                  opacity: done ? 0.55 : 1,
-                                  child: ColoringPageImage(
-                                    page: page!,
-                                    fit: BoxFit.cover,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
+                              : task.isWatchAd
+                                  ? Image.asset(
+                                      EarnStarsSheet.videoStarAsset,
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.contain,
+                                    )
+                                  : task.isAdventDoor
+                                      ? Icon(
+                                          Icons.card_giftcard_rounded,
+                                          color: StarBalancePill.ink
+                                              .withValues(alpha: 0.75),
+                                          size: 30,
+                                        )
+                                      : page == null
+                                          ? Icon(
+                                              Icons.image_not_supported_outlined,
+                                              color: Colors.black
+                                                  .withValues(alpha: 0.35),
+                                            )
+                                          : Opacity(
+                                              opacity: done ? 0.55 : 1,
+                                              child: ColoringPageImage(
+                                                page: page!,
+                                                fit: BoxFit.cover,
+                                                borderRadius:
+                                                    BorderRadius.circular(10),
+                                              ),
+                                            ),
                     ),
                   ),
                 ),
@@ -333,6 +494,102 @@ class _TaskCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DailyUnlockPickerDialog extends StatelessWidget {
+  const _DailyUnlockPickerDialog({required this.items});
+
+  final List<({ColoringPage page, FavoriteKind kind})> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    final maxH = MediaQuery.sizeOf(context).height * 0.55;
+    return AlertDialog(
+      backgroundColor: StarBalancePill.fill,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: StarBalancePill.border.withValues(alpha: 0.95),
+        ),
+      ),
+      title: Text(
+        t.dailyUnlockPickTitle,
+        style: const TextStyle(
+          color: StarBalancePill.ink,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: maxH,
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.85,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final isPuzzle = item.kind == FavoriteKind.puzzle;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => Navigator.pop(context, item),
+                borderRadius: BorderRadius.circular(12),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: StarBalancePill.border.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: ColoringPageImage(
+                              page: item.page,
+                              fit: BoxFit.cover,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          isPuzzle ? t.puzzle : t.color,
+                          style: TextStyle(
+                            color: StarBalancePill.ink.withValues(alpha: 0.8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            t.cancel,
+            style: const TextStyle(color: StarBalancePill.ink),
+          ),
+        ),
+      ],
     );
   }
 }

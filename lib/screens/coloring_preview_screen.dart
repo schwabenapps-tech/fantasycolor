@@ -23,6 +23,7 @@ import '../services/coloring_sticker_export.dart';
 import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
 import '../services/streak_service.dart';
+import '../utils/app_orientations.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/coloring_sticker_layer.dart';
@@ -33,9 +34,16 @@ import 'puzzle_screen.dart';
 
 /// Interaktiver Mal-Screen mit PNG-Flood-Fill, Zoom, Undo und Done.
 class ColoringPreviewScreen extends StatefulWidget {
-  const ColoringPreviewScreen({super.key, required this.page});
+  const ColoringPreviewScreen({
+    super.key,
+    required this.page,
+    this.recycleReset = false,
+  });
 
   final ColoringPage page;
+
+  /// Fertiges Bild: Farben ziehen sich zurück, dann saubere Vorlage.
+  final bool recycleReset;
 
   static const _paperBackground = 'assets/images/ausmalhintergund.png';
 
@@ -43,7 +51,8 @@ class ColoringPreviewScreen extends StatefulWidget {
   State<ColoringPreviewScreen> createState() => _ColoringPreviewScreenState();
 }
 
-class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
+class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
+    with SingleTickerProviderStateMixin {
   late final ColoringSession _session;
   Future<ColoringBitmap>? _bitmapFuture;
   bool _celebrating = false;
@@ -59,12 +68,20 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
   int _finishRating = 0;
 
   bool _recentRecorded = false;
+  bool _recycleStarted = false;
+  Uint8List? _recycleOverlayPng;
+  late final AnimationController _recycleCtrl;
 
   @override
   void initState() {
     super.initState();
+    unawaited(AppOrientations.enterPlay());
     _session = ColoringSession();
     _session.addListener(_scheduleAutoSave);
+    _recycleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
   }
 
   @override
@@ -98,14 +115,72 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
         await progress.clearProgress(widget.page.id);
       }
     }
+    if (widget.recycleReset && !_recycleStarted) {
+      _recycleStarted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_runRecycleResetIfNeeded(bitmap));
+      });
+    }
     return bitmap;
+  }
+
+  Future<void> _runRecycleResetIfNeeded(ColoringBitmap bitmap) async {
+    if (!widget.recycleReset) return;
+    // Canvas hängt Bitmap erst in build — kurz warten.
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+    _session.attachBitmap(bitmap, notify: false);
+    if (!_session.hasPaintedContent) {
+      // Nichts zu recyceln — trotzdem Rewards/Placements säubern.
+      await _clearRecyclePersistence();
+      return;
+    }
+    final colored = await _session.renderColoredPng();
+    if (!mounted || colored == null) {
+      await _clearRecyclePersistence();
+      _session.resetAll();
+      return;
+    }
+    // Stickers sofort weg; Farben als Overlay zurückziehen.
+    if (mounted) {
+      await context
+          .read<ColoringStickerPlacementsStore>()
+          .setPlacements(widget.page.id, const []);
+    }
+    // Overlay zuerst voll sichtbar; Canvas darunter ausblenden.
+    // Reset erst nach 2 Frames → kein Weiß-Blitz.
+    setState(() => _recycleOverlayPng = colored);
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    _session.resetAll();
+    HapticFeedback.lightImpact();
+    await _recycleCtrl.forward(from: 0);
+    if (!mounted) return;
+    await _clearRecyclePersistence();
+    if (!mounted) return;
+    setState(() => _recycleOverlayPng = null);
+    HapticFeedback.selectionClick();
+  }
+
+  Future<void> _clearRecyclePersistence() async {
+    if (!mounted) return;
+    final progress = context.read<ColoringProgressStore>();
+    final stickers = context.read<StickerCollectionStore>();
+    final placements = context.read<ColoringStickerPlacementsStore>();
+    await progress.clearProgress(widget.page.id);
+    await stickers.clearColoringRewarded(widget.page.id);
+    await placements.setPlacements(widget.page.id, const []);
+    await stickers.clearTempUnlocksForPage(widget.page.id);
   }
 
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _recycleCtrl.dispose();
     _session.removeListener(_scheduleAutoSave);
     _session.dispose();
+    unawaited(AppOrientations.leavePlay());
     super.dispose();
   }
 
@@ -210,8 +285,13 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     } else {
       await wallet.awardColoringRating(widget.page.id, rating);
     }
-    await quest.markColoringDone(widget.page.id);
+    await quest.markColoringDone(widget.page.id, rating: rating);
     await quest.claimProgressRewards(wallet);
+
+    if (!mounted) return;
+    final stickers = context.read<StickerCollectionStore>();
+    // Temp-Sticker-Freischaltungen enden mit Done (Besitz unverändert).
+    await stickers.clearTempUnlocksForPage(widget.page.id);
 
     // Daily-fertig ODER 3★ / ~100 % → Pixelart-Galerie (wiederverwendbar).
     if (isDaily ||
@@ -223,7 +303,6 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
     }
     if (_session.isFullyComplete) {
       if (!mounted) return;
-      final stickers = context.read<StickerCollectionStore>();
       if (stickers.canRewardColoring(widget.page.id)) {
         await stickers.unlockForColoring(widget.page.id);
         await stickers.markColoringRewarded(widget.page.id);
@@ -369,22 +448,54 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen> {
                               ),
                             );
                           }
+                          final recycling = _recycleOverlayPng != null;
                           return AnimatedBuilder(
                             animation: _session,
                             builder: (context, _) {
-                              return ColoringStickerLayer(
-                                pageId: widget.page.id,
-                                editable: !_celebrating,
-                                eraseMode: _session.tool == PaintTool.eraser,
-                                child: ColoringCanvas(
-                                  bitmap: snapshot.data!,
-                                  session: _session,
+                              return Opacity(
+                                // Während Recycle unsichtbar → kein Blank-Blitz.
+                                opacity: recycling ? 0 : 1,
+                                child: ColoringStickerLayer(
+                                  pageId: widget.page.id,
+                                  editable: !_celebrating && !recycling,
+                                  eraseMode:
+                                      _session.tool == PaintTool.eraser,
+                                  child: ColoringCanvas(
+                                    bitmap: snapshot.data!,
+                                    session: _session,
+                                  ),
                                 ),
                               );
                             },
                           );
                         },
                       ),
+                      if (_recycleOverlayPng != null)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ColoredBox(
+                              // Gleiche Papierfarbe wie Hintergrund — keine weißen Kanten.
+                              color: const Color(0x00000000),
+                              child: AnimatedBuilder(
+                                animation: _recycleCtrl,
+                                builder: (context, _) {
+                                  final tAnim = Curves.easeInCubic
+                                      .transform(_recycleCtrl.value);
+                                  return Opacity(
+                                    opacity: (1.0 - tAnim).clamp(0.0, 1.0),
+                                    child: Image.memory(
+                                      _recycleOverlayPng!,
+                                      fit: BoxFit.contain,
+                                      alignment: Alignment.center,
+                                      filterQuality: FilterQuality.high,
+                                      gaplessPlayback: true,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
                       Positioned(
                         top: 0,
                         left: 0,

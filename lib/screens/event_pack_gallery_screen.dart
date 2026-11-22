@@ -182,6 +182,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                           : FavoriteKind.puzzle,
                                       requiresAdUnlock:
                                           _requiresAdUnlock(page.id),
+                                      largeAdBadge: _print,
                                       starLockCost:
                                           _starLockCost(context, page.id),
                                       onTap: () => _open(context, page),
@@ -225,6 +226,7 @@ class EventPackGalleryScreen extends StatelessWidget {
                                                 : FavoriteKind.puzzle,
                                             requiresAdUnlock:
                                                 _requiresAdUnlock(page.id),
+                                            largeAdBadge: _print,
                                             starLockCost: _starLockCost(
                                               context,
                                               page.id,
@@ -269,7 +271,9 @@ class GalleryPageTile extends StatelessWidget {
     this.favoriteKind = FavoriteKind.coloring,
     this.showFavoriteButton = true,
     this.requiresAdUnlock = false,
+    this.largeAdBadge = false,
     this.starLockCost,
+    this.softShadow = false,
   });
 
   final ColoringPage page;
@@ -281,8 +285,11 @@ class GalleryPageTile extends StatelessWidget {
   final bool showFavoriteButton;
   /// Motiv aus dem letzten Event — Badge bis zur Ad-Freischaltung.
   final bool requiresAdUnlock;
+  /// Druckvorlagen: großes Video-Ad-Logo.
+  final bool largeAdBadge;
   /// Stern-Preis wenn noch nicht freigeschaltet.
   final int? starLockCost;
+  final bool softShadow;
   final VoidCallback onTap;
 
   Future<void> _openPreview(BuildContext context) async {
@@ -335,6 +342,7 @@ class GalleryPageTile extends StatelessWidget {
           ? GalleryFrameStyle.halloween
           : GalleryFrameStyle.fantasy,
       showHalloweenBadge: false,
+      softShadow: softShadow,
       child: compact
           ? _pictureStack(fit: BoxFit.cover)
           : Center(
@@ -370,6 +378,7 @@ class GalleryPageTile extends StatelessWidget {
             child: AdUnlockBadge(
               label: t.unlockWithAd,
               compact: compact,
+              large: largeAdBadge,
             ),
           )
         else if (starLockCost == null && !showPreviewButton)

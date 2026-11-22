@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../l10n/app_strings.dart';
 import '../providers/star_wallet_store.dart';
 import '../services/ads_service.dart';
+import '../services/daily_quest_service.dart';
+import 'star_earn_overlay.dart';
 
 /// Großes Video-Stern-Overlay über dem Menü (statt Bottom-Sheet).
 class EarnStarsSheet {
@@ -48,20 +50,28 @@ class _EarnStarsOverlayState extends State<_EarnStarsOverlay> {
   Future<void> _watchAd() async {
     if (_busy) return;
     setState(() => _busy = true);
+    final wallet = context.read<StarWalletStore>();
+    final navigator = Navigator.of(context);
     final rewarded = await AdsService.showRewardedForStars();
     if (!mounted) return;
     if (rewarded) {
-      final gain = await context.read<StarWalletStore>().awardRewardedAd();
-      if (mounted && gain > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('+$gain')),
+      final gain = await wallet.awardRewardedAd();
+      if (!mounted) return;
+      final quest = context.read<DailyQuestService>();
+      await quest.markWatchAdDone();
+      await quest.claimProgressRewards(wallet);
+      if (!mounted) return;
+      await navigator.maybePop();
+      if (gain > 0 && context.mounted) {
+        await StarEarnOverlay.show(
+          context,
+          amount: gain,
+          newTotal: wallet.balance,
         );
       }
+      return;
     }
-    if (mounted) {
-      setState(() => _busy = false);
-      Navigator.of(context).maybePop();
-    }
+    if (mounted) setState(() => _busy = false);
   }
 
   @override

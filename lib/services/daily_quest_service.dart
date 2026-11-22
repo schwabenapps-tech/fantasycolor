@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/coloring_pages_loader.dart';
+import '../data/event_tags.dart';
 import '../data/puzzle_images_loader.dart';
 import '../data/star_economy.dart';
 import '../models/puzzle_settings.dart';
@@ -12,16 +13,32 @@ import '../providers/favorites_store.dart';
 import '../providers/pixel_ready_store.dart';
 import '../providers/star_wallet_store.dart';
 import '../widgets/daily_quest_overlay.dart';
+import 'advent_service.dart';
 
-enum DailyQuestTaskKind { coloring, puzzle, placeSticker, pixel, recolor }
+enum DailyQuestTaskKind {
+  coloring,
+  puzzle,
+  placeSticker,
+  pixel,
+  recolor,
+  unlockChoice,
+  watchAd,
+  coloringThreeStar,
+  pixelThreeStar,
+  eventFinish,
+  adventDoor,
+}
 
 /// Puzzle-Anforderung für die Aufgabe.
 enum DailyQuestPuzzleRequirement {
-  /// Beliebige Teilezahl / Schwierigkeit.
+  /// Easy erlaubt (beliebige Schwierigkeit).
   any,
 
   /// Mindestens Medium oder Schwer (Pro).
   mediumOrHard,
+
+  /// Nur Schwer / Expert.
+  hardOnly,
 }
 
 class DailyQuestTask {
@@ -32,17 +49,25 @@ class DailyQuestTask {
     this.puzzleRequirement = DailyQuestPuzzleRequirement.any,
   });
 
-  /// Stabiler Slot (color / puzzle / sticker / pixel / recolor).
+  /// Stabiler Slot (color / puzzle / sticker / pixel / recolor / unlock).
   final String slotId;
   final DailyQuestTaskKind kind;
   final String pageId;
   final DailyQuestPuzzleRequirement puzzleRequirement;
+
+  static const anyPageId = '_any_';
 
   bool get isColoring => kind == DailyQuestTaskKind.coloring;
   bool get isPuzzle => kind == DailyQuestTaskKind.puzzle;
   bool get isPlaceSticker => kind == DailyQuestTaskKind.placeSticker;
   bool get isPixel => kind == DailyQuestTaskKind.pixel;
   bool get isRecolor => kind == DailyQuestTaskKind.recolor;
+  bool get isUnlockChoice => kind == DailyQuestTaskKind.unlockChoice;
+  bool get isWatchAd => kind == DailyQuestTaskKind.watchAd;
+  bool get isColoringThreeStar => kind == DailyQuestTaskKind.coloringThreeStar;
+  bool get isPixelThreeStar => kind == DailyQuestTaskKind.pixelThreeStar;
+  bool get isEventFinish => kind == DailyQuestTaskKind.eventFinish;
+  bool get isAdventDoor => kind == DailyQuestTaskKind.adventDoor;
 }
 
 /// Tagesquest: immer bis zu 3 abwechslungsreiche Aufgaben.
@@ -50,8 +75,8 @@ class DailyQuestService extends ChangeNotifier {
   DailyQuestService();
 
   static const _dayKey = 'daily_quest_day_v1';
-  static const _tasksKey = 'daily_quest_tasks_v2';
-  static const _doneKey = 'daily_quest_done_v2';
+  static const _tasksKey = 'daily_quest_tasks_v4';
+  static const _doneKey = 'daily_quest_done_v4';
   static const _completedDayKey = 'daily_quest_completed_day_v1';
   static const _starsAwardedKey = 'daily_quest_stars_awarded_day_v1';
   static const _stickerTierKey = 'daily_quest_sticker_tier_day_v1';
@@ -118,6 +143,9 @@ class DailyQuestService extends ChangeNotifier {
     List<String> freePuzzleIds = const [],
     List<String> pixelReadyIds = const [],
     List<String> finishedColoringIds = const [],
+    List<String> eventColoringIds = const [],
+    bool hasStarLockedContent = false,
+    bool adventDoorAvailable = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     _completedDay = prefs.getString(_completedDayKey);
@@ -139,6 +167,9 @@ class DailyQuestService extends ChangeNotifier {
         freePuzzleIds: freePuzzleIds,
         pixelReadyIds: pixelReadyIds,
         finishedColoringIds: finishedColoringIds,
+        eventColoringIds: eventColoringIds,
+        hasStarLockedContent: hasStarLockedContent,
+        adventDoorAvailable: adventDoorAvailable,
         seed: today,
       );
       _done.clear();
@@ -162,6 +193,9 @@ class DailyQuestService extends ChangeNotifier {
           freePuzzleIds: freePuzzleIds,
           pixelReadyIds: pixelReadyIds,
           finishedColoringIds: finishedColoringIds,
+          eventColoringIds: eventColoringIds,
+          hasStarLockedContent: hasStarLockedContent,
+          adventDoorAvailable: adventDoorAvailable,
           seed: today,
         );
         _done.clear();
@@ -182,12 +216,20 @@ class DailyQuestService extends ChangeNotifier {
               DailyQuestTaskKind.placeSticker => 's',
               DailyQuestTaskKind.pixel => 'x',
               DailyQuestTaskKind.recolor => 'r',
+              DailyQuestTaskKind.unlockChoice => 'u',
+              DailyQuestTaskKind.watchAd => 'a',
+              DailyQuestTaskKind.coloringThreeStar => 'c3',
+              DailyQuestTaskKind.pixelThreeStar => 'x3',
+              DailyQuestTaskKind.eventFinish => 'e',
+              DailyQuestTaskKind.adventDoor => 'd',
               DailyQuestTaskKind.coloring => 'c',
             },
             t.pageId,
-            t.puzzleRequirement == DailyQuestPuzzleRequirement.mediumOrHard
-                ? 'mh'
-                : 'any',
+            switch (t.puzzleRequirement) {
+              DailyQuestPuzzleRequirement.hardOnly => 'h',
+              DailyQuestPuzzleRequirement.mediumOrHard => 'mh',
+              DailyQuestPuzzleRequirement.any => 'any',
+            },
           ].join('|'),
       ];
 
@@ -201,11 +243,19 @@ class DailyQuestService extends ChangeNotifier {
         's' => DailyQuestTaskKind.placeSticker,
         'x' => DailyQuestTaskKind.pixel,
         'r' => DailyQuestTaskKind.recolor,
+        'u' => DailyQuestTaskKind.unlockChoice,
+        'a' => DailyQuestTaskKind.watchAd,
+        'c3' => DailyQuestTaskKind.coloringThreeStar,
+        'x3' => DailyQuestTaskKind.pixelThreeStar,
+        'e' => DailyQuestTaskKind.eventFinish,
+        'd' => DailyQuestTaskKind.adventDoor,
         _ => DailyQuestTaskKind.coloring,
       };
-      final req = parts[3] == 'mh'
-          ? DailyQuestPuzzleRequirement.mediumOrHard
-          : DailyQuestPuzzleRequirement.any;
+      final req = switch (parts[3]) {
+        'h' => DailyQuestPuzzleRequirement.hardOnly,
+        'mh' => DailyQuestPuzzleRequirement.mediumOrHard,
+        _ => DailyQuestPuzzleRequirement.any,
+      };
       out.add(
         DailyQuestTask(
           slotId: parts[0],
@@ -218,19 +268,21 @@ class DailyQuestService extends ChangeNotifier {
     return out;
   }
 
-  /// Bis zu 3 zufällige Aufgaben aus dem verfügbaren Pool (nicht immer Puzzle).
-  /// Fertige Colorings/Pixel bleiben im Pool und können erneut gezogen werden.
+  /// 1–3 abwechslungsreiche Aufgaben; Typen max. 1× (kein Doppel-Puzzle).
+  /// Fertige Colorings/Pixel/Unlocks bleiben wiederverwendbar.
   List<DailyQuestTask> _generate({
     required List<String> freeColoringIds,
     required List<String> freePuzzleIds,
     required String seed,
     List<String> pixelReadyIds = const [],
     List<String> finishedColoringIds = const [],
+    List<String> eventColoringIds = const [],
+    bool hasStarLockedContent = false,
+    bool adventDoorAvailable = false,
   }) {
     final rng = Random(seed.hashCode);
     final coloring = [...freeColoringIds]..shuffle(rng);
     final puzzles = [...freePuzzleIds]..shuffle(rng);
-    // Pixel-Dailys: fertige Bilder beliebig oft wiederverwenden.
     final pixelReady = [...pixelReadyIds]..shuffle(rng);
     final finished = [
       ...{
@@ -238,112 +290,155 @@ class DailyQuestService extends ChangeNotifier {
         ...pixelReadyIds,
       },
     ]..shuffle(rng);
+    final events = [...eventColoringIds]..shuffle(rng);
 
-    final candidates = <DailyQuestTask>[];
+    // Pro Tag 1, 2 oder 3 Aufgaben — gleichmäßig, kann hintereinander gleich sein.
+    final targetCount = 1 + rng.nextInt(3);
+
     var colorIdx = 0;
     var puzzleIdx = 0;
     var pixelIdx = 0;
     var recolorIdx = 0;
+    var eventIdx = 0;
+    final out = <DailyQuestTask>[];
 
-    void takeColor(String slot) {
-      if (colorIdx >= coloring.length) return;
-      candidates.add(
-        DailyQuestTask(
-          slotId: slot,
-          kind: DailyQuestTaskKind.coloring,
-          pageId: coloring[colorIdx++],
-        ),
-      );
+    DailyQuestTask? buildKind(DailyQuestTaskKind kind) {
+      switch (kind) {
+        case DailyQuestTaskKind.coloring:
+          if (colorIdx >= coloring.length) return null;
+          return DailyQuestTask(
+            slotId: 'color_${out.length}',
+            kind: DailyQuestTaskKind.coloring,
+            pageId: coloring[colorIdx++],
+          );
+        case DailyQuestTaskKind.puzzle:
+          if (puzzleIdx >= puzzles.length) return null;
+          // Abwechselnd Easy / Medium / Schwer.
+          final req = switch (rng.nextInt(3)) {
+            0 => DailyQuestPuzzleRequirement.any,
+            1 => DailyQuestPuzzleRequirement.mediumOrHard,
+            _ => DailyQuestPuzzleRequirement.hardOnly,
+          };
+          final slot = switch (req) {
+            DailyQuestPuzzleRequirement.any => 'puzzle_any_${out.length}',
+            DailyQuestPuzzleRequirement.mediumOrHard =>
+              'puzzle_mh_${out.length}',
+            DailyQuestPuzzleRequirement.hardOnly => 'puzzle_h_${out.length}',
+          };
+          return DailyQuestTask(
+            slotId: slot,
+            kind: DailyQuestTaskKind.puzzle,
+            pageId: puzzles[puzzleIdx++],
+            puzzleRequirement: req,
+          );
+        case DailyQuestTaskKind.placeSticker:
+          if (coloring.isEmpty) return null;
+          final id = colorIdx < coloring.length
+              ? coloring[colorIdx++]
+              : coloring[rng.nextInt(coloring.length)];
+          return DailyQuestTask(
+            slotId: 'sticker_${out.length}',
+            kind: DailyQuestTaskKind.placeSticker,
+            pageId: id,
+          );
+        case DailyQuestTaskKind.pixel:
+          if (pixelIdx >= pixelReady.length) return null;
+          return DailyQuestTask(
+            slotId: 'pixel_${out.length}',
+            kind: DailyQuestTaskKind.pixel,
+            pageId: pixelReady[pixelIdx++],
+          );
+        case DailyQuestTaskKind.recolor:
+          if (recolorIdx >= finished.length) return null;
+          return DailyQuestTask(
+            slotId: 'recolor_${out.length}',
+            kind: DailyQuestTaskKind.recolor,
+            pageId: finished[recolorIdx++],
+          );
+        case DailyQuestTaskKind.unlockChoice:
+          if (!hasStarLockedContent) return null;
+          return DailyQuestTask(
+            slotId: 'unlock_${out.length}',
+            kind: DailyQuestTaskKind.unlockChoice,
+            pageId: DailyQuestTask.anyPageId,
+          );
+        case DailyQuestTaskKind.watchAd:
+          return DailyQuestTask(
+            slotId: 'ad_${out.length}',
+            kind: DailyQuestTaskKind.watchAd,
+            pageId: DailyQuestTask.anyPageId,
+          );
+        case DailyQuestTaskKind.coloringThreeStar:
+          if (colorIdx >= coloring.length) return null;
+          return DailyQuestTask(
+            slotId: 'color3_${out.length}',
+            kind: DailyQuestTaskKind.coloringThreeStar,
+            pageId: coloring[colorIdx++],
+          );
+        case DailyQuestTaskKind.pixelThreeStar:
+          if (pixelIdx >= pixelReady.length) return null;
+          return DailyQuestTask(
+            slotId: 'pixel3_${out.length}',
+            kind: DailyQuestTaskKind.pixelThreeStar,
+            pageId: pixelReady[pixelIdx++],
+          );
+        case DailyQuestTaskKind.eventFinish:
+          if (eventIdx >= events.length) return null;
+          return DailyQuestTask(
+            slotId: 'event_${out.length}',
+            kind: DailyQuestTaskKind.eventFinish,
+            pageId: events[eventIdx++],
+          );
+        case DailyQuestTaskKind.adventDoor:
+          if (!adventDoorAvailable) return null;
+          return DailyQuestTask(
+            slotId: 'advent_${out.length}',
+            kind: DailyQuestTaskKind.adventDoor,
+            pageId: DailyQuestTask.anyPageId,
+          );
+      }
     }
 
-    void takePuzzle(String slot, DailyQuestPuzzleRequirement req) {
-      if (puzzleIdx >= puzzles.length) return;
-      candidates.add(
-        DailyQuestTask(
-          slotId: slot,
-          kind: DailyQuestTaskKind.puzzle,
-          pageId: puzzles[puzzleIdx++],
-          puzzleRequirement: req,
-        ),
-      );
-    }
-
-    void takeSticker(String slot) {
-      if (colorIdx >= coloring.length && coloring.isEmpty) return;
-      final id = colorIdx < coloring.length
-          ? coloring[colorIdx++]
-          : (coloring.isNotEmpty ? coloring.first : null);
-      if (id == null) return;
-      candidates.add(
-        DailyQuestTask(
-          slotId: slot,
-          kind: DailyQuestTaskKind.placeSticker,
-          pageId: id,
-        ),
-      );
-    }
-
-    void takePixel(String slot) {
-      if (pixelIdx >= pixelReady.length) return;
-      candidates.add(
-        DailyQuestTask(
-          slotId: slot,
-          kind: DailyQuestTaskKind.pixel,
-          pageId: pixelReady[pixelIdx++],
-        ),
-      );
-    }
-
-    void takeRecolor(String slot) {
-      if (recolorIdx >= finished.length) return;
-      candidates.add(
-        DailyQuestTask(
-          slotId: slot,
-          kind: DailyQuestTaskKind.recolor,
-          pageId: finished[recolorIdx++],
-        ),
-      );
-    }
-
-    // Pool von möglichen Typen — daraus 3 ziehen.
-    final builders = <void Function()>[
-      () => takeColor('color_${candidates.length}'),
-      () => takePuzzle('puzzle_any_${candidates.length}', DailyQuestPuzzleRequirement.any),
-      () => takePuzzle(
-            'puzzle_mh_${candidates.length}',
-            DailyQuestPuzzleRequirement.mediumOrHard,
-          ),
-      () => takeSticker('sticker_${candidates.length}'),
-      if (pixelReady.isNotEmpty) () => takePixel('pixel_${candidates.length}'),
-      if (finished.isNotEmpty) () => takeRecolor('recolor_${candidates.length}'),
+    // Wiederkehrende Daily-Ideen — je Typ höchstens einmal.
+    final kindPool = <DailyQuestTaskKind>[
+      DailyQuestTaskKind.coloring,
+      DailyQuestTaskKind.placeSticker,
+      DailyQuestTaskKind.watchAd,
+      if (puzzles.isNotEmpty) DailyQuestTaskKind.puzzle,
+      if (pixelReady.isNotEmpty) DailyQuestTaskKind.pixel,
+      if (pixelReady.isNotEmpty) DailyQuestTaskKind.pixelThreeStar,
+      if (finished.isNotEmpty) DailyQuestTaskKind.recolor,
+      if (coloring.isNotEmpty) DailyQuestTaskKind.coloringThreeStar,
+      if (events.isNotEmpty) DailyQuestTaskKind.eventFinish,
+      if (hasStarLockedContent) DailyQuestTaskKind.unlockChoice,
+      if (adventDoorAvailable) DailyQuestTaskKind.adventDoor,
     ]..shuffle(rng);
 
-    for (final build in builders) {
-      if (candidates.length >= 3) break;
-      final before = candidates.length;
-      build();
-      // Duplikat-Slots vermeiden: nur behalten wenn gewachsen.
-      if (candidates.length == before) continue;
+    for (final kind in kindPool) {
+      if (out.length >= targetCount) break;
+      final task = buildKind(kind);
+      if (task != null) out.add(task);
     }
 
-    // Auffüllen falls Pool dünn.
-    while (candidates.length < 3 && colorIdx < coloring.length) {
-      takeColor('color_fill_${candidates.length}');
-    }
-    while (candidates.length < 3 && puzzleIdx < puzzles.length) {
-      takePuzzle(
-        'puzzle_fill_${candidates.length}',
-        DailyQuestPuzzleRequirement.any,
-      );
+    // Auffüllen nur mit Coloring (kein zweites Puzzle).
+    while (out.length < targetCount && colorIdx < coloring.length) {
+      final task = buildKind(DailyQuestTaskKind.coloring);
+      if (task == null) break;
+      out.add(task);
     }
 
-    candidates.shuffle(rng);
-    return candidates.take(3).toList(growable: false);
+    out.shuffle(rng);
+    return out.toList(growable: false);
   }
 
-  DailyQuestTask? _matchingColoring(String id) {
+  DailyQuestTask? _matchingColoring(String id, {required int rating}) {
     for (final t in _tasks) {
-      if ((t.isColoring || t.isRecolor) && t.pageId == id) return t;
+      if (t.pageId != id) continue;
+      if (t.isColoringThreeStar) {
+        if (rating >= 3) return t;
+        continue;
+      }
+      if (t.isColoring || t.isRecolor || t.isEventFinish) return t;
     }
     return null;
   }
@@ -352,7 +447,12 @@ class DailyQuestService extends ChangeNotifier {
   bool isTodaysQuestTarget(String pageId, {required bool coloring}) {
     for (final t in _tasks) {
       if (t.pageId != pageId) continue;
-      if (coloring && (t.isColoring || t.isPlaceSticker || t.isRecolor)) {
+      if (coloring &&
+          (t.isColoring ||
+              t.isPlaceSticker ||
+              t.isRecolor ||
+              t.isColoringThreeStar ||
+              t.isEventFinish)) {
         return true;
       }
       if (!coloring && t.isPuzzle) return true;
@@ -362,8 +462,11 @@ class DailyQuestService extends ChangeNotifier {
 
   bool _puzzleMeets(DailyQuestTask t, PuzzleTier tier) {
     if (!t.isPuzzle) return false;
-    if (t.puzzleRequirement == DailyQuestPuzzleRequirement.any) return true;
-    return tier == PuzzleTier.medium || tier == PuzzleTier.expert;
+    return switch (t.puzzleRequirement) {
+      DailyQuestPuzzleRequirement.any => tier == PuzzleTier.easy,
+      DailyQuestPuzzleRequirement.mediumOrHard => tier == PuzzleTier.medium,
+      DailyQuestPuzzleRequirement.hardOnly => tier == PuzzleTier.expert,
+    };
   }
 
   Future<bool> _markSlotDone(DailyQuestTask task) async {
@@ -385,8 +488,8 @@ class DailyQuestService extends ChangeNotifier {
   }
 
   /// Ausmalen fertig → passende Daily-Aufgabe abhaken.
-  Future<bool> markColoringDone(String id) async {
-    final task = _matchingColoring(id);
+  Future<bool> markColoringDone(String id, {int rating = 1}) async {
+    final task = _matchingColoring(id, rating: rating);
     if (task == null) return false;
     return _markSlotDone(task);
   }
@@ -402,16 +505,52 @@ class DailyQuestService extends ChangeNotifier {
   }
 
   /// Pixelart-Bild fertig.
-  Future<bool> markPixelDone(String pageId) async {
+  Future<bool> markPixelDone(String pageId, {int rating = 1}) async {
     var justCompleted = false;
     for (final t in _tasks) {
-      if (!t.isPixel || t.pageId != pageId) continue;
+      if (t.pageId != pageId) continue;
+      if (t.isPixelThreeStar) {
+        if (rating < 3) continue;
+        if (await _markSlotDone(t)) justCompleted = true;
+        continue;
+      }
+      if (!t.isPixel) continue;
       if (await _markSlotDone(t)) justCompleted = true;
     }
     return justCompleted;
   }
 
-  /// Puzzle fertig → alle passenden Slots abhaken (any / medium+).
+  /// Ein gesperrtes Motiv der Wahl freigeschaltet.
+  Future<bool> markUnlockChoiceDone() async {
+    var justCompleted = false;
+    for (final t in _tasks) {
+      if (!t.isUnlockChoice) continue;
+      if (await _markSlotDone(t)) justCompleted = true;
+    }
+    return justCompleted;
+  }
+
+  /// Rewarded-Video für Daily geschaut.
+  Future<bool> markWatchAdDone() async {
+    var justCompleted = false;
+    for (final t in _tasks) {
+      if (!t.isWatchAd) continue;
+      if (await _markSlotDone(t)) justCompleted = true;
+    }
+    return justCompleted;
+  }
+
+  /// Advents-Tür geöffnet.
+  Future<bool> markAdventDoorDone() async {
+    var justCompleted = false;
+    for (final t in _tasks) {
+      if (!t.isAdventDoor) continue;
+      if (await _markSlotDone(t)) justCompleted = true;
+    }
+    return justCompleted;
+  }
+
+  /// Puzzle fertig → alle passenden Slots abhaken (medium+).
   Future<bool> markPuzzleDone(String id, {required PuzzleTier tier}) async {
     var justCompleted = false;
     for (final t in _tasks) {
@@ -494,9 +633,9 @@ class DailyQuestService extends ChangeNotifier {
     return result;
   }
 
-  /// Alle 3 fertig → Belohnung erst im Hub (2 Sticker + 10 Sterne).
+  /// Alle heutigen Tasks fertig → Belohnung erst im Hub (skaliert nach Anzahl).
   Future<void> claimProgressRewards(StarWalletStore wallet) async {
-    if (_tasks.length < 3 || !allTasksDone) return;
+    if (_tasks.isEmpty || !allTasksDone) return;
 
     final today = _todayKey();
     if (_stickerTierDay != today) {
@@ -507,16 +646,24 @@ class DailyQuestService extends ChangeNotifier {
     var stickers = 0;
     var stars = 0;
 
-    if (_stickersClaimed < 2) {
-      stickers = 2 - _stickersClaimed;
-      _stickersClaimed = 2;
+    // 1 Task → 1 Sticker / 5★ · 2 → 2 / 8★ · 3 → 2 / 10★
+    final stickerTarget = _tasks.length >= 2 ? 2 : 1;
+    final starTarget = switch (_tasks.length) {
+      1 => 5,
+      2 => 8,
+      _ => completeStarReward,
+    };
+
+    if (_stickersClaimed < stickerTarget) {
+      stickers = stickerTarget - _stickersClaimed;
+      _stickersClaimed = stickerTarget;
       await _persistStickerTier(prefs);
     }
     if (_starsAwardedDay != today) {
       _starsAwardedDay = today;
       await prefs.setString(_starsAwardedKey, today);
-      await wallet.addStars(completeStarReward);
-      stars = completeStarReward;
+      await wallet.addStars(starTarget);
+      stars = starTarget;
     }
 
     if (stickers <= 0 && stars <= 0) return;
@@ -538,6 +685,9 @@ class DailyQuestService extends ChangeNotifier {
     List<String> freePuzzleIds = const [],
     List<String> pixelReadyIds = const [],
     List<String> finishedColoringIds = const [],
+    List<String> eventColoringIds = const [],
+    bool hasStarLockedContent = false,
+    bool adventDoorAvailable = false,
   }) async {
     if (_tasksValid(_tasks) || isCompletedToday) return;
     await load(
@@ -545,7 +695,38 @@ class DailyQuestService extends ChangeNotifier {
       freePuzzleIds: freePuzzleIds,
       pixelReadyIds: pixelReadyIds,
       finishedColoringIds: finishedColoringIds,
+      eventColoringIds: eventColoringIds,
+      hasStarLockedContent: hasStarLockedContent,
+      adventDoorAvailable: adventDoorAvailable,
     );
+  }
+
+  static Future<List<String>> activeEventColoringIds() async {
+    final tags = await EventTags.load();
+    final ids = <String>{};
+    for (final e in tags.activeEvents()) {
+      ids.addAll(e.coloringIds);
+    }
+    return ids.toList(growable: false);
+  }
+
+  static bool adventDoorAvailableNow() {
+    if (!AdventService.canOpenDoors()) return false;
+    return AdventService.instance.openableUnopenedCount > 0;
+  }
+
+  static bool hasStarLockedContent({
+    required StarWalletStore wallet,
+    required List<String> allColoring,
+    required List<String> allPuzzle,
+  }) {
+    for (final id in allColoring) {
+      if (wallet.requiresStars(id, FavoriteKind.coloring)) return true;
+    }
+    for (final id in allPuzzle) {
+      if (wallet.requiresStars(id, FavoriteKind.puzzle)) return true;
+    }
+    return false;
   }
 
   Future<void> openOverlay(BuildContext context) async {
@@ -560,6 +741,20 @@ class DailyQuestService extends ChangeNotifier {
       if (!context.mounted) return;
       final pixelIds =
           context.read<PixelReadyStore>().ids.toList(growable: false);
+      final wallet = context.read<StarWalletStore>();
+      final hasLocked = hasStarLockedContent(
+        wallet: wallet,
+        allColoring: pools.coloring,
+        allPuzzle: pools.puzzle,
+      );
+      // Auch Economy-/Advent-Locks außerhalb der Free-Pools prüfen.
+      final hasLockedAny = hasLocked ||
+          hasStarLockedContent(
+            wallet: wallet,
+            allColoring: [for (final p in coloring) p.id],
+            allPuzzle: [for (final p in puzzles) p.id],
+          );
+      final eventIds = await activeEventColoringIds();
       final today = _todayKey();
       final prefs = await SharedPreferences.getInstance();
       _day = today;
@@ -568,6 +763,9 @@ class DailyQuestService extends ChangeNotifier {
         freePuzzleIds: pools.puzzle,
         pixelReadyIds: pixelIds,
         finishedColoringIds: pixelIds,
+        eventColoringIds: eventIds,
+        hasStarLockedContent: hasLockedAny,
+        adventDoorAvailable: adventDoorAvailableNow(),
         seed: today,
       );
       _done.clear();

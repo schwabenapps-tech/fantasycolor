@@ -12,6 +12,7 @@ class StarEconomy {
     required this.puzzleCompleteReward,
     required this.rewardedAdReward,
     required this.stickerCost,
+    required this.stickerTempCost,
     required Map<String, int> lockedColoring,
     required Map<String, int> lockedPuzzle,
   })  : _lockedColoring = Map<String, int>.unmodifiable(lockedColoring),
@@ -21,7 +22,10 @@ class StarEconomy {
   final Map<int, double> coloringThresholds;
   final int puzzleCompleteReward;
   final int rewardedAdReward;
+  /// Klassik-Album: dauerhafter Besitz.
   final int stickerCost;
+  /// Ausmalen: temporär bis Done.
+  final int stickerTempCost;
   final Map<String, int> _lockedColoring;
   final Map<String, int> _lockedPuzzle;
 
@@ -33,9 +37,9 @@ class StarEconomy {
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final rewards = json['rewards'] as Map<String, dynamic>? ?? const {};
     final starMap = rewards['coloring_stars'] as Map<String, dynamic>? ??
-        const {'1': 2, '2': 4, '3': 5};
+        const {'1': 1, '2': 2, '3': 5};
     final thresh = rewards['coloring_thresholds'] as Map<String, dynamic>? ??
-        const {'1': 0.40, '2': 0.70, '3': 0.90};
+        const {'1': 0.50, '2': 0.80, '3': 0.99};
     _cache = StarEconomy._(
       coloringStarRewards: {
         for (final e in starMap.entries) int.parse(e.key): (e.value as num).toInt(),
@@ -46,7 +50,8 @@ class StarEconomy {
       },
       puzzleCompleteReward: (rewards['puzzle_complete'] as num?)?.toInt() ?? 5,
       rewardedAdReward: (rewards['rewarded_ad'] as num?)?.toInt() ?? 5,
-      stickerCost: (rewards['sticker_cost'] as num?)?.toInt() ?? 15,
+      stickerCost: (rewards['sticker_cost'] as num?)?.toInt() ?? 100,
+      stickerTempCost: (rewards['sticker_temp_cost'] as num?)?.toInt() ?? 20,
       lockedColoring: _idCostMap(json['locked_coloring']),
       lockedPuzzle: _idCostMap(json['locked_puzzle']),
     );
@@ -89,9 +94,9 @@ class StarEconomy {
 
   /// 0 = kein Stern, 1–3 nach Coverage.
   int ratingForCoverage(double coverage) {
-    final t3 = coloringThresholds[3] ?? 0.90;
-    final t2 = coloringThresholds[2] ?? 0.70;
-    final t1 = coloringThresholds[1] ?? 0.40;
+    final t3 = coloringThresholds[3] ?? 0.99;
+    final t2 = coloringThresholds[2] ?? 0.80;
+    final t1 = coloringThresholds[1] ?? 0.50;
     if (coverage >= t3) return 3;
     if (coverage >= t2) return 2;
     if (coverage >= t1) return 1;

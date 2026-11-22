@@ -147,19 +147,35 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
 
   Future<void> _openPreview(StickerEntry sticker, bool owned) async {
     if (!owned) {
+      final t = AppStrings.of(context);
+      // Winter: nur Advent — kein Stern-Kauf.
+      if (widget.album == StickerAlbumKind.winter) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t.winterStickerAdventOnly)),
+        );
+        setState(() {
+          _preview = sticker;
+          _previewOwned = false;
+        });
+        return;
+      }
       final wallet = context.read<StarWalletStore>();
       final cost = wallet.stickerCost;
-      final t = AppStrings.of(context);
       final buy = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1B2A40),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          backgroundColor: StarBalancePill.fill,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: StarBalancePill.border.withValues(alpha: 0.95),
+            ),
+          ),
           title: Text(
             t.unlockWithStarsTitle,
             style: const TextStyle(
-              color: Color(0xFFFFF4C8),
+              color: StarBalancePill.ink,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -171,7 +187,7 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
               Text(
                 '$cost',
                 style: const TextStyle(
-                  color: Color(0xFFFFD56A),
+                  color: StarBalancePill.ink,
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                 ),
@@ -181,12 +197,19 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text(t.cancel),
+              child: Text(
+                t.cancel,
+                style: const TextStyle(color: StarBalancePill.ink),
+              ),
             ),
             FilledButton(
               onPressed: wallet.balance >= cost
                   ? () => Navigator.pop(ctx, true)
                   : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: StarBalancePill.border,
+                foregroundColor: StarBalancePill.ink,
+              ),
               child: Text(t.unlock),
             ),
           ],

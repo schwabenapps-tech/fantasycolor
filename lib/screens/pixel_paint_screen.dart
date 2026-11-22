@@ -18,6 +18,7 @@ import '../providers/sticker_collection_store.dart';
 import '../services/ads_service.dart';
 import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
+import '../utils/app_orientations.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/pixel_paint_rail.dart';
@@ -84,6 +85,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(AppOrientations.enterPlay());
     WidgetsBinding.instance.addObserver(this);
     _celebrateController = AnimationController(
       vsync: this,
@@ -163,6 +165,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     _zoomController.dispose();
     _celebrateController.dispose();
     _transform.dispose();
+    unawaited(AppOrientations.leavePlay());
     super.dispose();
   }
 
@@ -498,7 +501,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     if (mounted) {
       final quest = context.read<DailyQuestService>();
       final wallet = context.read<StarWalletStore>();
-      await quest.markPixelDone(widget.page.id);
+      await quest.markPixelDone(widget.page.id, rating: rating);
       await quest.claimProgressRewards(wallet);
     }
   }

@@ -13,6 +13,9 @@ class AdventService extends ChangeNotifier {
   static const _claimsKey = 'advent_claims_v1';
   static const _unlockedColoringKey = 'advent_unlocked_coloring_v1';
   static const _unlockedPuzzleKey = 'advent_unlocked_puzzle_v1';
+  /// Epoch bumpen → Claims/Unlocks einmalig löschen (Inhalt neu befüllen).
+  static const _progressEpochKey = 'advent_progress_epoch_v1';
+  static const _progressEpoch = 2;
 
   bool _ready = false;
   Map<int, List<AdventReward>> _claims = {};
@@ -92,21 +95,27 @@ class AdventService extends ChangeNotifier {
     try {
       await _loadConfig();
       final prefs = await SharedPreferences.getInstance();
-      _claims = _decodeClaims(prefs.getString(_claimsKey));
-      _unlockedColoring = {
-        ...(prefs.getStringList(_unlockedColoringKey) ?? const <String>[]),
-      };
-      _unlockedPuzzle = {
-        ...(prefs.getStringList(_unlockedPuzzleKey) ?? const <String>[]),
-      };
-      // Claims → freigeschaltete IDs (auch ältere Saves ohne Unlock-Liste).
-      for (final rewards in _claims.values) {
-        for (final r in rewards) {
-          if (r.type == AdventRewardType.coloring && r.id.isNotEmpty) {
-            _unlockedColoring.add(r.id);
-          }
-          if (r.type == AdventRewardType.puzzle && r.id.isNotEmpty) {
-            _unlockedPuzzle.add(r.id);
+      final epoch = prefs.getInt(_progressEpochKey) ?? 0;
+      if (epoch != _progressEpoch) {
+        await resetProgress(prefs: prefs);
+        await prefs.setInt(_progressEpochKey, _progressEpoch);
+      } else {
+        _claims = _decodeClaims(prefs.getString(_claimsKey));
+        _unlockedColoring = {
+          ...(prefs.getStringList(_unlockedColoringKey) ?? const <String>[]),
+        };
+        _unlockedPuzzle = {
+          ...(prefs.getStringList(_unlockedPuzzleKey) ?? const <String>[]),
+        };
+        // Claims → freigeschaltete IDs (auch ältere Saves ohne Unlock-Liste).
+        for (final rewards in _claims.values) {
+          for (final r in rewards) {
+            if (r.type == AdventRewardType.coloring && r.id.isNotEmpty) {
+              _unlockedColoring.add(r.id);
+            }
+            if (r.type == AdventRewardType.puzzle && r.id.isNotEmpty) {
+              _unlockedPuzzle.add(r.id);
+            }
           }
         }
       }
@@ -114,6 +123,18 @@ class AdventService extends ChangeNotifier {
       debugPrint('AdventService.load failed: $e\n$st');
     }
     _ready = true;
+    notifyListeners();
+  }
+
+  /// Alle Türchen-Claims und Advent-Unlocks löschen (Sticker-Album unberührt).
+  Future<void> resetProgress({SharedPreferences? prefs}) async {
+    final p = prefs ?? await SharedPreferences.getInstance();
+    _claims = {};
+    _unlockedColoring = {};
+    _unlockedPuzzle = {};
+    await p.remove(_claimsKey);
+    await p.remove(_unlockedColoringKey);
+    await p.remove(_unlockedPuzzleKey);
     notifyListeners();
   }
 

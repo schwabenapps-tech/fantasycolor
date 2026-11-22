@@ -94,6 +94,8 @@ class AppStrings {
   String get notifyAdventTitle => _t('notifyAdventTitle');
   String get notifyAdventBody => _t('notifyAdventBody');
   String get stickerRulesBody => _t('stickerRulesBody');
+  String get stickerTempUnlockHint => _t('stickerTempUnlockHint');
+  String get winterStickerAdventOnly => _t('winterStickerAdventOnly');
   String get stickerPlaceHelpTitle => _t('stickerPlaceHelpTitle');
   String get stickerPlaceHelpBody => _t('stickerPlaceHelpBody');
   String get settings => _t('settings');
@@ -124,12 +126,23 @@ class AppStrings {
   String get dailyTaskColor => _t('dailyTaskColor');
   String get dailyTaskPuzzleAny => _t('dailyTaskPuzzleAny');
   String get dailyTaskPuzzleHard => _t('dailyTaskPuzzleHard');
+  String get dailyTaskPuzzleExpert => _t('dailyTaskPuzzleExpert');
   String get dailyTaskPlaceSticker => _t('dailyTaskPlaceSticker');
   String get dailyTaskPixel => _t('dailyTaskPixel');
   String get dailyTaskRecolor => _t('dailyTaskRecolor');
+  String get dailyTaskUnlockChoice => _t('dailyTaskUnlockChoice');
+  String get dailyTaskWatchAd => _t('dailyTaskWatchAd');
+  String get dailyTaskColorThreeStar => _t('dailyTaskColorThreeStar');
+  String get dailyTaskPixelThreeStar => _t('dailyTaskPixelThreeStar');
+  String get dailyTaskEventFinish => _t('dailyTaskEventFinish');
+  String get dailyTaskAdventDoor => _t('dailyTaskAdventDoor');
+  String get dailyUnlockPickTitle => _t('dailyUnlockPickTitle');
+  String get dailyUnlockEmpty => _t('dailyUnlockEmpty');
+  String get dailyUnlockDone => _t('dailyUnlockDone');
   String get pixelArt => _t('pixelArt');
   String get pixelArtHint => _t('pixelArtHint');
   String get pixelArtEmpty => _t('pixelArtEmpty');
+  String get readyForPixel => _t('readyForPixel');
   String get recentlyUsed => _t('recentlyUsed');
 
   String earnStarsSubtitle(int n) =>
@@ -263,11 +276,16 @@ const _en = {
   'stickerRulesBody':
       '• Finish a coloring page at 100% to earn a sticker (once per picture until reset) and unlock it for Pixel Art. Daily finishes also unlock Pixel Art.\n'
       '• Solve a puzzle on Pro for a sticker — once. Easy and Medium do not give stickers.\n'
-      '• Daily quests (bell): up to 3 random tasks (color, puzzle, place sticker, pixel art, recolor) → 2 stickers + 10 stars.\n'
-      '• Advent calendar doors can gift stickers too.\n'
-      '• To place a sticker on a coloring page, unlock it with stars (15★) — album gifts stay locked for paint until then.\n'
+      '• Daily quests (bell): finish all tasks → stickers + bonus stars.\n'
+      '• Advent calendar doors gift winter stickers.\n'
+      '• Stickers you own are free to place while coloring.\n'
+      '• Unowned stickers: temporary unlock while coloring (20★) — locks again when you tap Done. Classic album permanent unlock: 100★. Winter album: Advent only.\n'
       '• Each sticker unlocks only once — no duplicates.\n'
       '• Collect them all to download the free sticker pack.',
+  'stickerTempUnlockHint':
+      'Temporary for this picture only — locks again after Done.',
+  'winterStickerAdventOnly':
+      'Winter stickers come from the Advent calendar.',
   'stickerPlaceHelpTitle': 'Stickers on your picture',
   'stickerPlaceHelpBody':
       '• Tap a sticker in the tray to place it.\n'
@@ -306,16 +324,27 @@ const _en = {
   'yourStars': 'You have {n} stars',
   'dailyQuest': 'Daily quest',
   'dailyQuestIncentive':
-      'Finish all 3 tasks — then back home for stickers and +10 bonus stars!',
+      'Finish today’s tasks — then back home for stickers and bonus stars!',
   'dailyTaskColor': 'Color this picture completely (100%)',
-  'dailyTaskPuzzleAny': 'Finish this puzzle — any piece count',
-  'dailyTaskPuzzleHard': 'Finish this puzzle on Medium or Hard',
+  'dailyTaskPuzzleAny': 'Finish this puzzle on Easy',
+  'dailyTaskPuzzleHard': 'Finish this puzzle on Medium',
+  'dailyTaskPuzzleExpert': 'Finish this puzzle on Hard (Pro)',
   'dailyTaskPlaceSticker': 'Place at least one sticker on this picture',
   'dailyTaskPixel': 'Finish this picture in Pixel Art',
   'dailyTaskRecolor': 'Reset this finished picture and color it again',
+  'dailyTaskUnlockChoice': 'Unlock a coloring page or puzzle of your choice — free!',
+  'dailyTaskWatchAd': 'Watch a short video for stars',
+  'dailyTaskColorThreeStar': 'Finish this coloring with 3 stars (~100%)',
+  'dailyTaskPixelThreeStar': 'Finish this pixel art with 3 stars',
+  'dailyTaskEventFinish': 'Finish this event picture',
+  'dailyTaskAdventDoor': 'Open today’s Advent door',
+  'dailyUnlockPickTitle': 'Pick something to unlock',
+  'dailyUnlockEmpty': 'Nothing left to unlock right now',
+  'dailyUnlockDone': 'Unlocked! Enjoy your new picture',
   'pixelArt': 'Pixel Art',
   'pixelArtHint': 'Finished coloring pages appear here (including daily quests)',
   'pixelArtEmpty': 'Finish a coloring page (or a daily) to unlock Pixel Art',
+  'readyForPixel': 'Ready for Pixel',
   'recentlyUsed': 'Recently used',
   'recentlyUsedEmpty': 'Open a coloring page or puzzle to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
@@ -424,11 +453,16 @@ const _de = {
   'stickerRulesBody':
       '• Male ein Bild zu 100 % fertig aus → Sticker (einmal pro Bild, bis Reset) und freigeschaltet für Pixel Art. Daily-fertig zählt auch für Pixel Art.\n'
       '• Puzzle auf Pro → Sticker (einmal). Easy und Medium geben keine.\n'
-      '• Tägliche Aufgaben (Glocke): bis zu 3 zufällige Tasks (Malen, Puzzle, Sticker setzen, Pixel Art, neu ausmalen) → 2 Sticker + 10 Sterne.\n'
-      '• Im Adventskalender kannst du auch Stickers als Geschenk bekommen.\n'
-      '• Zum Platzieren auf dem Bild: mit Sternen freischalten (15★) — Album-Geschenke sind erst dann im Malen nutzbar.\n'
+      '• Tägliche Aufgaben (Glocke): alle Tasks fertig → Sticker + Bonus-Sterne.\n'
+      '• Adventskalender schenkt Winter-Stickers.\n'
+      '• Stickers, die du besitzt, sind beim Ausmalen frei nutzbar.\n'
+      '• Ohne Besitz: temporär beim Malen freischalten (20★) — nach Done wieder gesperrt. Klassik-Album dauerhaft: 100★. Winter-Album: nur Advent.\n'
       '• Jeder Sticker nur einmal — keine Duplikate.\n'
       '• Sammle alle, um das Sticker-Pack herunterzuladen.',
+  'stickerTempUnlockHint':
+      'Nur für dieses Bild — nach Done wieder gesperrt.',
+  'winterStickerAdventOnly':
+      'Winter-Stickers gibt es im Adventskalender.',
   'stickerPlaceHelpTitle': 'Stickers auf dem Bild',
   'stickerPlaceHelpBody':
       '• Tippe im Tray auf einen Sticker, um ihn zu setzen.\n'
@@ -467,16 +501,27 @@ const _de = {
   'yourStars': 'Du hast {n} Sterne',
   'dailyQuest': 'Tagesaufgabe',
   'dailyQuestIncentive':
-      'Alle 3 Aufgaben schaffen — zurück im Menü warten Sticker und +10 Bonus-Sterne!',
+      'Heutige Aufgaben schaffen — zurück im Menü warten Sticker und Bonus-Sterne!',
   'dailyTaskColor': 'Male dieses Bild zu 100 % fertig aus',
-  'dailyTaskPuzzleAny': 'Löse dieses Puzzle — beliebige Teilezahl',
-  'dailyTaskPuzzleHard': 'Löse dieses Puzzle auf Mittel oder Schwer',
+  'dailyTaskPuzzleAny': 'Löse dieses Puzzle auf Easy',
+  'dailyTaskPuzzleHard': 'Löse dieses Puzzle auf Medium',
+  'dailyTaskPuzzleExpert': 'Löse dieses Puzzle auf Schwer (Pro)',
   'dailyTaskPlaceSticker': 'Setze mindestens einen Sticker auf dieses Bild',
   'dailyTaskPixel': 'Male dieses Bild in Pixel Art fertig',
   'dailyTaskRecolor': 'Setze dieses fertige Bild zurück und male es neu aus',
+  'dailyTaskUnlockChoice': 'Schalte ein Ausmalbild oder Puzzle deiner Wahl frei — gratis!',
+  'dailyTaskWatchAd': 'Schau ein kurzes Video für Sterne',
+  'dailyTaskColorThreeStar': 'Male dieses Bild mit 3 Sternen fertig (~100 %)',
+  'dailyTaskPixelThreeStar': 'Beende diese Pixelart mit 3 Sternen',
+  'dailyTaskEventFinish': 'Beende dieses Event-Bild',
+  'dailyTaskAdventDoor': 'Öffne das heutige Advents-Türchen',
+  'dailyUnlockPickTitle': 'Was möchtest du freischalten?',
+  'dailyUnlockEmpty': 'Gerade ist nichts mehr gesperrt',
+  'dailyUnlockDone': 'Freigeschaltet! Viel Spaß damit',
   'pixelArt': 'Pixel Art',
   'pixelArtHint': 'Fertige Ausmalbilder erscheinen hier (auch aus Dailys)',
   'pixelArtEmpty': 'Male ein Bild fertig (oder eine Daily), um Pixel Art freizuschalten',
+  'readyForPixel': 'Bereit für Pixel',
   'recentlyUsed': 'Zuletzt benutzt',
   'recentlyUsedEmpty': 'Öffne ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',

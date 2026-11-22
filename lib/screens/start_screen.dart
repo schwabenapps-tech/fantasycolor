@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'hub_screen.dart';
 import '../services/audio_service.dart';
 import '../services/deep_link_service.dart';
+import '../utils/app_orientations.dart';
 import '../utils/app_page_route.dart';
 
 class StartScreen extends StatefulWidget {
@@ -18,19 +18,7 @@ class StartScreen extends StatefulWidget {
 
 class _StartScreenState extends State<StartScreen>
     with TickerProviderStateMixin {
-  static const _backgroundAsset = 'assets/images/fairy_fantasy_color.png';
-
-  static const _startOrientations = <DeviceOrientation>[
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ];
-
-  static const _appOrientations = <DeviceOrientation>[
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ];
+  static const _portraitAsset = 'assets/images/splash_portrait.png';
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
@@ -40,7 +28,7 @@ class _StartScreenState extends State<StartScreen>
   @override
   void initState() {
     super.initState();
-    unawaited(SystemChrome.setPreferredOrientations(_startOrientations));
+    unawaited(AppOrientations.lockHubPortrait());
     // Musik schon auf dem Startscreen — Signal, dass die App bereit ist.
     unawaited(AudioService.instance.startAmbient());
     _fadeController = AnimationController(
@@ -62,7 +50,7 @@ class _StartScreenState extends State<StartScreen>
     // App-Store-Event / Custom-URL: direkt in den Hub.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(precacheImage(const AssetImage(_backgroundAsset), context));
+      unawaited(precacheImage(const AssetImage(_portraitAsset), context));
       if (DeepLinkService.instance.consumePendingOpenHub()) {
         unawaited(_enterHub());
       }
@@ -77,8 +65,7 @@ class _StartScreenState extends State<StartScreen>
   }
 
   Future<void> _enterHub() async {
-    // Orientation nicht awaiten — sonst fühlt sich Drehen/Übergang sticky an.
-    unawaited(SystemChrome.setPreferredOrientations(_appOrientations));
+    await AppOrientations.lockHubPortrait();
     unawaited(AudioService.instance.startAmbient());
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -86,8 +73,7 @@ class _StartScreenState extends State<StartScreen>
         builder: (_) => const HubScreen(),
       ),
     );
-    // Back zum Start: wieder nur Landscape; Musik läuft weiter.
-    unawaited(SystemChrome.setPreferredOrientations(_startOrientations));
+    if (mounted) unawaited(AppOrientations.lockHubPortrait());
   }
 
   @override
@@ -101,7 +87,7 @@ class _StartScreenState extends State<StartScreen>
         fit: StackFit.expand,
         children: [
           Image.asset(
-            _backgroundAsset,
+            _portraitAsset,
             fit: BoxFit.cover,
             alignment: Alignment.center,
             gaplessPlayback: true,
@@ -110,11 +96,11 @@ class _StartScreenState extends State<StartScreen>
             opacity: _fadeAnimation,
             child: SafeArea(
               child: Align(
-                alignment: const Alignment(0, 0.78),
+                alignment: const Alignment(0, 0.72),
                 child: ScaleTransition(
                   scale: _pulseAnimation,
                   child: FantasyPlayButton(
-                    size: size.shortestSide * 0.22,
+                    size: size.shortestSide * 0.26,
                     onPressed: () => unawaited(_enterHub()),
                   ),
                 ),

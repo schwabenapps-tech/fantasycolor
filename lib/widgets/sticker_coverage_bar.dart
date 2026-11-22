@@ -23,9 +23,10 @@ class StickerCoverageBar extends StatelessWidget {
       listenable: session,
       builder: (context, _) {
         final ratio = session.paintedCoverageRatio();
-        final ready = ratio >= ColoringSession.star3Coverage;
+        // Balken zielt auf ~100 % (Sticker), nicht auf 2★.
+        final ready = ratio >= ColoringSession.fullCompleteCoverage;
         final display =
-            (ratio / ColoringSession.star3Coverage).clamp(0.0, 1.0);
+            (ratio / ColoringSession.fullCompleteCoverage).clamp(0.0, 1.0);
         return IgnorePointer(
           child: Row(
             children: [

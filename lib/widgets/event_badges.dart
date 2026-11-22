@@ -9,11 +9,14 @@ class GalleryFrame extends StatelessWidget {
     required this.child,
     this.style = GalleryFrameStyle.fantasy,
     this.showHalloweenBadge = false,
+    this.softShadow = false,
   });
 
   final Widget child;
   final GalleryFrameStyle style;
   final bool showHalloweenBadge;
+  /// Weniger seitlicher Glow — vermeidet dunkle Streifen zwischen Home-Kacheln.
+  final bool softShadow;
 
   static const _halloweenOrange = Color(0xFFFF8C42);
   static const _halloweenPurple = Color(0xFF6B3FA0);
@@ -53,18 +56,26 @@ class GalleryFrame extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.75),
               width: 1.4,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: glow.withValues(alpha: 0.42),
-                blurRadius: 18,
-                spreadRadius: 1,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            boxShadow: softShadow
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: glow.withValues(alpha: 0.42),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(5),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,10 +13,15 @@ import '../data/puzzle_images_loader.dart';
 import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
+import '../models/pixel_puzzle.dart';
+import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_progress_store.dart';
+import '../providers/pixel_ready_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
+import '../services/ads_service.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
@@ -25,6 +31,7 @@ import '../services/remote_pack_service.dart';
 import '../services/daily_quest_service.dart';
 import '../services/star_content_gate.dart';
 import '../utils/app_layout.dart';
+import '../utils/app_orientations.dart';
 import '../utils/app_page_route.dart';
 import '../utils/app_route_observer.dart';
 import '../utils/asset_precache.dart';
@@ -43,6 +50,7 @@ import 'coloring_preview_screen.dart';
 import 'event_pack_gallery_screen.dart';
 import 'event_world_hub_screen.dart';
 import 'favorites_screen.dart';
+import 'pixel_paint_screen.dart';
 import 'print_templates_screen.dart';
 import 'puzzle_screen.dart';
 import 'settings_screen.dart';
@@ -58,6 +66,7 @@ class HubScreen extends StatefulWidget {
   static const coloringLogo = 'assets/images/malen_favorit.png';
   static const puzzleLogo = 'assets/images/puzzle_favorit.png';
   static const eventsLogo = 'assets/images/events-button.png';
+  static const pixelLogo = 'assets/images/pixelart_hub.png';
   /// Neben dem Stickeralbum — Datei ersetzen, wenn neues Asset fertig ist.
   static const adventButtonAsset = 'assets/images/advent_menu_button.png';
 
@@ -91,6 +100,7 @@ class _HubScreenState extends State<HubScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(AppOrientations.lockHubPortrait());
     unawaited(AudioService.instance.startAmbient());
     _reloadCatalog();
     _heardGeneration = RemotePackService.instance.generation;
@@ -169,11 +179,14 @@ class _HubScreenState extends State<HubScreen>
     _puzzleRowScroll.dispose();
     _colorGridScroll.dispose();
     _colorRowScroll.dispose();
+    unawaited(AppOrientations.lockHubPortrait());
     super.dispose();
   }
 
   @override
   void didPopNext() {
+    // Zurück aus Play → Menü wieder Hochkant.
+    unawaited(AppOrientations.lockHubPortrait());
     // Zurück aus Ausmalen/Puzzle/… → Daily-Liste + Sterne-Show.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_flushHubCelebrations());
@@ -207,7 +220,11 @@ class _HubScreenState extends State<HubScreen>
 
       final earned = wallet.takePendingHubStars();
       if (earned > 0 && mounted) {
-        await StarEarnOverlay.show(context, amount: earned);
+        await StarEarnOverlay.show(
+          context,
+          amount: earned,
+          newTotal: wallet.balance,
+        );
       }
     } finally {
       _flushingCelebrations = false;
@@ -310,6 +327,38 @@ class _HubScreenState extends State<HubScreen>
         3 => 'hub_events',
         _ => 'hub_favorites',
       },
+    );
+  }
+
+  Future<void> _openPixel(ColoringPage page) async {
+    HapticFeedback.selectionClick();
+    final readyStore = context.read<PixelReadyStore>();
+    final store = context.read<PixelProgressStore>();
+    final coloringProgress = context.read<ColoringProgressStore>();
+    if (!readyStore.isPaintUnlocked(page.id)) {
+      await AdsService.showEventContentUnlockInterstitial();
+      if (!mounted) return;
+      await readyStore.unlockPaint(page.id);
+    }
+    if (!mounted) return;
+    final existing = await store.loadSnapshot(page.id);
+    final sourceBytes = await coloringProgress.loadProgressBytes(page.id);
+    if (!mounted) return;
+    PixelProgressSnapshot? resume;
+    if (existing != null && !existing.completed && existing.filledCount > 0) {
+      resume = existing;
+    } else if (existing != null) {
+      await store.clearProgress(page.id);
+    }
+    if (!mounted) return;
+    await _open(
+      PixelPaintScreen(
+        page: page,
+        difficulty: PixelDifficulty.standard,
+        sourceBytes: sourceBytes,
+        resumeSnapshot: resume,
+      ),
+      world: 'pixel',
     );
   }
 
@@ -460,6 +509,7 @@ class _HubScreenState extends State<HubScreen>
                                         scrollController: _homeScroll,
                                         onOpenColoring: _openColoring,
                                         onOpenPuzzle: _openPuzzle,
+                                        onOpenPixel: _openPixel,
                                         onOpenEvent:
                                             (event, coloring, puzzle) {
                                           _openEventWorld(
@@ -687,43 +737,68 @@ class _HubTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final winter = onAdvent != null;
-    final width = MediaQuery.sizeOf(context).width;
-    final narrow = width < 420;
-    final printSize = narrow ? 44.0 : 54.0;
-    final settingsSize = narrow ? 42.0 : 50.0;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(narrow ? 4 : 8, 4, narrow ? 4 : 8, 4),
-      child: Row(
-        children: [
-          _StickerBookButton(
-            onPressed: onAlbum,
-            winter: winter,
-            compact: narrow,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        // Portrait + Advent: sehr eng — Icons stärker kompakt.
+        final tight = width < 520 || (winter && width < 640);
+        final micro = width < 400 || (winter && width < 480);
+        final printSize = micro ? 36.0 : (tight ? 42.0 : 54.0);
+        final settingsSize = micro ? 34.0 : (tight ? 40.0 : 50.0);
+        final gap = micro ? 2.0 : (tight ? 4.0 : 8.0);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(micro ? 2 : 6, 4, micro ? 2 : 6, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _StickerBookButton(
+                          onPressed: onAlbum,
+                          winter: winter,
+                          compact: tight,
+                          micro: micro,
+                        ),
+                        if (winter) ...[
+                          SizedBox(width: gap),
+                          _AdventMenuButton(
+                            onPressed: onAdvent!,
+                            compact: tight,
+                            micro: micro,
+                          ),
+                        ],
+                        SizedBox(width: gap),
+                        DailyQuestPill(compact: true),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              StarBalancePill(compact: true),
+              SizedBox(width: gap),
+              _PlainIconButton(
+                semanticLabel: 'Print',
+                asset: HubScreen.printLogo,
+                size: printSize,
+                onPressed: onPrint,
+              ),
+              SizedBox(width: gap),
+              _PlainIconButton(
+                semanticLabel: 'Settings',
+                asset: HubScreen.settingsLogo,
+                size: settingsSize,
+                onPressed: onSettings,
+              ),
+            ],
           ),
-          if (winter) ...[
-            SizedBox(width: narrow ? 2 : 6),
-            _AdventMenuButton(onPressed: onAdvent!, compact: narrow),
-          ],
-          SizedBox(width: narrow ? 4 : 8),
-          DailyQuestPill(compact: narrow || winter),
-          const Spacer(),
-          StarBalancePill(compact: narrow),
-          SizedBox(width: narrow ? 4 : 8),
-          _PlainIconButton(
-            semanticLabel: 'Print',
-            asset: HubScreen.printLogo,
-            size: printSize,
-            onPressed: onPrint,
-          ),
-          SizedBox(width: narrow ? 2 : 6),
-          _PlainIconButton(
-            semanticLabel: 'Settings',
-            asset: HubScreen.settingsLogo,
-            size: settingsSize,
-            onPressed: onSettings,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1056,13 +1131,14 @@ class _EventsTab extends StatelessWidget {
   }
 }
 
-/// Home: Zuletzt → (aktive Events) → Neu → Favoriten → Puzzle → Malen.
+/// Home: Zuletzt → Events → Neu → Favoriten → Puzzle/Color/Pixel-Vorschau.
 class _HomeTab extends StatefulWidget {
   const _HomeTab({
     required this.catalog,
     required this.scrollController,
     required this.onOpenColoring,
     required this.onOpenPuzzle,
+    required this.onOpenPixel,
     required this.onOpenEvent,
   });
 
@@ -1070,6 +1146,7 @@ class _HomeTab extends StatefulWidget {
   final ScrollController scrollController;
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
+  final ValueChanged<ColoringPage> onOpenPixel;
   final void Function(
     ContentEvent event,
     GallerySection coloring,
@@ -1081,7 +1158,22 @@ class _HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<_HomeTab> {
+  static const _homePreviewCount = 6;
+
   bool _precacheDone = false;
+  bool _previewsReady = false;
+  final _rng = math.Random();
+  List<ColoringPage> _previewPuzzles = const [];
+  List<ColoringPage> _previewColoring = const [];
+  List<ColoringPage> _previewPixel = const [];
+  List<ColoringPage> _previewFavPuzzles = const [];
+  List<ColoringPage> _previewFavColoring = const [];
+
+  List<ColoringPage> _shuffleTake(List<ColoringPage> pages) {
+    if (pages.isEmpty) return const [];
+    final copy = [...pages]..shuffle(_rng);
+    return copy.take(_homePreviewCount).toList(growable: false);
+  }
 
   List<ColoringPage> _flatten(GalleryCatalog catalog) {
     final byId = <String, ColoringPage>{};
@@ -1143,6 +1235,8 @@ class _HomeTabState extends State<_HomeTab> {
     final tags = widget.catalog.tags;
     final favorites = context.watch<FavoritesStore>();
     final recent = context.watch<RecentContentStore>();
+    final advent = context.watch<AdventService>();
+    final pixelReady = context.watch<PixelReadyStore>();
     final allColoring = tags.sortNewestFirst(
       _flatten(widget.catalog.coloring),
       coloring: true,
@@ -1197,22 +1291,60 @@ class _HomeTabState extends State<_HomeTab> {
       ],
     };
 
-    final newColoring = allColoring
+    final taggedNewColoring = allColoring
         .where((p) => tags.isNewColoring(p.id) && !eventPageIds.contains(p.id))
         .toList();
-    final newPuzzles = allPuzzles
+    final taggedNewPuzzles = allPuzzles
         .where((p) => tags.isNewPuzzle(p.id) && !eventPageIds.contains(p.id))
         .toList();
+    // Advent-Türchen-Freischaltungen → New (ohne New-Badge).
+    final adventColoring = _pagesForIds(
+      allColoring,
+      advent.unlockedColoringIds,
+    );
+    final adventPuzzles = _pagesForIds(
+      allPuzzles,
+      advent.unlockedPuzzleIds,
+    );
+    final newColoring = <ColoringPage>[
+      ...{
+        for (final p in [...taggedNewColoring, ...adventColoring]) p.id: p,
+      }.values,
+    ];
+    final newPuzzles = <ColoringPage>[
+      ...{
+        for (final p in [...taggedNewPuzzles, ...adventPuzzles]) p.id: p,
+      }.values,
+    ];
+    final taggedNewIds = {
+      for (final p in taggedNewColoring) p.id,
+      for (final p in taggedNewPuzzles) p.id,
+    };
     final highlightIds = {
       ...eventPageIds,
       for (final p in newColoring) p.id,
       for (final p in newPuzzles) p.id,
     };
 
-    final regularPuzzles =
+    final regularPuzzlesPool =
         allPuzzles.where((p) => !highlightIds.contains(p.id)).toList();
-    final regularColoring =
+    final regularColoringPool =
         allColoring.where((p) => !highlightIds.contains(p.id)).toList();
+    final readyPixelPool = [
+      for (final p in allColoring)
+        if (pixelReady.isReadyFor(p.id)) p,
+    ];
+    if (!_previewsReady) {
+      _previewsReady = true;
+      _previewPuzzles = _shuffleTake(regularPuzzlesPool);
+      _previewColoring = _shuffleTake(regularColoringPool);
+      _previewPixel = _shuffleTake(readyPixelPool);
+      _previewFavPuzzles = _shuffleTake(favPuzzles);
+      _previewFavColoring = _shuffleTake(favColoring);
+    } else if (_previewPixel.isEmpty && readyPixelPool.isNotEmpty) {
+      // Neu fertig ausgemalt, während Home offen war.
+      _previewPixel = _shuffleTake(readyPixelPool);
+    }
     final halloweenColor = tags.halloweenColoring;
     final halloweenPuzzle = tags.halloweenPuzzle;
 
@@ -1312,7 +1444,8 @@ class _HomeTabState extends State<_HomeTab> {
             _HomeRow(
               label: t.newPuzzle,
               pages: newPuzzles,
-              isNew: (id) => tags.isNewPuzzle(id),
+              // Advent-Freischaltungen ohne New-Badge.
+              isNew: (id) => taggedNewIds.contains(id) && tags.isNewPuzzle(id),
               isHalloween: (id) => halloweenPuzzle.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
                 tags,
@@ -1327,7 +1460,8 @@ class _HomeTabState extends State<_HomeTab> {
             _HomeRow(
               label: t.newColor,
               pages: newColoring,
-              isNew: (id) => tags.isNewColoring(id),
+              isNew: (id) =>
+                  taggedNewIds.contains(id) && tags.isNewColoring(id),
               isHalloween: (id) => halloweenColor.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
                 tags,
@@ -1341,10 +1475,10 @@ class _HomeTabState extends State<_HomeTab> {
         ],
         if (favPuzzles.isNotEmpty || favColoring.isNotEmpty) ...[
           _SectionHeader(title: t.favorites),
-          if (favPuzzles.isNotEmpty)
+          if (_previewFavPuzzles.isNotEmpty)
             _HomeRow(
               label: t.puzzle,
-              pages: favPuzzles,
+              pages: _previewFavPuzzles,
               isNew: (id) => tags.isNewPuzzle(id),
               isHalloween: (id) => halloweenPuzzle.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
@@ -1356,10 +1490,10 @@ class _HomeTabState extends State<_HomeTab> {
               showPreviewButton: true,
               onOpen: widget.onOpenPuzzle,
             ),
-          if (favColoring.isNotEmpty)
+          if (_previewFavColoring.isNotEmpty)
             _HomeRow(
               label: t.color,
-              pages: favColoring,
+              pages: _previewFavColoring,
               isNew: (id) => tags.isNewColoring(id),
               isHalloween: (id) => halloweenColor.contains(id),
               requiresAdUnlock: (id) => EventContentGate.isGatedId(
@@ -1372,10 +1506,13 @@ class _HomeTabState extends State<_HomeTab> {
             ),
           const SizedBox(height: 8),
         ],
-        if (regularPuzzles.isNotEmpty) ...[
-          _SectionHeader(title: t.puzzle),
+        if (_previewPuzzles.isNotEmpty) ...[
+          _SectionHeader(
+            title: t.puzzle,
+            logoAsset: HubScreen.puzzleLogo,
+          ),
           _HomeRow(
-            pages: regularPuzzles,
+            pages: _previewPuzzles,
             isNew: (id) => tags.isNewPuzzle(id),
             isHalloween: (id) => halloweenPuzzle.contains(id),
             requiresAdUnlock: (id) => EventContentGate.isGatedId(
@@ -1388,10 +1525,13 @@ class _HomeTabState extends State<_HomeTab> {
             onOpen: widget.onOpenPuzzle,
           ),
         ],
-        if (regularColoring.isNotEmpty) ...[
-          _SectionHeader(title: t.color),
+        if (_previewColoring.isNotEmpty) ...[
+          _SectionHeader(
+            title: t.color,
+            logoAsset: HubScreen.coloringLogo,
+          ),
           _HomeRow(
-            pages: regularColoring,
+            pages: _previewColoring,
             isNew: (id) => tags.isNewColoring(id),
             isHalloween: (id) => halloweenColor.contains(id),
             requiresAdUnlock: (id) => EventContentGate.isGatedId(
@@ -1403,36 +1543,69 @@ class _HomeTabState extends State<_HomeTab> {
             onOpen: widget.onOpenColoring,
           ),
         ],
+        if (_previewPixel.isNotEmpty) ...[
+          _SectionHeader(
+            title: t.readyForPixel,
+            logoAsset: HubScreen.pixelLogo,
+          ),
+          _HomeRow(
+            pages: _previewPixel,
+            isNew: (_) => false,
+            isHalloween: (id) => halloweenColor.contains(id),
+            requiresAdUnlock: (_) => false,
+            favoriteKind: FavoriteKind.coloring,
+            showFavoriteButton: false,
+            onOpen: widget.onOpenPixel,
+          ),
+        ],
       ],
     );
   }
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({required this.title, this.logoAsset});
 
   final String title;
+  final String? logoAsset;
 
   @override
   Widget build(BuildContext context) {
     final isTablet = AppLayout.of(context).isTablet;
+    final logoSize = isTablet ? 48.0 : 42.0;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: const Color(0xFFFFE7A0),
-          fontSize: isTablet ? 24 : 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
-          shadows: const [
-            Shadow(
-              color: Color(0xAA000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
+      child: Row(
+        children: [
+          if (logoAsset != null) ...[
+            Image.asset(
+              logoAsset!,
+              width: logoSize,
+              height: logoSize,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
             ),
+            const SizedBox(width: 12),
           ],
-        ),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: const Color(0xFFFFE7A0),
+                fontSize: isTablet ? 24 : 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+                shadows: const [
+                  Shadow(
+                    color: Color(0xAA000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1490,6 +1663,7 @@ class _HomeRecentRow extends StatelessWidget {
               showFavoriteButton: true,
               showPreviewButton: kind == FavoriteKind.puzzle,
               favoriteKind: kind,
+              softShadow: true,
               requiresAdUnlock: requiresAdUnlock(page.id, kind),
               starLockCost: context.watch<StarWalletStore>().requiresStars(
                         page.id,
@@ -1518,6 +1692,7 @@ class _HomeRow extends StatelessWidget {
     required this.onOpen,
     this.label,
     this.showPreviewButton = false,
+    this.showFavoriteButton = true,
   });
 
   final List<ColoringPage> pages;
@@ -1528,6 +1703,7 @@ class _HomeRow extends StatelessWidget {
   final FavoriteKind favoriteKind;
   final ValueChanged<ColoringPage> onOpen;
   final bool showPreviewButton;
+  final bool showFavoriteButton;
 
   @override
   Widget build(BuildContext context) {
@@ -1560,9 +1736,10 @@ class _HomeRow extends StatelessWidget {
               'home_row_${favoriteKind.name}_${label ?? 'main'}',
             ),
             scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
             padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
             itemCount: pages.length,
-            separatorBuilder: (_, _) => SizedBox(width: size.width * 0.028),
+            separatorBuilder: (_, _) => SizedBox(width: size.width * 0.032),
             itemBuilder: (context, index) {
               final page = pages[index];
               final ratio = page.aspectRatio <= 0 ? 0.78 : page.aspectRatio;
@@ -1577,9 +1754,10 @@ class _HomeRow extends StatelessWidget {
                   page: page,
                   isHalloween: isHalloween(page.id),
                   isNew: isNew(page.id),
-                  showFavoriteButton: true,
+                  showFavoriteButton: showFavoriteButton,
                   showPreviewButton: showPreviewButton,
                   favoriteKind: favoriteKind,
+                  softShadow: true,
                   requiresAdUnlock: requiresAdUnlock(page.id),
                   starLockCost: context
                           .watch<StarWalletStore>()
@@ -1604,11 +1782,13 @@ class _StickerBookButton extends StatelessWidget {
     required this.onPressed,
     this.winter = false,
     this.compact = false,
+    this.micro = false,
   });
 
   final VoidCallback onPressed;
   final bool winter;
   final bool compact;
+  final bool micro;
 
   static const classicAsset = 'assets/images/buch_icon.png';
   static const winterAsset = 'assets/images/christmas.album.png';
@@ -1616,7 +1796,9 @@ class _StickerBookButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 68.0 : (compact ? 46.0 : 58.0);
+    final size = side >= 600
+        ? 68.0
+        : (micro ? 38.0 : (compact ? 44.0 : 58.0));
     return Semantics(
       button: true,
       label: winter ? 'Christmas album' : 'Sticker album',
@@ -1640,10 +1822,12 @@ class _AdventMenuButton extends StatefulWidget {
   const _AdventMenuButton({
     required this.onPressed,
     this.compact = false,
+    this.micro = false,
   });
 
   final VoidCallback onPressed;
   final bool compact;
+  final bool micro;
 
   @override
   State<_AdventMenuButton> createState() => _AdventMenuButtonState();
@@ -1684,7 +1868,9 @@ class _AdventMenuButtonState extends State<_AdventMenuButton>
     final t = AppStrings.of(context);
     final advent = context.watch<AdventService>();
     final side = MediaQuery.sizeOf(context).shortestSide;
-    final size = side >= 600 ? 68.0 : (widget.compact ? 46.0 : 58.0);
+    final size = side >= 600
+        ? 68.0
+        : (widget.micro ? 38.0 : (widget.compact ? 44.0 : 58.0));
     final badge = advent.openableUnopenedCount;
     final shouldBounce = badge > 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {

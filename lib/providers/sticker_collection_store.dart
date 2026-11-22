@@ -7,18 +7,22 @@ import '../data/sticker_catalog.dart';
 import '../services/remote_pack_service.dart';
 
 /// Persistierter Sticker-Besitz + Daily-Claim.
+///
+/// Platzieren beim Ausmalen: besessen = frei; sonst Temp-Unlock pro Bild bis Done.
 class StickerCollectionStore extends ChangeNotifier {
   StickerCollectionStore();
 
   static const _ownedKey = 'sticker_owned_ids_v1';
-  static const _paintUnlockedKey = 'sticker_paint_unlocked_ids_v1';
+  static const _tempUnlockKey = 'sticker_temp_unlock_by_page_v1';
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
   static const _coloringRewardedKey = 'sticker_coloring_rewarded_ids_v1';
   static const _puzzleRewardedKey = 'sticker_puzzle_rewarded_ids_v1';
+  /// Legacy — wird beim Load gelesen und verworfen (Besitz reicht jetzt).
+  static const _paintUnlockedKey = 'sticker_paint_unlocked_ids_v1';
 
   final Set<String> _owned = <String>{};
-  /// Mit Sternen freigeschaltet → im Ausmalen einfügbar.
-  final Set<String> _paintUnlocked = <String>{};
+  /// pageId → temporär freigeschaltete Sticker-IDs (bis Done).
+  final Map<String, Set<String>> _tempByPage = {};
   final Set<String> _coloringRewarded = <String>{};
   final Set<String> _puzzleRewarded = <String>{};
   StickerCatalog? _catalog;
@@ -49,8 +53,12 @@ class StickerCollectionStore extends ChangeNotifier {
 
   bool owns(String id) => _owned.contains(id);
 
-  /// Darf im Ausmalen-Tray platziert werden (Sterne-Kauf).
-  bool canPlaceInColoring(String id) => _paintUnlocked.contains(id);
+  bool isTempUnlocked(String pageId, String stickerId) =>
+      _tempByPage[pageId]?.contains(stickerId) ?? false;
+
+  /// Besessen oder für dieses Ausmalbild temporär freigeschaltet.
+  bool canPlaceInColoring(String id, {required String pageId}) =>
+      owns(id) || isTempUnlocked(pageId, id);
 
   Future<void> load() async {
     await _loadCatalogMerged();
@@ -58,19 +66,54 @@ class StickerCollectionStore extends ChangeNotifier {
     _owned
       ..clear()
       ..addAll(prefs.getStringList(_ownedKey) ?? const <String>[]);
-    _paintUnlocked
+    _tempByPage
       ..clear()
-      ..addAll(prefs.getStringList(_paintUnlockedKey) ?? const <String>[]);
+      ..addAll(_decodeTemp(prefs.getStringList(_tempUnlockKey)));
     _coloringRewarded
       ..clear()
       ..addAll(prefs.getStringList(_coloringRewardedKey) ?? const <String>[]);
     _puzzleRewarded
       ..clear()
       ..addAll(prefs.getStringList(_puzzleRewardedKey) ?? const <String>[]);
-    // Kein aggressives Prunen: Remote-IDs bleiben erhalten, falls Sync kurz fehlt.
+    // Legacy paint-unlock Prefs entfernen (Besitz = frei).
+    if (prefs.containsKey(_paintUnlockedKey)) {
+      await prefs.remove(_paintUnlockedKey);
+    }
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
     _ready = true;
     notifyListeners();
+  }
+
+  Map<String, Set<String>> _decodeTemp(List<String>? raw) {
+    final out = <String, Set<String>>{};
+    if (raw == null) return out;
+    for (final line in raw) {
+      final pipe = line.indexOf('|');
+      if (pipe <= 0 || pipe >= line.length - 1) continue;
+      final pageId = line.substring(0, pipe);
+      final ids = line.substring(pipe + 1).split(',');
+      out.putIfAbsent(pageId, () => <String>{});
+      for (final id in ids) {
+        if (id.isNotEmpty) out[pageId]!.add(id);
+      }
+    }
+    return out;
+  }
+
+  List<String> _encodeTemp() {
+    final out = <String>[];
+    for (final e in _tempByPage.entries) {
+      if (e.value.isEmpty) continue;
+      final ids = e.value.toList(growable: false)..sort();
+      out.add('${e.key}|${ids.join(',')}');
+    }
+    out.sort();
+    return out;
+  }
+
+  Future<void> _persistTemp() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_tempUnlockKey, _encodeTemp());
   }
 
   /// Nach CDN-Sync: Katalog neu mergen (Owned bleibt).
@@ -85,12 +128,13 @@ class StickerCollectionStore extends ChangeNotifier {
   Future<void> resetCollection() async {
     await _ensureReady();
     _owned.clear();
-    _paintUnlocked.clear();
+    _tempByPage.clear();
     _coloringRewarded.clear();
     _puzzleRewarded.clear();
     _lastDailyClaimDay = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
+    await prefs.remove(_tempUnlockKey);
     await prefs.remove(_paintUnlockedKey);
     await prefs.remove(_dailyClaimKey);
     await prefs.remove(_coloringRewardedKey);
@@ -164,65 +208,61 @@ class StickerCollectionStore extends ChangeNotifier {
   }
 
   /// Schaltet Sticker frei (Album/Geschenk). Returns entry wenn neu, sonst null.
-  /// Ohne [forPaint]: nicht im Ausmalen einfügbar — dafür Sterne-Kauf.
   Future<StickerEntry?> unlock(
     String stickerId, {
-    bool forPaint = false,
+    @Deprecated('Besitz reicht fürs Ausmalen') bool forPaint = false,
   }) async {
     await _ensureReady();
     final entry = _catalog?.byId(stickerId);
     if (entry == null) return null;
     final wasOwned = _owned.contains(stickerId);
-    if (wasOwned && !forPaint) return null;
-    if (!wasOwned) {
-      _owned.add(stickerId);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(
-        _ownedKey,
-        _owned.toList(growable: false)..sort(),
-      );
-    }
-    if (forPaint) {
-      await _markPaintUnlocked(stickerId);
-    } else {
-      notifyListeners();
-    }
+    if (wasOwned) return null;
+    _owned.add(stickerId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _ownedKey,
+      _owned.toList(growable: false)..sort(),
+    );
+    notifyListeners();
     return entry;
   }
 
-  Future<void> _markPaintUnlocked(String stickerId) async {
-    if (_paintUnlocked.contains(stickerId)) {
-      notifyListeners();
-      return;
-    }
-    _paintUnlocked.add(stickerId);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _paintUnlockedKey,
-      _paintUnlocked.toList(growable: false)..sort(),
-    );
+  /// Temporär für ein Ausmalbild (kein Album-Besitz).
+  Future<void> tempUnlockForPage(String pageId, String stickerId) async {
+    await _ensureReady();
+    if (owns(stickerId)) return;
+    final set = _tempByPage.putIfAbsent(pageId, () => <String>{});
+    if (!set.add(stickerId)) return;
+    await _persistTemp();
     notifyListeners();
   }
 
-  /// Sterne-Kauf: Album + Ausmalen freischalten.
-  Future<StickerEntry?> unlockWithStars(String stickerId) async {
-    return unlock(stickerId, forPaint: true);
+  /// Nach Done: Temp-Freischaltungen für dieses Bild zurücksetzen.
+  Future<void> clearTempUnlocksForPage(String pageId) async {
+    if (_tempByPage.remove(pageId) == null) return;
+    await _persistTemp();
+    notifyListeners();
   }
 
-  /// Alle Katalog-Stickers: freigeschaltete zuerst.
-  List<StickerEntry> paintTrayStickers() {
+  /// Klassik-Album: dauerhafter Besitz per Sterne.
+  Future<StickerEntry?> unlockWithStars(String stickerId) async {
+    return unlock(stickerId);
+  }
+
+  /// Tray: besessen / temp zuerst, dann gesperrt.
+  List<StickerEntry> paintTrayStickers({required String pageId}) {
     final cat = _catalog;
     if (cat == null) return const [];
-    final unlocked = <StickerEntry>[];
+    final free = <StickerEntry>[];
     final locked = <StickerEntry>[];
     for (final s in cat.stickers) {
-      if (_paintUnlocked.contains(s.id)) {
-        unlocked.add(s);
+      if (canPlaceInColoring(s.id, pageId: pageId)) {
+        free.add(s);
       } else {
         locked.add(s);
       }
     }
-    return [...unlocked, ...locked];
+    return [...free, ...locked];
   }
 
   Future<StickerEntry?> unlockForColoring(String coloringId) async {

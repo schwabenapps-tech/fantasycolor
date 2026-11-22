@@ -22,9 +22,12 @@ import '../widgets/silver_back_button.dart';
 import 'pixel_paint_screen.dart';
 import '../utils/app_page_route.dart';
 
-/// Pixelart nur für zu 100 % ausgemalte Ausmalbilder.
+/// Pixelart nur für fertige Ausmalbilder.
 class PixelGalleryScreen extends StatefulWidget {
-  const PixelGalleryScreen({super.key});
+  const PixelGalleryScreen({super.key, this.embedded = false});
+
+  /// Im Hub-Tab: kein eigener Scaffold / Back-Button.
+  final bool embedded;
 
   static const backgroundAsset = 'assets/images/in_app_background.png';
 
@@ -118,14 +121,125 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _galleryBody(BuildContext context) {
     final t = AppStrings.of(context);
     final size = MediaQuery.sizeOf(context);
     final layout = AppLayout.of(context);
     final tileHeight = layout.galleryTileHeight;
     final tileWidth = layout.galleryTileWidth;
     final ready = context.watch<PixelReadyStore>();
+    final topPad = widget.embedded
+        ? layout.galleryTopSpacer * 0.25
+        : layout.galleryTopSpacer * 0.55;
+
+    return FutureBuilder<List<ColoringPage>>(
+      future: _pagesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(
+            child: SizedBox(
+              width: 34,
+              height: 34,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: Color(0xFFE8EEF8),
+              ),
+            ),
+          );
+        }
+
+        final all = snapshot.data ?? const <ColoringPage>[];
+        final pages = [
+          for (final p in all)
+            if (ready.isReadyFor(p.id)) p,
+        ];
+        if (pages.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                t.pixelArtEmpty,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            SizedBox(height: topPad),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: size.width * 0.08),
+              child: Text(
+                t.pixelArt,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFFFE7A0),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              t.pixelArtHint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.65),
+                fontSize: 13,
+              ),
+            ),
+            Expanded(
+              child: Align(
+                alignment: const Alignment(0, 0.35),
+                child: SizedBox(
+                  height: tileHeight,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.055,
+                    ),
+                    itemCount: pages.length,
+                    separatorBuilder: (context, index) =>
+                        SizedBox(width: size.width * 0.03),
+                    itemBuilder: (context, index) {
+                      final page = pages[index];
+                      final pixelProgress =
+                          context.watch<PixelProgressStore>();
+                      return _PixelPageTile(
+                        page: page,
+                        width: tileWidth,
+                        height: tileHeight,
+                        hasProgress: pixelProgress.hasProgress(page.id),
+                        isCompleted: pixelProgress.isCompleted(page.id),
+                        requiresAdUnlock: !ready.isPaintUnlocked(page.id),
+                        onTap: () => _openPage(page),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: size.height * 0.03),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = FadeTransition(
+      opacity: _fadeAnimation,
+      child: _galleryBody(context),
+    );
+
+    if (widget.embedded) return body;
 
     return Scaffold(
       body: Stack(
@@ -136,123 +250,18 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
             fit: BoxFit.cover,
             alignment: Alignment.center,
           ),
-          FadeTransition(
-            opacity: _fadeAnimation,
-            child: SafeArea(
-              child: Stack(
-                children: [
-                  FutureBuilder<List<ColoringPage>>(
-                    future: _pagesFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState != ConnectionState.done) {
-                        return const Center(
-                          child: SizedBox(
-                            width: 34,
-                            height: 34,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: Color(0xFFE8EEF8),
-                            ),
-                          ),
-                        );
-                      }
-
-                      final all = snapshot.data ?? const <ColoringPage>[];
-                      final pages = [
-                        for (final p in all)
-                          if (ready.isReadyFor(p.id)) p,
-                      ];
-                      if (pages.isEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Text(
-                              t.pixelArtEmpty,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          SizedBox(height: layout.galleryTopSpacer * 0.55),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: size.width * 0.08,
-                            ),
-                            child: Text(
-                              t.pixelArt,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFFFFE7A0),
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            t.pixelArtHint,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 13,
-                            ),
-                          ),
-                          Expanded(
-                            child: Align(
-                              alignment: const Alignment(0, 0.35),
-                              child: SizedBox(
-                                height: tileHeight,
-                                child: ListView.separated(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: size.width * 0.055,
-                                  ),
-                                  itemCount: pages.length,
-                                  separatorBuilder: (context, index) =>
-                                      SizedBox(width: size.width * 0.03),
-                                  itemBuilder: (context, index) {
-                                    final page = pages[index];
-                                    final pixelProgress =
-                                        context.watch<PixelProgressStore>();
-                                    return _PixelPageTile(
-                                      page: page,
-                                      width: tileWidth,
-                                      height: tileHeight,
-                                      hasProgress:
-                                          pixelProgress.hasProgress(page.id),
-                                      isCompleted:
-                                          pixelProgress.isCompleted(page.id),
-                                      requiresAdUnlock:
-                                          !ready.isPaintUnlocked(page.id),
-                                      onTap: () => _openPage(page),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: size.height * 0.03),
-                        ],
-                      );
-                    },
+          SafeArea(
+            child: Stack(
+              children: [
+                body,
+                Positioned(
+                  top: 10,
+                  left: 12,
+                  child: SilverBackButton(
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  Positioned(
-                    top: 10,
-                    left: 12,
-                    child: SilverBackButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

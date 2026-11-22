@@ -119,7 +119,11 @@ class _AdventGiftOverlayState extends State<AdventGiftOverlay>
       final wallet = context.read<StarWalletStore>();
       await wallet.addStars(bonus);
       if (mounted) {
-        await StarEarnOverlay.show(context, amount: bonus);
+        await StarEarnOverlay.show(
+          context,
+          amount: bonus,
+          newTotal: wallet.balance,
+        );
       }
     }
     if (!mounted) return;
@@ -221,7 +225,11 @@ class _AdventGiftOverlayState extends State<AdventGiftOverlay>
       final wallet = context.read<StarWalletStore>();
       await wallet.addStars(bonus);
       if (mounted) {
-        await StarEarnOverlay.show(context, amount: bonus);
+        await StarEarnOverlay.show(
+          context,
+          amount: bonus,
+          newTotal: wallet.balance,
+        );
       }
     }
     if (!mounted) return;

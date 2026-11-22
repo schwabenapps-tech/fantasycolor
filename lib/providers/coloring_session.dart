@@ -202,10 +202,11 @@ class ColoringSession extends ChangeNotifier {
   }
 
   /// Mindestens so viel ausmalen, bevor Done freigeschaltet wird (1★).
-  static const stickerUnlockCoverage = 0.40;
-  static const star1Coverage = 0.40;
-  static const star2Coverage = 0.70;
-  static const star3Coverage = 0.90;
+  static const stickerUnlockCoverage = 0.50;
+  static const star1Coverage = 0.50;
+  static const star2Coverage = 0.80;
+  /// 3★ erst bei praktisch vollständigem Ausmalen.
+  static const star3Coverage = 0.99;
   /// ~100 % → Sticker-Belohnung + Pixelart freischalten.
   static const fullCompleteCoverage = 0.99;
 

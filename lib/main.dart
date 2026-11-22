@@ -37,11 +37,11 @@ import 'services/device_id_service.dart';
 import 'services/notification_service.dart';
 import 'services/remote_pack_service.dart';
 import 'services/streak_service.dart';
+import 'utils/app_orientations.dart';
 import 'utils/app_page_route.dart';
 import 'utils/app_route_observer.dart';
 import 'utils/image_source.dart';
 import 'widgets/force_update_overlay.dart';
-import 'widgets/orientation_snap.dart';
 
 /// Hintergrund hinter dem ersten Flutter-Frame (Splash / Gaps).
 const _bootBackground = Color(0xFF12263F);
@@ -70,12 +70,9 @@ Future<void> main() async {
     unawaited(_logAppOpenBestEffort());
   }
 
-  // Start-Screen Landscape — parallel zu UI-Mode, damit Splash kürzer wirkt.
+  // Start erlaubt Hochkant + Quer — Splash hat beide Motive.
   await Future.wait([
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]),
+    AppOrientations.lockHubPortrait(),
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky),
     DeepLinkService.instance.initialize(),
   ]);
@@ -114,12 +111,22 @@ Future<void> main() async {
         allPuzzle: [for (final p in puzzles) p.id],
       );
       await pixelReady.load();
+      await stars.load();
       final readyIds = pixelReady.ids.toList(growable: false);
+      final hasLocked = DailyQuestService.hasStarLockedContent(
+        wallet: stars,
+        allColoring: [for (final p in coloring) p.id],
+        allPuzzle: [for (final p in puzzles) p.id],
+      );
+      final eventIds = await DailyQuestService.activeEventColoringIds();
       await dailyQuest.load(
         freeColoringIds: pools.coloring,
         freePuzzleIds: pools.puzzle,
         pixelReadyIds: readyIds,
         finishedColoringIds: readyIds,
+        eventColoringIds: eventIds,
+        hasStarLockedContent: hasLocked,
+        adventDoorAvailable: DailyQuestService.adventDoorAvailableNow(),
       );
     }());
     unawaited(WakelockPlus.enable());
@@ -270,14 +277,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     DeepLinkService.instance.consumePendingOpenHub();
     final nav = _navigatorKey.currentState;
     if (nav == null) return;
-    unawaited(
-      SystemChrome.setPreferredOrientations(const [
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]),
-    );
+    unawaited(AppOrientations.lockHubPortrait());
     nav.popUntil((route) => route.isFirst);
     nav.push(
       AppPageRoute<void>(
@@ -349,28 +349,21 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         builder: (context, child) {
           // ListenableBuilder statt context.watch im MaterialApp.builder —
           // zuverlässigeres Rebuild, wenn forceRequired umschaltet.
-          // Winter: Cover näher am Hub-Himmel — weniger blauer Flash beim Drehen.
-          final cover = AdventService.isWinterHubUi()
-              ? const Color(0xFF1E3348)
-              : _bootBackground;
-          return OrientationSnap(
-            coverColor: cover,
-            child: ListenableBuilder(
-              listenable: AppUpdateService.instance,
-              builder: (context, _) {
-                final update = AppUpdateService.instance;
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (child != null) child,
-                    if (update.forceRequired)
-                      Positioned.fill(
-                        child: ForceUpdateOverlay(message: update.message),
-                      ),
-                  ],
-                );
-              },
-            ),
+          return ListenableBuilder(
+            listenable: AppUpdateService.instance,
+            builder: (context, _) {
+              final update = AppUpdateService.instance;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (child != null) child,
+                  if (update.forceRequired)
+                    Positioned.fill(
+                      child: ForceUpdateOverlay(message: update.message),
+                    ),
+                ],
+              );
+            },
           );
         },
         home: const StartScreen(),

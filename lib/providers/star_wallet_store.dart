@@ -249,7 +249,9 @@ class StarWalletStore extends ChangeNotifier {
     return gain;
   }
 
-  int get stickerCost => _economy?.stickerCost ?? 15;
+  int get stickerCost => _economy?.stickerCost ?? 100;
+
+  int get stickerTempCost => _economy?.stickerTempCost ?? 20;
 
   Set<String> get lockedColoringIds => _economy?.lockedIds(FavoriteKind.coloring) ?? {};
   Set<String> get lockedPuzzleIds => _economy?.lockedIds(FavoriteKind.puzzle) ?? {};

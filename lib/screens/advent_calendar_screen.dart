@@ -9,8 +9,10 @@ import '../data/puzzle_images_loader.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../providers/sticker_collection_store.dart';
+import '../providers/star_wallet_store.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
+import '../services/daily_quest_service.dart';
 import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
@@ -61,6 +63,12 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
   Future<void> _onGiftFinished(int day, List<AdventReward> rewards) async {
     await AdventService.instance.saveClaim(day, rewards);
     await StreakService.instance.recordPlayDay();
+    if (mounted) {
+      final quest = context.read<DailyQuestService>();
+      final wallet = context.read<StarWalletStore>();
+      await quest.markAdventDoorDone();
+      await quest.claimProgressRewards(wallet);
+    }
     if (!mounted) return;
     setState(() {
       _activeDoor = null;

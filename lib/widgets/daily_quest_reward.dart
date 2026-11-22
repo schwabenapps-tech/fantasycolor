@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_strings.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
 import 'star_earn_overlay.dart';
 import 'sticker_daily_gift_overlay.dart';
@@ -42,7 +43,12 @@ class DailyQuestReward {
 
     if (!context.mounted) return;
     if (bonusStars > 0) {
-      await StarEarnOverlay.show(context, amount: bonusStars);
+      final total = context.read<StarWalletStore>().balance;
+      await StarEarnOverlay.show(
+        context,
+        amount: bonusStars,
+        newTotal: total,
+      );
     }
   }
 }

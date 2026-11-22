@@ -121,31 +121,50 @@ class _ScrollablePaintTray extends StatelessWidget {
     }
     final wallet = context.read<StarWalletStore>();
     final store = context.read<StickerCollectionStore>();
-    final cost = wallet.stickerCost;
+    final cost = wallet.stickerTempCost;
     final t = AppStrings.of(context);
     final buy = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1B2A40),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        backgroundColor: StarBalancePill.fill,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: StarBalancePill.border.withValues(alpha: 0.95),
+          ),
+        ),
         title: Text(
           t.unlockWithStarsTitle,
           style: const TextStyle(
-            color: Color(0xFFFFF4C8),
+            color: StarBalancePill.ink,
             fontWeight: FontWeight.w800,
           ),
         ),
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(StarBalancePill.asset, width: 32, height: 32),
-            const SizedBox(width: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(StarBalancePill.asset, width: 32, height: 32),
+                const SizedBox(width: 8),
+                Text(
+                  '$cost',
+                  style: const TextStyle(
+                    color: StarBalancePill.ink,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(
-              '$cost',
-              style: const TextStyle(
-                color: Color(0xFFFFD56A),
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
+              t.stickerTempUnlockHint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: StarBalancePill.ink.withValues(alpha: 0.85),
+                fontSize: 13,
               ),
             ),
           ],
@@ -153,12 +172,19 @@ class _ScrollablePaintTray extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text(t.cancel),
+            child: Text(
+              t.cancel,
+              style: const TextStyle(color: StarBalancePill.ink),
+            ),
           ),
           FilledButton(
             onPressed: wallet.balance >= cost
                 ? () => Navigator.pop(ctx, true)
                 : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: StarBalancePill.border,
+              foregroundColor: StarBalancePill.ink,
+            ),
             child: Text(t.unlock),
           ),
         ],
@@ -167,7 +193,7 @@ class _ScrollablePaintTray extends StatelessWidget {
     if (buy != true || !context.mounted) return;
     final ok = await wallet.spendStars(cost);
     if (!ok || !context.mounted) return;
-    await store.unlockWithStars(sticker.id);
+    await store.tempUnlockForPage(pageId, sticker.id);
   }
 
   @override
@@ -175,8 +201,8 @@ class _ScrollablePaintTray extends StatelessWidget {
     final showingColors = session.showingColors;
     final showingStickers = session.showingStickers;
     final stickersStore = context.watch<StickerCollectionStore>();
-    final trayStickers = stickersStore.paintTrayStickers();
-    final stickerCost = context.watch<StarWalletStore>().stickerCost;
+    final trayStickers = stickersStore.paintTrayStickers(pageId: pageId);
+    final stickerCost = context.watch<StarWalletStore>().stickerTempCost;
     final placements = context.watch<ColoringStickerPlacementsStore>();
     final canUndo =
         session.canUndo || placements.canUndo(pageId);
@@ -237,7 +263,8 @@ class _ScrollablePaintTray extends StatelessWidget {
             );
           }
           final sticker = trayStickers[i];
-          final unlocked = stickersStore.canPlaceInColoring(sticker.id);
+          final unlocked =
+              stickersStore.canPlaceInColoring(sticker.id, pageId: pageId);
           return Center(
             child: _TrayStickerChip(
               sticker: sticker,

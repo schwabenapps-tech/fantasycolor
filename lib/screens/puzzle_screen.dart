@@ -19,6 +19,7 @@ import '../services/daily_quest_service.dart';
 import '../services/gallery_export.dart';
 import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
+import '../utils/app_orientations.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
@@ -144,6 +145,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(AppOrientations.enterPlay());
     _imageProvider =
         widget.customImage ?? imageProviderFor(widget.puzzle.assetPath);
     _revealController = AnimationController(
@@ -235,6 +237,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _popController.dispose();
     _shakeController.dispose();
     _introController.dispose();
+    unawaited(AppOrientations.leavePlay());
     super.dispose();
   }
 

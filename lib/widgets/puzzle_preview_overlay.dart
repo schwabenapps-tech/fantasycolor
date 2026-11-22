@@ -8,6 +8,7 @@ import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
 import '../screens/puzzle_screen.dart';
+import '../utils/app_orientations.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
 
@@ -34,7 +35,8 @@ class PuzzlePreviewOverlay {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Puzzle preview',
-      barrierColor: Colors.black.withValues(alpha: 0.72),
+      // Opak: Hub dahinter darf technisch mitdrehen — bleibt unsichtbar.
+      barrierColor: const Color(0xFF0B1524),
       transitionDuration: const Duration(milliseconds: 240),
       pageBuilder: (context, animation, secondaryAnimation) {
         return _PuzzlePreviewBody(
@@ -116,7 +118,14 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   @override
   void initState() {
     super.initState();
+    unawaited(AppOrientations.enterPlay());
     unawaited(_loadPrefs());
+  }
+
+  @override
+  void dispose() {
+    unawaited(AppOrientations.leavePlay());
+    super.dispose();
   }
 
   Future<void> _loadPrefs() async {
