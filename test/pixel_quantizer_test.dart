@@ -44,4 +44,35 @@ void main() {
 
     expect(puzzle.palette.length, 2);
   });
+
+  test('preserves black outline as its own palette color', () async {
+    final image = img.Image(width: 96, height: 96, numChannels: 4);
+    for (var y = 0; y < 96; y++) {
+      for (var x = 0; x < 96; x++) {
+        final onLine = x < 4 || y < 4 || x >= 92 || y >= 92 ||
+            (x > 44 && x < 52) ||
+            (y > 44 && y < 52);
+        if (onLine) {
+          image.setPixelRgba(x, y, 20, 20, 20, 255);
+        } else if (x < 48) {
+          image.setPixelRgba(x, y, 240, 60, 60, 255);
+        } else {
+          image.setPixelRgba(x, y, 60, 140, 240, 255);
+        }
+      }
+    }
+    final bytes = Uint8List.fromList(img.encodePng(image));
+    final puzzle = await PixelQuantizer.fromBytes(
+      bytes,
+      difficulty: PixelDifficulty.standard,
+    );
+
+    final hasLine = puzzle.palette.any((p) {
+      final c = p.color;
+      final lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+      return lum < 60;
+    });
+    expect(hasLine, isTrue);
+    expect(puzzle.palette.length, greaterThanOrEqualTo(3));
+  });
 }

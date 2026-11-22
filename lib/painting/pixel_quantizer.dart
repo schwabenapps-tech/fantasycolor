@@ -10,17 +10,18 @@ import '../utils/image_source.dart';
 
 /// Erzeugt ein Malen-nach-Zahlen-Raster aus dem **gesamten** Asset-Bild.
 ///
-/// Pro Zelle: dominante Farbe aus dem Original (flach/genau für Ausmalen).
-/// Ähnliche Farben werden aggressiv zur häufigeren Farbe gemappt — ohne
-/// Mittelwert, damit Rottöne nicht „doppelt“ in der Palette landen.
+/// Pro Zelle: Füllfarbe ohne Linien-AA, oder Kontur wenn genug dunkle Linie
+/// in der Zelle / im Zentrum liegt — damit Motivlinien sauber bleiben.
 class PixelQuantizer {
   PixelQuantizer._();
 
   /// Algo-Stand — bei Änderung Pixel-Saves invalidieren.
-  static const algoVersion = 3;
+  static const algoVersion = 4;
 
   /// CIE76 ΔE — darunter gilt „gleiche Farbe“ für die Palette.
   static const mergeDeltaE = 22.0;
+
+  static const lineArgb = 0xFF1A1A1A;
 
   static Future<PixelPuzzle> fromAsset(
     String assetPath, {
@@ -98,7 +99,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   }
 
   final src = decoded.convert(numChannels: 4);
-  final maxSide = args.maxSide.clamp(24, 128);
+  final maxSide = args.maxSide.clamp(24, 144);
   late final int cols;
   late final int rows;
   if (src.width >= src.height) {
@@ -109,8 +110,9 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
     cols = math.max(8, (maxSide * src.width / src.height).round());
   }
 
-  // Pro Rasterzelle dominante Farbe aus dem Original → Motiv bleibt treu.
   final cellArgb = List<int>.filled(cols * rows, 0xFFFFFFFF);
+  final lineHint = List<double>.filled(cols * rows, 0);
+
   for (var cy = 0; cy < rows; cy++) {
     final y0 = (cy * src.height / rows).floor();
     final y1 = (((cy + 1) * src.height / rows).ceil()).clamp(y0 + 1, src.height);
@@ -118,9 +120,14 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
       final x0 = (cx * src.width / cols).floor();
       final x1 =
           (((cx + 1) * src.width / cols).ceil()).clamp(x0 + 1, src.width);
-      cellArgb[cy * cols + cx] = _dominantArgb(src, x0, y0, x1, y1);
+      final sample = _sampleCell(src, x0, y0, x1, y1);
+      cellArgb[cy * cols + cx] = sample.argb;
+      lineHint[cy * cols + cx] = sample.lineRatio;
     }
   }
+
+  // Dünne Linien verbinden: Zelle mit etwas Linie zwischen Linien-Nachbarn.
+  _restoreLineContinuity(cellArgb, lineHint, cols, rows);
 
   // Häufigste exakte Zellenfarben → Palette (Winner behält RGB).
   final freq = <int, int>{};
@@ -130,16 +137,28 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   final ranked = freq.keys.toList(growable: false)
     ..sort((a, b) => freq[b]!.compareTo(freq[a]!));
 
+  // Linie zuerst in die Palette, damit sie nicht „weggemerged“ wird.
   final paletteArgb = <int>[];
   final keyToPalette = <int, int>{};
   final maxColors = args.colorCount.clamp(4, 32);
 
+  if (freq.containsKey(PixelQuantizer.lineArgb)) {
+    keyToPalette[PixelQuantizer.lineArgb] = 0;
+    paletteArgb.add(PixelQuantizer.lineArgb);
+  }
+
   for (final key in ranked) {
+    if (keyToPalette.containsKey(key)) continue;
     final lab = _rgbToLab(key);
     var best = -1;
     var bestD = args.mergeDeltaE;
     for (var i = 0; i < paletteArgb.length; i++) {
-      final d = _paletteDistance(lab, _rgbToLab(paletteArgb[i]), key, paletteArgb[i]);
+      final d = _paletteDistance(
+        lab,
+        _rgbToLab(paletteArgb[i]),
+        key,
+        paletteArgb[i],
+      );
       if (d < bestD) {
         bestD = d;
         best = i;
@@ -151,7 +170,6 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
       keyToPalette[key] = paletteArgb.length;
       paletteArgb.add(key);
     } else {
-      // Limit erreicht → nächstgelegene Palette-Farbe.
       var nearest = 0;
       var nearestD = double.infinity;
       for (var i = 0; i < paletteArgb.length; i++) {
@@ -178,7 +196,6 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
     counts[idx]++;
   }
 
-  // Nach Häufigkeit sortieren → Nummer 1 = dominante Farbe.
   final order = List<int>.generate(paletteArgb.length, (i) => i)
     ..sort((a, b) => counts[b].compareTo(counts[a]));
 
@@ -198,46 +215,159 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   );
 }
 
-/// Häufigste Farbe im Block (leicht gerastert gegen Anti-Alias-Rauschen).
-int _dominantArgb(img.Image src, int x0, int y0, int x1, int y1) {
-  final hist = <int, int>{};
-  // Schrittweite: große Zellen nicht pixelweise — trotzdem repräsentativ.
-  final stepX = math.max(1, (x1 - x0) ~/ 12);
-  final stepY = math.max(1, (y1 - y0) ~/ 12);
+class _CellSample {
+  const _CellSample({required this.argb, required this.lineRatio});
+  final int argb;
+  final double lineRatio;
+}
+
+_CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
+  final fillHist = <int, int>{};
+  var lineN = 0;
+  var fillN = 0;
+  var centerLine = 0;
+  var centerTotal = 0;
+
+  final w = x1 - x0;
+  final h = y1 - y0;
+  final stepX = math.max(1, w ~/ 16);
+  final stepY = math.max(1, h ~/ 16);
+  final cx0 = x0 + w ~/ 4;
+  final cx1 = x1 - w ~/ 4;
+  final cy0 = y0 + h ~/ 4;
+  final cy1 = y1 - h ~/ 4;
+
   for (var y = y0; y < y1; y += stepY) {
     for (var x = x0; x < x1; x += stepX) {
       final p = src.getPixel(x, y);
-      // 5-Bit-Buckets: Kantenglätten fällt zusammen, klare Swatches bleiben.
-      final r = (p.r.toInt() >> 3) << 3;
-      final g = (p.g.toInt() >> 3) << 3;
-      final b = (p.b.toInt() >> 3) << 3;
-      final key = 0xFF000000 | (r << 16) | (g << 8) | b;
-      hist[key] = (hist[key] ?? 0) + 1;
+      final r = p.r.toInt();
+      final g = p.g.toInt();
+      final b = p.b.toInt();
+      final inCenter = x >= cx0 && x < cx1 && y >= cy0 && y < cy1;
+      if (inCenter) centerTotal++;
+
+      if (_isLineRgb(r, g, b)) {
+        lineN++;
+        if (inCenter) centerLine++;
+        continue;
+      }
+
+      fillN++;
+      // Füllfarbe bucketed; Linien-AA fliegt raus → sauberere Flächen.
+      final br = (r >> 3) << 3;
+      final bg = (g >> 3) << 3;
+      final bb = (b >> 3) << 3;
+      final key = 0xFF000000 | (br << 16) | (bg << 8) | bb;
+      fillHist[key] = (fillHist[key] ?? 0) + 1;
     }
   }
-  if (hist.isEmpty) return 0xFFFFFFFF;
-  var bestKey = hist.keys.first;
+
+  final total = lineN + fillN;
+  final lineRatio = total == 0 ? 0.0 : lineN / total;
+  final centerRatio =
+      centerTotal == 0 ? 0.0 : centerLine / centerTotal;
+
+  // Dünne Konturen: schon ab ~18 % oder starkes Zentrum → Linie.
+  if (lineRatio >= 0.18 || centerRatio >= 0.28 || (lineRatio >= 0.12 && centerRatio >= 0.18)) {
+    return _CellSample(argb: PixelQuantizer.lineArgb, lineRatio: lineRatio);
+  }
+
+  if (fillHist.isEmpty) {
+    return _CellSample(
+      argb: lineRatio > 0 ? PixelQuantizer.lineArgb : 0xFFFFFFFF,
+      lineRatio: lineRatio,
+    );
+  }
+
+  var bestKey = fillHist.keys.first;
   var bestN = 0;
-  for (final e in hist.entries) {
+  for (final e in fillHist.entries) {
     if (e.value > bestN) {
       bestN = e.value;
       bestKey = e.key;
     }
   }
-  return bestKey;
+  return _CellSample(argb: bestKey, lineRatio: lineRatio);
 }
 
-/// Distanz: CIE76 + Extra-Druck für gleiche Buntheit/ähnlichen Hue (Rottöne).
+void _restoreLineContinuity(
+  List<int> cellArgb,
+  List<double> lineHint,
+  int cols,
+  int rows,
+) {
+  final line = PixelQuantizer.lineArgb;
+  // Mehrere Pässe: Lücken in Linien schließen.
+  for (var pass = 0; pass < 2; pass++) {
+    final next = List<int>.from(cellArgb);
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        final i = y * cols + x;
+        if (cellArgb[i] == line) continue;
+        if (lineHint[i] < 0.06) continue;
+
+        var lineNeighbors = 0;
+        void check(int nx, int ny) {
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) return;
+          if (cellArgb[ny * cols + nx] == line) lineNeighbors++;
+        }
+
+        check(x - 1, y);
+        check(x + 1, y);
+        check(x, y - 1);
+        check(x, y + 1);
+
+        // Brücke zwischen gegenüberliegenden Linien.
+        final horiz = x > 0 &&
+            x < cols - 1 &&
+            cellArgb[y * cols + (x - 1)] == line &&
+            cellArgb[y * cols + (x + 1)] == line;
+        final vert = y > 0 &&
+            y < rows - 1 &&
+            cellArgb[(y - 1) * cols + x] == line &&
+            cellArgb[(y + 1) * cols + x] == line;
+
+        if (horiz || vert || (lineNeighbors >= 2 && lineHint[i] >= 0.10)) {
+          next[i] = line;
+        }
+      }
+    }
+    for (var i = 0; i < cellArgb.length; i++) {
+      cellArgb[i] = next[i];
+    }
+  }
+}
+
+bool _isLineRgb(int r, int g, int b) {
+  final lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  final chroma = math.max(r, math.max(g, b)) - math.min(r, math.min(g, b));
+  // Harte Linie + leichtes AA-Grau (wie ColoringBitmap).
+  if (lum <= 72) return true;
+  if (lum <= 125 && chroma <= 30) return true;
+  return false;
+}
+
+bool _isLineArgb(int argb) {
+  final r = (argb >> 16) & 0xFF;
+  final g = (argb >> 8) & 0xFF;
+  final b = argb & 0xFF;
+  return argb == PixelQuantizer.lineArgb || _isLineRgb(r, g, b);
+}
+
+/// Distanz: CIE76 + Hue-Druck; Linie und Füllfarbe nie zusammenführen.
 double _paletteDistance(
   (double, double, double) a,
   (double, double, double) b,
   int argbA,
   int argbB,
 ) {
+  final lineA = _isLineArgb(argbA);
+  final lineB = _isLineArgb(argbB);
+  if (lineA != lineB) return 999;
+
   final de = _deltaE(a, b);
   final ha = _hueChroma(argbA);
   final hb = _hueChroma(argbB);
-  // Beide bunt und ähnlicher Farbton → stärker zusammenziehen.
   if (ha.$2 >= 25 && hb.$2 >= 25) {
     final dh = _hueDiff(ha.$1, hb.$1);
     final dl = (a.$1 - b.$1).abs();

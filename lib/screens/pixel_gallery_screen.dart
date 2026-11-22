@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -231,10 +230,6 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                                           pixelProgress.hasProgress(page.id),
                                       isCompleted:
                                           pixelProgress.isCompleted(page.id),
-                                      progressVersion:
-                                          pixelProgress.versionOf(page.id),
-                                      previewFile: pixelProgress
-                                          .previewFileFor(page.id),
                                       requiresAdUnlock:
                                           !ready.isPaintUnlocked(page.id),
                                       onTap: () => _openPage(page),
@@ -404,8 +399,6 @@ class _PixelPageTile extends StatelessWidget {
     required this.height,
     required this.hasProgress,
     required this.isCompleted,
-    required this.progressVersion,
-    required this.previewFile,
     required this.onTap,
     this.requiresAdUnlock = false,
   });
@@ -415,8 +408,6 @@ class _PixelPageTile extends StatelessWidget {
   final double height;
   final bool hasProgress;
   final bool isCompleted;
-  final int progressVersion;
-  final File? previewFile;
   final VoidCallback onTap;
   final bool requiresAdUnlock;
 
@@ -462,24 +453,12 @@ class _PixelPageTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     child: ColoredBox(
                       color: Colors.white,
-                      child: previewFile != null
-                          ? Image.file(
-                              previewFile!,
-                              key: ValueKey(
-                                'pixel_preview_${page.id}_$progressVersion',
-                              ),
-                              fit: BoxFit.cover,
-                              gaplessPlayback: false,
-                              errorBuilder: (_, _, _) => ColoringPageImage(
-                                page: page,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : ColoringPageImage(
-                              page: page,
-                              fit: BoxFit.cover,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+                      // Immer das Ausmalbild — nie den Pixel-Zwischenstand.
+                      child: ColoringPageImage(
+                        page: page,
+                        fit: BoxFit.cover,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
