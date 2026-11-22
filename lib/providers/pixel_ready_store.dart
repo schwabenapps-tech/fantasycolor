@@ -23,9 +23,9 @@ class PixelReadyStore extends ChangeNotifier {
   bool stickerRewarded(String id) => _stickerRewarded.contains(id);
   int get count => _ids.length;
 
-  /// Pixel-Sterne-Rating (keine Währungs-Sterne).
+  /// Wie normales Ausmalen: 50 % / 80 % / 100 % → 1★ / 2★ / 3★.
   static int starRatingForFill(double fill) {
-    if (fill >= 0.999) return 3;
+    if (fill >= 1.0) return 3;
     if (fill >= 0.80) return 2;
     if (fill >= 0.50) return 1;
     return 0;

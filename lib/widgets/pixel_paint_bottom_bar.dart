@@ -4,12 +4,11 @@ import '../data/paint_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../utils/app_layout.dart';
 
-/// Rechte Farbleiste für Pixel-/Malen-nach-Zahlen.
+/// Untere Farbleiste für Pixel-/Malen-nach-Zahlen (wie PaintBottomBar).
 ///
-/// Optik wie die Mal-Leiste (runde Wells), aber nur die nummerierten
-/// Bildfarben — keine festen Katalog-Paletten.
-class PixelPaintRail extends StatelessWidget {
-  const PixelPaintRail({
+/// Glühbirne (Ad-Hilfe) zuerst, danach nummerierte Bildfarben — horizontal.
+class PixelPaintBottomBar extends StatelessWidget {
+  const PixelPaintBottomBar({
     super.key,
     required this.swatches,
     required this.selectedNumber,
@@ -28,104 +27,90 @@ class PixelPaintRail extends StatelessWidget {
   final bool fillAdBusy;
   final int adFillsLeft;
 
-  static double widthOf(BuildContext context) =>
-      AppLayout.of(context).paintRailWidth;
+  static double heightOf(BuildContext context) =>
+      AppLayout.of(context).paintBarHeight;
 
   @override
   Widget build(BuildContext context) {
-    final t = AppStrings.of(context);
-    final railWidth = widthOf(context);
+    final barHeight = heightOf(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final hasOpenColors = swatches.any((s) {
       final n = s.number ?? 0;
       return n > 0 && remainingOf(n) > 0;
     });
-    return Container(
-      width: railWidth,
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.4),
-        borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: SafeArea(
-        left: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
-          child: Column(
-            children: [
-              Text(
-                t.imageColors,
-                style: const TextStyle(
-                  color: Color(0xFFFFE7A0),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                t.pickNumber,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.55),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: swatches.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final swatch = swatches[index];
-                    final number = swatch.number ?? (index + 1);
-                    final selected = number == selectedNumber;
-                    final left = remainingOf(number);
-                    final done = left == 0;
-                    return Center(
-                      child: Opacity(
-                        opacity: done ? 0.32 : 1,
-                        child: _NumberedColorWell(
-                          color: swatch.color,
-                          number: number,
-                          selected: selected,
-                          enabled: !done,
-                          onTap: () => onSelect(number),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              if (onHelpWithAd != null && hasOpenColors) ...[
-                const SizedBox(height: 8),
-                _FillNumberAdButton(
+    final showBulb = onHelpWithAd != null;
+
+    // Glühbirne + Farben.
+    final itemCount = (showBulb ? 1 : 0) + swatches.length;
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        height: barHeight + bottomInset,
+        padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + bottomInset),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          border: const Border(
+            top: BorderSide(color: Colors.white24),
+          ),
+        ),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: itemCount,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            if (showBulb && index == 0) {
+              return Center(
+                child: _FillNumberAdChip(
                   busy: fillAdBusy,
                   fillsLeft: adFillsLeft,
+                  hasOpenColors: hasOpenColors,
                   onPressed: onHelpWithAd!,
                 ),
-              ],
-            ],
-          ),
+              );
+            }
+            final swatchIndex = showBulb ? index - 1 : index;
+            final swatch = swatches[swatchIndex];
+            final number = swatch.number ?? (swatchIndex + 1);
+            final selected = number == selectedNumber;
+            final left = remainingOf(number);
+            final done = left == 0;
+            return Center(
+              child: Opacity(
+                opacity: done ? 0.32 : 1,
+                child: _NumberedColorWell(
+                  color: swatch.color,
+                  number: number,
+                  selected: selected,
+                  enabled: !done,
+                  onTap: () => onSelect(number),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _FillNumberAdButton extends StatelessWidget {
-  const _FillNumberAdButton({
+class _FillNumberAdChip extends StatelessWidget {
+  const _FillNumberAdChip({
     required this.busy,
     required this.fillsLeft,
+    required this.hasOpenColors,
     required this.onPressed,
   });
 
   final bool busy;
   final int fillsLeft;
+  final bool hasOpenColors;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
-    final enabled = fillsLeft > 0 && !busy;
+    final enabled = fillsLeft > 0 && hasOpenColors && !busy;
     return Tooltip(
       message: fillsLeft > 0
           ? t.pixelFillNumberAdHint
@@ -135,10 +120,11 @@ class _FillNumberAdButton extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: enabled ? onPressed : (fillsLeft <= 0 ? onPressed : null),
+            onTap: busy ? null : onPressed,
             borderRadius: BorderRadius.circular(14),
             child: Ink(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: const Color(0xFFFFD56A).withValues(alpha: 0.18),
@@ -147,7 +133,7 @@ class _FillNumberAdButton extends StatelessWidget {
                 ),
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (busy)
                     const SizedBox(
@@ -162,28 +148,16 @@ class _FillNumberAdButton extends StatelessWidget {
                     const Icon(
                       Icons.lightbulb_rounded,
                       color: Color(0xFFFFE7A0),
-                      size: 20,
+                      size: 26,
                     ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    t.pixelFillNumberAd,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFFFE7A0),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                    ),
-                  ),
-                  Text(
-                    fillsLeft > 0
-                        ? t.pixelAdFillsLeft(fillsLeft)
-                        : '0',
+                    fillsLeft > 0 ? t.pixelAdFillsLeft(fillsLeft) : '0',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -226,8 +200,8 @@ class _NumberedColorWell extends StatelessWidget {
         onTap: enabled ? onTap : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          width: 44,
-          height: 44,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
@@ -250,7 +224,7 @@ class _NumberedColorWell extends StatelessWidget {
             style: TextStyle(
               color: ink,
               fontWeight: FontWeight.w900,
-              fontSize: 15,
+              fontSize: 17,
             ),
           ),
         ),

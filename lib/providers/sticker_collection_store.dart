@@ -56,9 +56,9 @@ class StickerCollectionStore extends ChangeNotifier {
   bool isTempUnlocked(String pageId, String stickerId) =>
       _tempByPage[pageId]?.contains(stickerId) ?? false;
 
-  /// Besessen oder für dieses Ausmalbild temporär freigeschaltet.
+  /// Beim Ausmalen immer nur temp für dieses Bild — Besitz allein reicht nicht.
   bool canPlaceInColoring(String id, {required String pageId}) =>
-      owns(id) || isTempUnlocked(pageId, id);
+      isTempUnlocked(pageId, id);
 
   Future<void> load() async {
     await _loadCatalogMerged();
@@ -227,10 +227,9 @@ class StickerCollectionStore extends ChangeNotifier {
     return entry;
   }
 
-  /// Temporär für ein Ausmalbild (kein Album-Besitz).
+  /// Temporär für ein Ausmalbild (auch bei Album-Besitz — bis Done).
   Future<void> tempUnlockForPage(String pageId, String stickerId) async {
     await _ensureReady();
-    if (owns(stickerId)) return;
     final set = _tempByPage.putIfAbsent(pageId, () => <String>{});
     if (!set.add(stickerId)) return;
     await _persistTemp();

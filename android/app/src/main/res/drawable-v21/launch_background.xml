@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Portrait-Splash: proportional skalieren (kein Strecken), wie iOS AspectFill. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_background" />
+    <item>
+        <bitmap
+            android:gravity="fill_horizontal|center_vertical"
+            android:src="@drawable/splash_portrait" />
+    </item>
 </layer-list>

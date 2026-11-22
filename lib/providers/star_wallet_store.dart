@@ -14,14 +14,17 @@ class StarWalletStore extends ChangeNotifier {
   static const _unlockedPuzzleKey = 'star_unlocked_puzzle_v1';
   static const _coloringRatingKey = 'star_coloring_rating_v1';
   static const _puzzleRewardedKey = 'star_puzzle_rewarded_v1';
+  static const _puzzleRatingKey = 'star_puzzle_rating_v1';
+  static const _pixelRatingKey = 'star_pixel_rating_v1';
 
   int _balance = 0;
-  /// Sterne-Show erst im Hub (nicht auf Level-Complete).
+  /// Sterne-Show erst im Hub (z. B. Daily-Bonus) — Play zeigt lokal.
   int _pendingHubStars = 0;
   final Set<String> _unlockedColoring = {};
   final Set<String> _unlockedPuzzle = {};
   final Map<String, int> _coloringRatings = {};
-  final Set<String> _puzzleRewarded = {};
+  final Map<String, int> _puzzleRatings = {};
+  final Map<String, int> _pixelRatings = {};
   StarEconomy? _economy;
   bool _ready = false;
 
@@ -54,12 +57,21 @@ class StarWalletStore extends ChangeNotifier {
     _unlockedPuzzle
       ..clear()
       ..addAll(prefs.getStringList(_unlockedPuzzleKey) ?? const []);
-    _puzzleRewarded
-      ..clear()
-      ..addAll(prefs.getStringList(_puzzleRewardedKey) ?? const []);
     _coloringRatings
       ..clear()
       ..addAll(_decodeRatings(prefs.getStringList(_coloringRatingKey)));
+    _puzzleRatings
+      ..clear()
+      ..addAll(_decodeRatings(prefs.getStringList(_puzzleRatingKey)));
+    _pixelRatings
+      ..clear()
+      ..addAll(_decodeRatings(prefs.getStringList(_pixelRatingKey)));
+    // Alt: einmalig belohnt → als 3★ werten (kein erneutes Auszahlen).
+    final legacyRewarded = prefs.getStringList(_puzzleRewardedKey) ?? const [];
+    for (final id in legacyRewarded) {
+      if (id.isEmpty) continue;
+      _puzzleRatings.putIfAbsent(id, () => 3);
+    }
     // Advent-Türchen-Freischaltungen in die Wallet übernehmen.
     final advent = AdventService.instance;
     if (!advent.isReady) await advent.load();
@@ -83,8 +95,8 @@ class StarWalletStore extends ChangeNotifier {
     return out;
   }
 
-  List<String> _encodeRatings() => [
-        for (final e in _coloringRatings.entries) '${e.key}:${e.value}',
+  List<String> _encodeRatingsMap(Map<String, int> map) => [
+        for (final e in map.entries) '${e.key}:${e.value}',
       ]..sort();
 
   Future<void> _persistBalance() async {
@@ -106,11 +118,20 @@ class StarWalletStore extends ChangeNotifier {
 
   Future<void> _persistRatings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_coloringRatingKey, _encodeRatings());
     await prefs.setStringList(
-      _puzzleRewardedKey,
-      _puzzleRewarded.toList(growable: false)..sort(),
+      _coloringRatingKey,
+      _encodeRatingsMap(_coloringRatings),
     );
+    await prefs.setStringList(
+      _puzzleRatingKey,
+      _encodeRatingsMap(_puzzleRatings),
+    );
+    await prefs.setStringList(
+      _pixelRatingKey,
+      _encodeRatingsMap(_pixelRatings),
+    );
+    // Legacy-Key aufräumen — Ratings leben in _puzzleRatingKey.
+    await prefs.remove(_puzzleRewardedKey);
   }
 
   static const adventUnlockCost = 25;
@@ -205,7 +226,7 @@ class StarWalletStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vergibt Sterne für neues/besseres Rating. Returns verdiente Sterne.
+  /// Vergibt Sterne für neues/besseres Rating. Anzeige lokal im Overlay.
   Future<int> awardColoringRating(String id, int rating) async {
     if (rating < 1 || rating > 3) return 0;
     if (!_ready) await load();
@@ -220,25 +241,55 @@ class StarWalletStore extends ChangeNotifier {
     if (gain > 0) {
       _balance += gain;
       await _persistBalance();
-      queueHubStarDisplay(gain);
     }
     await _persistRatings();
     notifyListeners();
     return gain;
   }
 
-  Future<int> awardPuzzleComplete(String id) async {
+  /// Puzzle-Abschluss: Easy=1 / Medium=2 / Pro=3. Anzeige lokal im Overlay.
+  Future<int> awardPuzzleComplete(String id, {required int rating}) async {
+    if (rating < 1 || rating > 3) return 0;
     if (!_ready) await load();
-    if (_puzzleRewarded.contains(id)) return 0;
-    final gain = _economy?.puzzleCompleteReward ?? 5;
-    _puzzleRewarded.add(id);
-    _balance += gain;
-    await _persistBalance();
+    final eco = _economy;
+    if (eco == null) return 0;
+    final prev = _puzzleRatings[id] ?? 0;
+    if (rating <= prev) return 0;
+    final prevCurrency = prev == 0 ? 0 : eco.currencyForPuzzleRating(prev);
+    final nextCurrency = eco.currencyForPuzzleRating(rating);
+    final gain = nextCurrency - prevCurrency;
+    _puzzleRatings[id] = rating;
+    if (gain > 0) {
+      _balance += gain;
+      await _persistBalance();
+    }
     await _persistRatings();
-    queueHubStarDisplay(gain);
     notifyListeners();
     return gain;
   }
+
+  /// Pixelart: gleiche Währung wie Ausmalen (1/2/5), eigener Progress-Stand.
+  Future<int> awardPixelRating(String id, {required int rating}) async {
+    if (rating < 1 || rating > 3) return 0;
+    if (!_ready) await load();
+    final eco = _economy;
+    if (eco == null) return 0;
+    final prev = _pixelRatings[id] ?? 0;
+    if (rating <= prev) return 0;
+    final prevCurrency = prev == 0 ? 0 : eco.currencyForColoringRating(prev);
+    final nextCurrency = eco.currencyForColoringRating(rating);
+    final gain = nextCurrency - prevCurrency;
+    _pixelRatings[id] = rating;
+    if (gain > 0) {
+      _balance += gain;
+      await _persistBalance();
+    }
+    await _persistRatings();
+    notifyListeners();
+    return gain;
+  }
+
+  int pixelRatingOf(String id) => _pixelRatings[id] ?? 0;
 
   Future<int> awardRewardedAd() async {
     if (!_ready) await load();
@@ -249,9 +300,12 @@ class StarWalletStore extends ChangeNotifier {
     return gain;
   }
 
-  int get stickerCost => _economy?.stickerCost ?? 100;
+  int get stickerCost => _economy?.stickerCost ?? 150;
 
-  int get stickerTempCost => _economy?.stickerTempCost ?? 20;
+  /// Temp beim Ausmalen: Besitz 15★, neu 40★.
+  int stickerTempCostFor({required bool owned}) => owned
+      ? (_economy?.stickerTempOwnedCost ?? 15)
+      : (_economy?.stickerTempNewCost ?? 40);
 
   Set<String> get lockedColoringIds => _economy?.lockedIds(FavoriteKind.coloring) ?? {};
   Set<String> get lockedPuzzleIds => _economy?.lockedIds(FavoriteKind.puzzle) ?? {};

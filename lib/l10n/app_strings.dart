@@ -278,8 +278,8 @@ const _en = {
       '• Solve a puzzle on Pro for a sticker — once. Easy and Medium do not give stickers.\n'
       '• Daily quests (bell): finish all tasks → stickers + bonus stars.\n'
       '• Advent calendar doors gift winter stickers.\n'
-      '• Stickers you own are free to place while coloring.\n'
-      '• Unowned stickers: temporary unlock while coloring (20★) — locks again when you tap Done. Classic album permanent unlock: 100★. Winter album: Advent only.\n'
+      '• While coloring, every sticker needs a temporary unlock (even ones you own) and locks again after Done.\n'
+      '• Owned stickers: 15★ temp. Unowned: 40★ temp. Classic album permanent unlock: 150★. Winter album: Advent only.\n'
       '• Each sticker unlocks only once — no duplicates.\n'
       '• Collect them all to download the free sticker pack.',
   'stickerTempUnlockHint':
@@ -455,8 +455,8 @@ const _de = {
       '• Puzzle auf Pro → Sticker (einmal). Easy und Medium geben keine.\n'
       '• Tägliche Aufgaben (Glocke): alle Tasks fertig → Sticker + Bonus-Sterne.\n'
       '• Adventskalender schenkt Winter-Stickers.\n'
-      '• Stickers, die du besitzt, sind beim Ausmalen frei nutzbar.\n'
-      '• Ohne Besitz: temporär beim Malen freischalten (20★) — nach Done wieder gesperrt. Klassik-Album dauerhaft: 100★. Winter-Album: nur Advent.\n'
+      '• Beim Ausmalen braucht jeder Sticker eine Temp-Freischaltung (auch Besitz) und sperrt nach Done wieder.\n'
+      '• Besitz: 15★ temp. Neu: 40★ temp. Klassik-Album dauerhaft: 150★. Winter-Album: nur Advent.\n'
       '• Jeder Sticker nur einmal — keine Duplikate.\n'
       '• Sammle alle, um das Sticker-Pack herunterzuladen.',
   'stickerTempUnlockHint':

@@ -64,10 +64,8 @@ class AppLayout {
 
   double get hubMaxCardWidth => isTablet ? 280.0 : double.infinity;
 
-  double get paintRailWidth => isTablet ? 188.0 : 148.0;
-
-  /// Untere Farbleiste beim Ausmalen.
-  double get paintBarHeight => isTablet ? 80.0 : 72.0;
+  /// Untere Farbleiste beim Ausmalen / Pixelart.
+  double get paintBarHeight => isTablet ? 100.0 : 92.0;
 
   double get puzzleTrayHeight => isTablet ? 160.0 : 142.0;
 

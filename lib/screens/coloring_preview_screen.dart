@@ -279,11 +279,12 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     final wallet = context.read<StarWalletStore>();
     final quest = context.read<DailyQuestService>();
     final isDaily = quest.isTodaysQuestTarget(widget.page.id, coloring: true);
+    var gained = 0;
     // Daily: Rating speichern (für Pixelart), aber keine Währungs-Sterne.
     if (isDaily) {
       await wallet.recordColoringRating(widget.page.id, rating);
     } else {
-      await wallet.awardColoringRating(widget.page.id, rating);
+      gained = await wallet.awardColoringRating(widget.page.id, rating);
     }
     await quest.markColoringDone(widget.page.id, rating: rating);
     await quest.claimProgressRewards(wallet);
@@ -314,8 +315,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _finishRating = rating;
-      _earnedStars = 0;
+      // Wie Puzzle: fliegende Sterne = verdient (max 3), +N = Währung (1/2/5).
+      _finishRating = gained > 0 ? rating.clamp(0, 3) : 0;
+      _earnedStars = gained;
     });
     unawaited(AudioService.instance.playLevelComplete());
     unawaited(StreakService.instance.recordPlayDay());

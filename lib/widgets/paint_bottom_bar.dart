@@ -121,7 +121,7 @@ class _ScrollablePaintTray extends StatelessWidget {
     }
     final wallet = context.read<StarWalletStore>();
     final store = context.read<StickerCollectionStore>();
-    final cost = wallet.stickerTempCost;
+    final cost = wallet.stickerTempCostFor(owned: store.owns(sticker.id));
     final t = AppStrings.of(context);
     final buy = await showDialog<bool>(
       context: context,
@@ -202,7 +202,7 @@ class _ScrollablePaintTray extends StatelessWidget {
     final showingStickers = session.showingStickers;
     final stickersStore = context.watch<StickerCollectionStore>();
     final trayStickers = stickersStore.paintTrayStickers(pageId: pageId);
-    final stickerCost = context.watch<StarWalletStore>().stickerTempCost;
+    final walletWatch = context.watch<StarWalletStore>();
     final placements = context.watch<ColoringStickerPlacementsStore>();
     final canUndo =
         session.canUndo || placements.canUndo(pageId);
@@ -265,11 +265,14 @@ class _ScrollablePaintTray extends StatelessWidget {
           final sticker = trayStickers[i];
           final unlocked =
               stickersStore.canPlaceInColoring(sticker.id, pageId: pageId);
+          final lockCost = walletWatch.stickerTempCostFor(
+            owned: stickersStore.owns(sticker.id),
+          );
           return Center(
             child: _TrayStickerChip(
               sticker: sticker,
               locked: !unlocked,
-              lockCost: stickerCost,
+              lockCost: lockCost,
               onTap: () => unawaited(
                 _onStickerTap(context, sticker, unlocked),
               ),
@@ -384,8 +387,8 @@ class _BackButton extends StatelessWidget {
         onTap: session.openCategoryTray,
         borderRadius: radius,
         child: Ink(
-          width: 48,
-          height: 48,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
             borderRadius: radius,
             color: Colors.white.withValues(alpha: 0.16),
@@ -393,7 +396,7 @@ class _BackButton extends StatelessWidget {
           ),
           child: const Icon(
             Icons.arrow_back_rounded,
-            size: 22,
+            size: 26,
             color: Colors.white,
           ),
         ),
@@ -429,8 +432,8 @@ class _UndoButton extends StatelessWidget {
           onLongPress: canReset ? onResetAll : null,
           borderRadius: radius,
           child: Ink(
-            width: 48,
-            height: 48,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               borderRadius: radius,
               color: Colors.white.withValues(alpha: 0.16),
@@ -438,7 +441,7 @@ class _UndoButton extends StatelessWidget {
             ),
             child: const Icon(
               Icons.replay_rounded,
-              size: 22,
+              size: 26,
               color: Colors.white,
             ),
           ),
@@ -467,8 +470,8 @@ class _EraserButton extends StatelessWidget {
         ),
         borderRadius: radius,
         child: Ink(
-          width: 48,
-          height: 48,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
             borderRadius: radius,
             color: selected
@@ -481,7 +484,7 @@ class _EraserButton extends StatelessWidget {
           ),
           child: Icon(
             Icons.auto_fix_off_rounded,
-            size: 22,
+            size: 26,
             color: selected ? const Color(0xFF243044) : Colors.white,
           ),
         ),
@@ -513,8 +516,8 @@ class _StickerEntryChip extends StatelessWidget {
             opacity: selected ? 1 : 0.95,
             child: Image.asset(
               PaintBottomBar.stickerEntryAsset,
-              width: 58,
-              height: 58,
+              width: 66,
+              height: 66,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.medium,
             ),
@@ -585,8 +588,8 @@ class _StickerHelpButton extends StatelessWidget {
           onTap: () => _showHelp(context),
           borderRadius: radius,
           child: Ink(
-            width: 48,
-            height: 48,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               borderRadius: radius,
               color: Colors.white.withValues(alpha: 0.16),
@@ -594,7 +597,7 @@ class _StickerHelpButton extends StatelessWidget {
             ),
             child: const Icon(
               Icons.info_outline_rounded,
-              size: 22,
+              size: 26,
               color: Colors.white,
             ),
           ),
@@ -622,12 +625,12 @@ class _TrayStickerChip extends StatelessWidget {
     final image = isLocalImageAvailable(sticker.assetPath)
         ? Image(
             image: imageProviderFor(sticker.assetPath),
-            width: 58,
-            height: 58,
+            width: 66,
+            height: 66,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.medium,
           )
-        : const Icon(Icons.sticky_note_2, color: Colors.white70, size: 40);
+        : const Icon(Icons.sticky_note_2, color: Colors.white70, size: 46);
 
     return Material(
       color: Colors.transparent,
@@ -635,8 +638,8 @@ class _TrayStickerChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
-          width: 58,
-          height: 58,
+          width: 66,
+          height: 66,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -790,8 +793,8 @@ class _ColorWell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final outer = recent ? 44.0 : 50.0;
-    final inner = selected ? (recent ? 32.0 : 38.0) : (recent ? 36.0 : 44.0);
+    final outer = recent ? 52.0 : 58.0;
+    final inner = selected ? (recent ? 38.0 : 44.0) : (recent ? 44.0 : 52.0);
     return Material(
       color: Colors.transparent,
       child: InkWell(

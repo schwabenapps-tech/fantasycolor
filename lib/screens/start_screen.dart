@@ -86,11 +86,18 @@ class _StartScreenState extends State<StartScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            _portraitAsset,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            gaplessPlayback: true,
+          // Portrait-Asset: cover + clip — kein Strecken in die Breite.
+          Positioned.fill(
+            child: ColoredBox(
+              color: const Color(0xFF12263F),
+              child: Image.asset(
+                _portraitAsset,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.medium,
+                gaplessPlayback: true,
+              ),
+            ),
           ),
           FadeTransition(
             opacity: _fadeAnimation,

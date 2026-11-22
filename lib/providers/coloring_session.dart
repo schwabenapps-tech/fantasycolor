@@ -183,41 +183,47 @@ class ColoringSession extends ChangeNotifier {
   double? _cachedCoverage;
   int _cachedCoverageGen = -1;
 
-  /// Ausmal-Anteil 0..1 für Sticker-Fortschritt (Linien ausgeschlossen).
-  double paintedCoverageRatio() {
+  /// Ausmal-Anteil 0..1 (Linien ausgeschlossen).
+  /// [includeOpenStrokes]: grober Bonus für noch nicht eingefrorene Pen-Striche
+  /// (nur UI-Balken) — Sterne-Rating nutzt immer den echten Bitmap-Stand.
+  double paintedCoverageRatio({bool includeOpenStrokes = true}) {
     final bmp = _bitmap;
     if (bmp == null) return 0;
     final gen = generation;
-    if (_cachedCoverage != null && _cachedCoverageGen == gen) {
+    // Cache nur für den „echten“ Stand (Sterne / 100 %).
+    if (!includeOpenStrokes &&
+        _cachedCoverage != null &&
+        _cachedCoverageGen == gen) {
       return _cachedCoverage!;
     }
-    // Offene Pen-Striche zählen grob mit (noch nicht eingefroren).
     final base = bmp.paintedCoverageRatio(step: 4);
+    if (!includeOpenStrokes) {
+      _cachedCoverage = base;
+      _cachedCoverageGen = gen;
+      return base;
+    }
     final strokeBoost =
         _strokes.isEmpty ? 0.0 : (_strokes.length * 0.01).clamp(0.0, 0.08);
-    final value = (base + strokeBoost).clamp(0.0, 1.0);
-    _cachedCoverage = value;
-    _cachedCoverageGen = gen;
-    return value;
+    return (base + strokeBoost).clamp(0.0, 1.0);
   }
 
   /// Mindestens so viel ausmalen, bevor Done freigeschaltet wird (1★).
   static const stickerUnlockCoverage = 0.50;
   static const star1Coverage = 0.50;
   static const star2Coverage = 0.80;
-  /// 3★ erst bei praktisch vollständigem Ausmalen.
-  static const star3Coverage = 0.99;
-  /// ~100 % → Sticker-Belohnung + Pixelart freischalten.
-  static const fullCompleteCoverage = 0.99;
+  /// 3★ / +5 Sterne nur bei echten 100 %.
+  static const star3Coverage = 1.0;
+  /// 100 % → Sticker-Belohnung + Pixelart freischalten.
+  static const fullCompleteCoverage = 1.0;
 
   bool get meetsStickerCoverage =>
-      paintedCoverageRatio() >= stickerUnlockCoverage;
+      paintedCoverageRatio(includeOpenStrokes: false) >= stickerUnlockCoverage;
 
   bool get isFullyComplete =>
-      paintedCoverageRatio() >= fullCompleteCoverage;
+      paintedCoverageRatio(includeOpenStrokes: false) >= fullCompleteCoverage;
 
   int get starRating {
-    final c = paintedCoverageRatio();
+    final c = paintedCoverageRatio(includeOpenStrokes: false);
     if (c >= star3Coverage) return 3;
     if (c >= star2Coverage) return 2;
     if (c >= star1Coverage) return 1;

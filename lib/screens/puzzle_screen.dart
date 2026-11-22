@@ -114,6 +114,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   bool _celebrating = false;
   bool _exitAdShown = false;
   int _earnedStars = 0;
+  int _finishRating = 0;
   int? _popPiece;
   int? _shakeSlot;
   int? _hoverSlot;
@@ -262,6 +263,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _revealing = false;
     _celebrating = false;
     _earnedStars = 0;
+    _finishRating = 0;
     _popPiece = null;
     _shakeSlot = null;
     _hoverSlot = null;
@@ -584,9 +586,18 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     final quest = context.read<DailyQuestService>();
     final isDaily =
         quest.isTodaysQuestTarget(widget.puzzle.id, coloring: false);
+    final rating = switch (_difficulty.tier) {
+      PuzzleTier.easy => 1,
+      PuzzleTier.medium => 2,
+      PuzzleTier.expert => 3,
+    };
+    var gained = 0;
     // Daily-Einzelaufgaben: keine normalen Abschluss-Sterne.
     if (!isDaily) {
-      await wallet.awardPuzzleComplete(widget.puzzle.id);
+      gained = await wallet.awardPuzzleComplete(
+        widget.puzzle.id,
+        rating: rating,
+      );
     }
     await quest.markPuzzleDone(
       widget.puzzle.id,
@@ -600,7 +611,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      _earnedStars = 0;
+      // Genau so viele Sterne fliegen wie gerade verdient (Easy → 1).
+      _finishRating = gained.clamp(0, 3);
+      _earnedStars = gained;
     });
     unawaited(AudioService.instance.playLevelComplete());
     unawaited(StreakService.instance.recordPlayDay());
@@ -974,7 +987,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             LevelCompleteOverlay(
               key: _levelKey,
               title: AppStrings.of(context).wonderful,
-              ratingStars: 3,
+              ratingStars: _finishRating,
               earnedStars: _earnedStars,
               fallbackSubtitle: AppStrings.of(context).levelComplete,
               actions: [

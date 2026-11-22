@@ -21,7 +21,7 @@ import '../services/gallery_export.dart';
 import '../utils/app_orientations.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
-import '../widgets/pixel_paint_rail.dart';
+import '../widgets/pixel_paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 
@@ -64,6 +64,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   static const _maxAdFills = 4;
   int _adFillsUsed = 0;
   int _finishRating = 0;
+  int _completionRating = 0;
+  int _earnedStars = 0;
   bool _saveInFlight = false;
   bool _saveDirty = false;
   bool _saveCompletedFlag = false;
@@ -459,9 +461,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     if (_remainingFor(picked) == 0) {
       _advanceFromCompletedNumber();
     }
-    if (_filledCount >= puzzle.totalCells) {
-      await _finish(rating: 3);
-    }
+    // Voll → kein Auto-Abschluss; Sterne erst bei Fertig-Tap.
   }
 
   Future<void> _onDonePressed() async {
@@ -483,11 +483,6 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     final puzzle = _puzzle;
     if (puzzle == null) return;
 
-    setState(() {
-      _celebrating = true;
-      _showFinishActions = true;
-      _finishRating = rating;
-    });
     HapticFeedback.mediumImpact();
 
     _finishedPng = await PixelExporter.renderPng(
@@ -498,16 +493,36 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     );
     await _persistProgress(completed: rating >= 2);
 
+    var gained = 0;
     if (mounted) {
       final quest = context.read<DailyQuestService>();
       final wallet = context.read<StarWalletStore>();
+      final isDaily = quest.tasks.any(
+        (t) =>
+            t.pageId == widget.page.id && (t.isPixel || t.isPixelThreeStar),
+      );
+      // Daily: keine Währungs-Sterne; sonst wie Ausmalen (1/2/5).
+      if (!isDaily) {
+        gained = await wallet.awardPixelRating(
+          widget.page.id,
+          rating: rating,
+        );
+      }
       await quest.markPixelDone(widget.page.id, rating: rating);
       await quest.claimProgressRewards(wallet);
     }
+    if (!mounted) return;
+    setState(() {
+      _celebrating = true;
+      _showFinishActions = true;
+      _completionRating = rating;
+      _finishRating = gained > 0 ? rating.clamp(0, 3) : 0;
+      _earnedStars = gained;
+    });
   }
 
   Future<void> _maybeOfferStickerAfterStars() async {
-    if (_finishRating < 2 || _stickerGiftShown || !mounted) return;
+    if (_completionRating < 2 || _stickerGiftShown || !mounted) return;
     final ready = context.read<PixelReadyStore>();
     if (ready.stickerRewarded(widget.page.id)) return;
     _stickerGiftShown = true;
@@ -575,6 +590,119 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     return left;
   }
 
+  Widget _buildCanvas(PixelPuzzle puzzle) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewport = constraints.biggest;
+        final sheet = _sheetSizeFor(
+          viewport,
+          puzzle.cols / puzzle.rows,
+        );
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTapDown: (details) =>
+              _onSoftZoom(details.localPosition),
+          onDoubleTap: () {},
+          child: ClipRect(
+            child: InteractiveViewer(
+              transformationController: _transform,
+              minScale: 1,
+              maxScale: 8,
+              // 1 Finger malt; Pinch mit 2 Fingern zoomt.
+              panEnabled: false,
+              scaleEnabled: true,
+              constrained: true,
+              clipBehavior: Clip.hardEdge,
+              boundaryMargin: const EdgeInsets.all(48),
+              onInteractionEnd: (_) => _onZoomInteractionEnd(),
+              child: Center(
+                child: SizedBox(
+                  width: sheet.width,
+                  height: sheet.height,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Opacity(
+                        opacity: 0.38,
+                        child: Image(
+                          image: imageProviderFor(widget.page.assetPath),
+                          fit: BoxFit.fill,
+                          filterQuality: FilterQuality.low,
+                          gaplessPlayback: false,
+                          errorBuilder: (_, _, _) =>
+                              const ColoredBox(color: Colors.white),
+                        ),
+                      ),
+                      ColoredBox(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: (e) {
+                          _pointers.add(e.pointer);
+                          if (_pointers.length > 1) {
+                            _paintPointer = null;
+                            return;
+                          }
+                          _paintPointer = e.pointer;
+                          _strokeDidPaint = false;
+                          final cellW = sheet.width / puzzle.cols;
+                          final cellH = sheet.height / puzzle.rows;
+                          final x = (e.localPosition.dx / cellW)
+                              .floor()
+                              .clamp(0, puzzle.cols - 1);
+                          final y = (e.localPosition.dy / cellH)
+                              .floor()
+                              .clamp(0, puzzle.rows - 1);
+                          _onCellTap(x, y, fromDrag: false);
+                        },
+                        onPointerMove: (e) {
+                          if (_pointers.length != 1) return;
+                          if (_paintPointer != e.pointer) return;
+                          if (e.buttons == 0) return;
+                          final cellW = sheet.width / puzzle.cols;
+                          final cellH = sheet.height / puzzle.rows;
+                          final x = (e.localPosition.dx / cellW)
+                              .floor()
+                              .clamp(0, puzzle.cols - 1);
+                          final y = (e.localPosition.dy / cellH)
+                              .floor()
+                              .clamp(0, puzzle.rows - 1);
+                          _onCellTap(x, y, fromDrag: true);
+                        },
+                        onPointerUp: (e) {
+                          _pointers.remove(e.pointer);
+                          if (_paintPointer == e.pointer) {
+                            _paintPointer = null;
+                          }
+                        },
+                        onPointerCancel: (e) {
+                          _pointers.remove(e.pointer);
+                          if (_paintPointer == e.pointer) {
+                            _paintPointer = null;
+                          }
+                        },
+                        child: CustomPaint(
+                          painter: _PixelGridPainter(
+                            puzzle: puzzle,
+                            filled: _filled,
+                            selectedNumber: _selectedNumber,
+                            paintTick: _paintTick,
+                          ),
+                          size: sheet,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -636,233 +764,96 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
                 final puzzle = snapshot.data!;
                 final progress = _filledCount / puzzle.totalCells;
-                final railWidth = _showFinishActions
-                    ? 0.0
-                    : PixelPaintRail.widthOf(context);
 
-                return Stack(
-                  fit: StackFit.expand,
+                return Column(
                   children: [
-                    // Vollflächiger Zoom wie bei Ausmalbildern.
-                    Positioned.fill(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final viewport = constraints.biggest;
-                          final sheet = _sheetSizeFor(
-                            viewport,
-                            puzzle.cols / puzzle.rows,
-                          );
-                          return GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onDoubleTapDown: (details) =>
-                                _onSoftZoom(details.localPosition),
-                            onDoubleTap: () {},
-                            child: ClipRect(
-                              child: InteractiveViewer(
-                              transformationController: _transform,
-                              minScale: 1,
-                              maxScale: 8,
-                              // Immer aus: 1 Finger malt (halten & ziehen).
-                              // Verschieben/Zoomen: Pinch mit 2 Fingern.
-                              panEnabled: false,
-                              scaleEnabled: true,
-                              constrained: true,
-                              // Kein alignment: sonst driftet Pinch-Zoom vom Fokuspunkt weg.
-                              clipBehavior: Clip.hardEdge,
-                              boundaryMargin: const EdgeInsets.all(48),
-                              onInteractionEnd: (_) =>
-                                  _onZoomInteractionEnd(),
-                              child: Center(
-                                child: SizedBox(
-                                  width: sheet.width,
-                                  height: sheet.height,
-                                  child: Stack(
-                                    fit: StackFit.expand,
+                    Expanded(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _buildCanvas(puzzle),
+                          SafeArea(
+                            bottom: false,
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  top: 10,
+                                  left: 12,
+                                  child: SilverBackButton(
+                                    onPressed: () => unawaited(_leave()),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Opacity(
-                                        opacity: 0.38,
-                                        child: Image(
-                                          image: imageProviderFor(
-                                            widget.page.assetPath,
-                                          ),
-                                          fit: BoxFit.fill,
-                                          filterQuality:
-                                              FilterQuality.low,
-                                          gaplessPlayback: false,
-                                          errorBuilder: (_, _, _) =>
-                                              const ColoredBox(
-                                            color: Colors.white,
-                                          ),
+                                      if (!_celebrating && _rating >= 1) ...[
+                                        _DoneChip(
+                                          onPressed: () =>
+                                              unawaited(_onDonePressed()),
                                         ),
-                                      ),
-                                      ColoredBox(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.2),
-                                      ),
-                                      Listener(
-                                        behavior: HitTestBehavior.opaque,
-                                        onPointerDown: (e) {
-                                          _pointers.add(e.pointer);
-                                          if (_pointers.length > 1) {
-                                            _paintPointer = null;
-                                            return;
-                                          }
-                                          _paintPointer = e.pointer;
-                                          _strokeDidPaint = false;
-                                          final cellW =
-                                              sheet.width / puzzle.cols;
-                                          final cellH =
-                                              sheet.height / puzzle.rows;
-                                          final x = (e.localPosition.dx /
-                                                  cellW)
-                                              .floor()
-                                              .clamp(0, puzzle.cols - 1);
-                                          final y = (e.localPosition.dy /
-                                                  cellH)
-                                              .floor()
-                                              .clamp(0, puzzle.rows - 1);
-                                          _onCellTap(
-                                            x,
-                                            y,
-                                            fromDrag: false,
-                                          );
-                                        },
-                                        onPointerMove: (e) {
-                                          if (_pointers.length != 1) {
-                                            return;
-                                          }
-                                          if (_paintPointer != e.pointer) {
-                                            return;
-                                          }
-                                          if (e.buttons == 0) return;
-                                          final cellW =
-                                              sheet.width / puzzle.cols;
-                                          final cellH =
-                                              sheet.height / puzzle.rows;
-                                          final x = (e.localPosition.dx /
-                                                  cellW)
-                                              .floor()
-                                              .clamp(0, puzzle.cols - 1);
-                                          final y = (e.localPosition.dy /
-                                                  cellH)
-                                              .floor()
-                                              .clamp(0, puzzle.rows - 1);
-                                          _onCellTap(
-                                            x,
-                                            y,
-                                            fromDrag: true,
-                                          );
-                                        },
-                                        onPointerUp: (e) {
-                                          _pointers.remove(e.pointer);
-                                          if (_paintPointer == e.pointer) {
-                                            _paintPointer = null;
-                                          }
-                                        },
-                                        onPointerCancel: (e) {
-                                          _pointers.remove(e.pointer);
-                                          if (_paintPointer == e.pointer) {
-                                            _paintPointer = null;
-                                          }
-                                        },
-                                        child: CustomPaint(
-                                          painter: _PixelGridPainter(
-                                            puzzle: puzzle,
-                                            filled: _filled,
-                                            selectedNumber: _selectedNumber,
-                                            paintTick: _paintTick,
-                                          ),
-                                          size: sheet,
-                                        ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      _ProgressPill(progress: progress),
                                     ],
                                   ),
                                 ),
-                              ),
-                            ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    SafeArea(
-                      child: Stack(
-                        children: [
-                          if (_isZoomed)
-                            Positioned(
-                              left: 10,
-                              bottom: 10,
-                              child: _ZoomResetChip(onPressed: _resetZoom),
-                            ),
-                          Positioned(
-                            top: 10,
-                            left: 12,
-                            child: SilverBackButton(
-                              onPressed: () => unawaited(_leave()),
+                                if (_isZoomed)
+                                  Positioned(
+                                    left: 10,
+                                    bottom: 10,
+                                    child: _ZoomResetChip(
+                                      onPressed: _resetZoom,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          Positioned(
-                            top: 14,
-                            right: 16 + railWidth,
-                            child: _ProgressPill(progress: progress),
-                          ),
-                          if (!_celebrating && _rating >= 1)
-                            Positioned(
-                              top: 12,
-                              right: 16 + railWidth + 88,
-                              child: _DoneChip(
-                                onPressed: () => unawaited(_onDonePressed()),
-                              ),
-                            ),
                         ],
                       ),
                     ),
                     if (!_showFinishActions)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: PixelPaintRail(
-                          swatches: _swatches,
-                          selectedNumber: _selectedNumber,
-                          remainingOf: _remainingFor,
-                          fillAdBusy: _fillAdBusy,
-                          adFillsLeft: _adFillsLeft,
-                          onHelpWithAd: () => unawaited(_helpFillWithAd()),
-                          onSelect: (n) {
-                            HapticFeedback.selectionClick();
-                            setState(() => _selectedNumber = n);
-                          },
-                        ),
-                      ),
-                    if (_showFinishActions)
-                      Positioned.fill(
-                        child: LevelCompleteOverlay(
-                          title: AppStrings.of(context).wonderful,
-                          ratingStars: _finishRating,
-                          earnedStars: 0,
-                          fallbackSubtitle:
-                              AppStrings.of(context).levelComplete,
-                          onReady: () =>
-                              unawaited(_maybeOfferStickerAfterStars()),
-                          actions: [
-                            LevelCompleteActionButton(
-                              icon: Icons.download_rounded,
-                              label: AppStrings.of(context).photos,
-                              onPressed: () => unawaited(_saveToPhotos()),
-                            ),
-                            LevelCompleteActionButton(
-                              icon: Icons.check_rounded,
-                              label: AppStrings.of(context).done,
-                              filled: false,
-                              onPressed: () =>
-                                  unawaited(_closeAfterFinish()),
-                            ),
-                          ],
-                        ),
+                      PixelPaintBottomBar(
+                        swatches: _swatches,
+                        selectedNumber: _selectedNumber,
+                        remainingOf: _remainingFor,
+                        fillAdBusy: _fillAdBusy,
+                        adFillsLeft: _adFillsLeft,
+                        onHelpWithAd: () => unawaited(_helpFillWithAd()),
+                        onSelect: (n) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedNumber = n);
+                        },
                       ),
                   ],
                 );
               },
             ),
+            if (_showFinishActions)
+              Positioned.fill(
+                child: LevelCompleteOverlay(
+                  title: AppStrings.of(context).wonderful,
+                  ratingStars: _finishRating,
+                  earnedStars: _earnedStars,
+                  fallbackSubtitle: AppStrings.of(context).levelComplete,
+                  onReady: () => unawaited(_maybeOfferStickerAfterStars()),
+                  actions: [
+                    LevelCompleteActionButton(
+                      icon: Icons.download_rounded,
+                      label: AppStrings.of(context).photos,
+                      onPressed: () => unawaited(_saveToPhotos()),
+                    ),
+                    LevelCompleteActionButton(
+                      icon: Icons.check_rounded,
+                      label: AppStrings.of(context).done,
+                      filled: false,
+                      onPressed: () => unawaited(_closeAfterFinish()),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
