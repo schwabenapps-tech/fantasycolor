@@ -330,6 +330,146 @@
     {
       "id": "sticker_72",
       "asset": "assets/stickers/you_can_do_it.png"
+    },
+    {
+      "id": "winter_advent_2",
+      "asset": "assets/stickers/winter_advent_2.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_advent_1",
+      "asset": "assets/stickers/winter_advent_1.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_advent_3",
+      "asset": "assets/stickers/winter_advent_3.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_advent_4",
+      "asset": "assets/stickers/winter_advent_4.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_chibi_fee_und_haeschen_mit_herzdetails",
+      "asset": "assets/stickers/winter_chibi_fee_und_haeschen_mit_herzdetails.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_chibi_feeenjungs_bauen_einen_schneemann",
+      "asset": "assets/stickers/winter_chibi_feeenjungs_bauen_einen_schneemann.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_chibi_schneeballschlacht_der_feenjungen",
+      "asset": "assets/stickers/winter_chibi_schneeballschlacht_der_feenjungen.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_chibi_weihnachtsmann",
+      "asset": "assets/stickers/winter_chibi_weihnachtsmann.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_eiszaubernde_elfenfreundinnen_beim_schlittschuhlaufen",
+      "asset": "assets/stickers/winter_eiszaubernde_elfenfreundinnen_beim_schlittschuhlaufen.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_festlich_geschmueckter_weihnachtsbaum_mit_geschenken",
+      "asset": "assets/stickers/winter_festlich_geschmueckter_weihnachtsbaum_mit_geschenken.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_froehliche_feen_verzieren_ein_lebkuchenhaus",
+      "asset": "assets/stickers/winter_froehliche_feen_verzieren_ein_lebkuchenhaus.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_froehliche_jungen_auf_dem_schlitten",
+      "asset": "assets/stickers/winter_froehliche_jungen_auf_dem_schlitten.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_froehlicher_weihnachtsfee_sticker_mit_geschenken",
+      "asset": "assets/stickers/winter_froehlicher_weihnachtsfee_sticker_mit_geschenken.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_funkelnde_sternenfee_im_koeniglichen_gewand",
+      "asset": "assets/stickers/winter_funkelnde_sternenfee_im_koeniglichen_gewand.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_funkelnder_elfenviolinist_mit_feenfluegeln",
+      "asset": "assets/stickers/winter_funkelnder_elfenviolinist_mit_feenfluegeln.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_gluecklicher_weihnachtsfee_mit_lebkuchenmann",
+      "asset": "assets/stickers/winter_gluecklicher_weihnachtsfee_mit_lebkuchenmann.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_happy_new_year",
+      "asset": "assets/stickers/winter_happy_new_year.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_kranker_chibi_im_kuschelwinter",
+      "asset": "assets/stickers/winter_kranker_chibi_im_kuschelwinter.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_magischer_eisfalter_wirbel_mit_schneeflocken",
+      "asset": "assets/stickers/winter_magischer_eisfalter_wirbel_mit_schneeflocken.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_maerchenhafte_eisfee_auf_funkelnder_eisbahn",
+      "asset": "assets/stickers/winter_maerchenhafte_eisfee_auf_funkelnder_eisbahn.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_merry_christmas",
+      "asset": "assets/stickers/winter_merry_christmas.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_silvester_sticker",
+      "asset": "assets/stickers/winter_silvester_sticker.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_silvester_2",
+      "asset": "assets/stickers/winter_silvester_2.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_weihnachtliche_goldene_glocken_mit_schleife",
+      "asset": "assets/stickers/winter_weihnachtliche_goldene_glocken_mit_schleife.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_weihnachtskaninchen_im_geschenkesticker",
+      "asset": "assets/stickers/winter_weihnachtskaninchen_im_geschenkesticker.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_weihnachtskerzen_mit_festlichem_tannenschmuck",
+      "asset": "assets/stickers/winter_weihnachtskerzen_mit_festlichem_tannenschmuck.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_winterfee_als_schneeengel",
+      "asset": "assets/stickers/winter_winterfee_als_schneeengel.png",
+      "album": "winter"
+    },
+    {
+      "id": "winter_zwei_feen_mit_funkelnden_schmetterlingen",
+      "asset": "assets/stickers/winter_zwei_feen_mit_funkelnden_schmetterlingen.png",
+      "album": "winter"
     }
   ]
 }

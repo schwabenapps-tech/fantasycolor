@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../data/sticker_catalog.dart';
 import '../providers/sticker_collection_store.dart';
+import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import 'sticker_reveal_overlay.dart';
 
@@ -46,6 +47,8 @@ class StickerDailyGiftOverlay extends StatefulWidget {
   final String source;
 
   static const closedBox = 'assets/images/geschenkbox_geschlossen.png';
+  static const christmasBox = 'assets/images/christmas.box.png';
+  static const silvesterBox = 'assets/images/silvester.box.png';
 
   @override
   State<StickerDailyGiftOverlay> createState() =>
@@ -60,6 +63,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
   StickerEntry? _won;
   _GiftPhase _phase = _GiftPhase.pick;
   List<StickerEntry> _choices = const [];
+  String _boxAsset = StickerDailyGiftOverlay.closedBox;
 
   late final AnimationController _intro;
   late final AnimationController _shake;
@@ -92,27 +96,55 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
       CurvedAnimation(parent: _intro, curve: Curves.easeOutBack),
     );
     unawaited(_intro.forward());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareChoices());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_prepare());
+    });
   }
 
-  void _prepareChoices() {
+  Future<void> _prepare() async {
     if (!mounted) return;
-    final provided = widget.choices;
-    if (provided != null && provided.isNotEmpty) {
-      setState(() => _choices = provided.take(3).toList(growable: false));
-      return;
-    }
-    if (widget.award != null) {
-      setState(() => _choices = [widget.award!]);
-      return;
-    }
     final store = context.read<StickerCollectionStore>();
-    final offered = store.offerChoices();
-    if (offered.isEmpty) {
-      widget.onClosed();
-      return;
+    await store.load();
+    if (!mounted) return;
+
+    // Box für dieses Overlay einfrieren: Silvester nur einmal am 31.12.
+    var box = StickerDailyGiftOverlay.closedBox;
+    var silvesterOnce = false;
+    if (AdventService.usesChristmasGiftBox()) {
+      box = StickerDailyGiftOverlay.christmasBox;
+    } else if (await store.consumeSilvesterGiftBox()) {
+      box = StickerDailyGiftOverlay.silvesterBox;
+      silvesterOnce = true;
     }
-    setState(() => _choices = offered);
+
+    List<StickerEntry> choices;
+    final provided = widget.choices;
+    if (silvesterOnce) {
+      // Einmaliges Silvester-Geschenk: eine Box, ein Sticker.
+      final pool = store.offerChoices(count: 1);
+      if (pool.isEmpty) {
+        widget.onClosed();
+        return;
+      }
+      choices = pool;
+    } else if (provided != null && provided.isNotEmpty) {
+      choices = provided.take(3).toList(growable: false);
+    } else if (widget.award != null) {
+      choices = [widget.award!];
+    } else {
+      final offered = store.offerChoices();
+      if (offered.isEmpty) {
+        widget.onClosed();
+        return;
+      }
+      choices = offered;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _boxAsset = box;
+      _choices = choices;
+    });
   }
 
   @override
@@ -258,6 +290,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
                                               width: boxMax,
                                               height: boxMax * 1.15,
                                               child: _GiftBox(
+                                                asset: _boxAsset,
                                                 selected: _pickedIndex == i,
                                                 shaking: _phase ==
                                                         _GiftPhase.shake &&
@@ -295,6 +328,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
 
 class _GiftBox extends StatelessWidget {
   const _GiftBox({
+    required this.asset,
     required this.selected,
     required this.shaking,
     required this.shakeT,
@@ -304,6 +338,7 @@ class _GiftBox extends StatelessWidget {
     required this.onTap,
   });
 
+  final String asset;
   final bool selected;
   final bool shaking;
   final double shakeT;
@@ -327,7 +362,7 @@ class _GiftBox extends StatelessWidget {
     final burstOpacity = exploding ? (1.0 - Curves.easeIn.transform(burstT)) : 1.0;
 
     Widget box = Image.asset(
-      StickerDailyGiftOverlay.closedBox,
+      asset,
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
     );

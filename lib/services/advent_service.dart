@@ -32,6 +32,27 @@ class AdventService extends ChangeNotifier {
   /// Kalenderdatum für Türchen / Advent-Season (immer echt, kein Fake-25.12.).
   static DateTime _effectiveNow([DateTime? now]) => now ?? DateTime.now();
 
+  /// Exklusiv über Weihnachts-Geschenkbox am 1. Advent (nicht als Türchen).
+  static const firstAdventStickerId = 'winter_advent_1';
+
+  /// Nur am 31.12. über Daily Gift — nie im Adventskalender.
+  /// silvester / silvester1 nicht im Geschenk (Puzzle bzw. entfernt).
+  static const silvesterStickerIds = <String>{
+    'winter_silvester_2',
+    'winter_happy_new_year',
+  };
+
+  /// Feuerwerk-Puzzle (Winter-Event), kein Advent-Türchen.
+  static const silvesterPuzzleId = 'feen_bestaunen_das_feuerwerk_im_schnee';
+
+  /// 1. Adventssonntag (vier Sonntage vor Weihnachten, lokal).
+  static DateTime firstAdventDate(int year) {
+    final christmas = DateTime(year, 12, 25);
+    final daysAfterSunday = christmas.weekday % DateTime.daysPerWeek;
+    final fourthAdvent = christmas.subtract(Duration(days: daysAfterSunday));
+    return fourthAdvent.subtract(const Duration(days: 21));
+  }
+
   /// 1.12. 00:00 – 25.12. 23:59 (lokales Datum).
   static bool isAdventSeason([DateTime? now]) {
     final n = _effectiveNow(now);
@@ -47,6 +68,27 @@ class AdventService extends ChangeNotifier {
     // Vorschau / Early-Access-Hub vor dem 1.12.
     if (n.month == 11 && n.day >= 15) return true;
     return false;
+  }
+
+  /// Weihnachts-Geschenkbox: ab 1. Advent bis einschließlich 25.12.
+  static bool usesChristmasGiftBox([DateTime? now]) {
+    final n = _effectiveNow(now);
+    final start = firstAdventDate(n.year);
+    final startDay = DateTime(start.year, start.month, start.day);
+    final end = DateTime(n.year, 12, 25);
+    final day = DateTime(n.year, n.month, n.day);
+    return !day.isBefore(startDay) && !day.isAfter(end);
+  }
+
+  static bool isFirstAdventDay([DateTime? now]) {
+    final n = _effectiveNow(now);
+    final a = firstAdventDate(n.year);
+    return n.year == a.year && n.month == a.month && n.day == a.day;
+  }
+
+  static bool isNewYearsEve([DateTime? now]) {
+    final n = _effectiveNow(now);
+    return n.month == 12 && n.day == 31;
   }
 
   /// Klassische Daily- + Completion-Sticker-Belohnungen.
@@ -195,8 +237,20 @@ class AdventService extends ChangeNotifier {
     return 1;
   }
 
-  /// Abwechselnd Sticker → Ausmalen → Puzzle; 24 = zwei, 25 = alle drei.
+  /// Belohnungs-Typen aus Türchen-Config (gesetzte IDs); Fallback-Zyklus.
   static List<AdventRewardType> rewardTypesForDay(int day) {
+    final cfg = instance._doors[day];
+    if (cfg != null) {
+      final fromConfig = <AdventRewardType>[
+        if (cfg.stickerId != null && cfg.stickerId!.isNotEmpty)
+          AdventRewardType.sticker,
+        if (cfg.coloringId != null && cfg.coloringId!.isNotEmpty)
+          AdventRewardType.coloring,
+        if (cfg.puzzleId != null && cfg.puzzleId!.isNotEmpty)
+          AdventRewardType.puzzle,
+      ];
+      if (fromConfig.isNotEmpty) return fromConfig;
+    }
     if (day == 25) {
       return const [
         AdventRewardType.sticker,
@@ -206,8 +260,8 @@ class AdventService extends ChangeNotifier {
     }
     if (day == 24) {
       return const [
+        AdventRewardType.sticker,
         AdventRewardType.coloring,
-        AdventRewardType.puzzle,
       ];
     }
     const cycle = [

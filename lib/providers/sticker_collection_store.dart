@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/sticker_catalog.dart';
+import '../services/advent_service.dart';
 import '../services/remote_pack_service.dart';
 
 /// Persistierter Sticker-Besitz + Daily-Claim.
@@ -17,6 +18,8 @@ class StickerCollectionStore extends ChangeNotifier {
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
   static const _coloringRewardedKey = 'sticker_coloring_rewarded_ids_v1';
   static const _puzzleRewardedKey = 'sticker_puzzle_rewarded_ids_v1';
+  /// Jahr, in dem die einmalige Silvester-Box schon genutzt wurde.
+  static const _silvesterBoxUsedYearKey = 'silvester_gift_box_used_year_v1';
   /// Legacy — wird beim Load gelesen und verworfen (Besitz reicht jetzt).
   static const _paintUnlockedKey = 'sticker_paint_unlocked_ids_v1';
 
@@ -28,6 +31,7 @@ class StickerCollectionStore extends ChangeNotifier {
   StickerCatalog? _catalog;
   bool _ready = false;
   String? _lastDailyClaimDay;
+  int? _silvesterBoxUsedYear;
 
   final _rng = Random();
 
@@ -80,6 +84,7 @@ class StickerCollectionStore extends ChangeNotifier {
       await prefs.remove(_paintUnlockedKey);
     }
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
+    _silvesterBoxUsedYear = prefs.getInt(_silvesterBoxUsedYearKey);
     _ready = true;
     notifyListeners();
   }
@@ -132,6 +137,7 @@ class StickerCollectionStore extends ChangeNotifier {
     _coloringRewarded.clear();
     _puzzleRewarded.clear();
     _lastDailyClaimDay = null;
+    _silvesterBoxUsedYear = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
     await prefs.remove(_tempUnlockKey);
@@ -139,7 +145,26 @@ class StickerCollectionStore extends ChangeNotifier {
     await prefs.remove(_dailyClaimKey);
     await prefs.remove(_coloringRewardedKey);
     await prefs.remove(_puzzleRewardedKey);
+    await prefs.remove(_silvesterBoxUsedYearKey);
     notifyListeners();
+  }
+
+  /// Einmalige Silvester-Box am 31.12. noch verfügbar?
+  bool get canUseSilvesterGiftBox {
+    if (!AdventService.isNewYearsEve()) return false;
+    final year = DateTime.now().year;
+    return _silvesterBoxUsedYear != year;
+  }
+
+  /// Verbrauch der einmaligen Silvester-Box (sofort, damit Folge-Overlays klassisch bleiben).
+  Future<bool> consumeSilvesterGiftBox() async {
+    if (!canUseSilvesterGiftBox) return false;
+    final year = DateTime.now().year;
+    _silvesterBoxUsedYear = year;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_silvesterBoxUsedYearKey, year);
+    notifyListeners();
+    return true;
   }
 
   /// Pro Ausmal-Durchgang: nach Reset wieder belohnbar.
@@ -189,18 +214,49 @@ class StickerCollectionStore extends ChangeNotifier {
   /// Daily noch verfügbar heute und Pool nicht leer.
   bool get canClaimDaily {
     if (!_ready || _catalog == null) return false;
-    if (isComplete) return false;
     if (_lastDailyClaimDay == _todayKey()) return false;
-    return unownedStickers().isNotEmpty;
+    return dailyOfferPool().isNotEmpty;
   }
 
-  List<StickerEntry> unownedStickers() {
+  List<StickerEntry> unownedStickers({StickerAlbumKind? album}) {
     final cat = _catalog;
     if (cat == null) return const [];
     return [
       for (final s in cat.stickers)
-        if (!_owned.contains(s.id)) s,
+        if (!_owned.contains(s.id))
+          if (album == null || s.album == album) s,
     ];
+  }
+
+  /// Daily-/Quest-/Completion-Pool: Klassik, plus Sondertage (1. Advent / Silvester).
+  List<StickerEntry> dailyOfferPool() {
+    final cat = _catalog;
+    if (cat == null) return const [];
+
+    if (AdventService.isNewYearsEve()) {
+      final nye = [
+        for (final id in AdventService.silvesterStickerIds)
+          if (!_owned.contains(id))
+            if (cat.byId(id) != null) cat.byId(id)!,
+      ];
+      if (nye.isNotEmpty) return nye;
+    }
+
+    final first = cat.byId(AdventService.firstAdventStickerId);
+    final firstPending =
+        first != null && !_owned.contains(first.id) && AdventService.usesChristmasGiftBox();
+
+    // Am 1. Advent: exklusiv nur dieser Sticker mit der Weihnachtsbox.
+    if (firstPending && AdventService.isFirstAdventDay()) {
+      return [first];
+    }
+
+    final classic = unownedStickers(album: StickerAlbumKind.classic);
+    // Bis 25.12. nachholen: 1.-Advent-Sticker bleibt in der Auswahl.
+    if (firstPending) {
+      return [first, ...classic];
+    }
+    return classic;
   }
 
   Future<void> _ensureReady() async {
@@ -273,8 +329,9 @@ class StickerCollectionStore extends ChangeNotifier {
 
   /// Bis zu [count] verschiedene noch nicht besessene Sticker zur Box-Auswahl.
   /// [prefer] landet bevorzugt in der Auswahl (z. B. gemapptes Motiv).
+  /// Winter-Album nur an Sondertagen (1. Advent / Silvester) — sonst Klassik.
   List<StickerEntry> offerChoices({int count = 3, StickerEntry? prefer}) {
-    final pool = unownedStickers();
+    final pool = dailyOfferPool();
     if (pool.isEmpty) return const [];
     final out = <StickerEntry>[];
     if (prefer != null && pool.any((s) => s.id == prefer.id)) {
@@ -292,7 +349,11 @@ class StickerCollectionStore extends ChangeNotifier {
 
   List<StickerEntry> choicesForColoring(String coloringId) {
     final prefer = _catalog?.forColoringId(coloringId);
-    return offerChoices(prefer: prefer);
+    // Gemapptes Motiv nur, wenn es im Daily-Pool liegt (kein Winter-Leak).
+    final pool = dailyOfferPool();
+    final okPrefer =
+        prefer != null && pool.any((s) => s.id == prefer.id) ? prefer : null;
+    return offerChoices(prefer: okPrefer);
   }
 
   /// Pro Ausmal-/Puzzle-Motiv: Sticker nur einmal (bis Album-Reset).
@@ -312,7 +373,10 @@ class StickerCollectionStore extends ChangeNotifier {
   /// Puzzle-Belohnung (UI: nur Pro/Expert). Gemappter Sticker bevorzugt.
   List<StickerEntry> choicesForPuzzle(String puzzleId) {
     final prefer = _catalog?.forPuzzleId(puzzleId);
-    return offerChoices(prefer: prefer);
+    final pool = dailyOfferPool();
+    final okPrefer =
+        prefer != null && pool.any((s) => s.id == prefer.id) ? prefer : null;
+    return offerChoices(prefer: okPrefer);
   }
 
   /// Sofort-Unlock für Puzzle (ohne Box-Wahl).
@@ -341,7 +405,7 @@ class StickerCollectionStore extends ChangeNotifier {
   /// Daily: wählt zufälligen unverdienten Sticker und markiert den Tag.
   Future<StickerEntry?> claimDailyRandom() async {
     if (!canClaimDaily) return null;
-    final pool = unownedStickers();
+    final pool = dailyOfferPool();
     if (pool.isEmpty) return null;
     final pick = pool[_rng.nextInt(pool.length)];
     return claimDailyChoice(pick.id);
