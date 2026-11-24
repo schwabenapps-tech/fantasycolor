@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/star_economy.dart';
 import '../services/advent_service.dart';
 import 'favorites_store.dart';
+import 'sticker_collection_store.dart';
 
 /// Sterne-Guthaben + dauerhafte Freischaltungen + Completion-Ratings.
 class StarWalletStore extends ChangeNotifier {
@@ -143,10 +144,18 @@ class StarWalletStore extends ChangeNotifier {
         : advent.isConfiguredColoring(id);
   }
 
+  bool _isSilvesterLockedPuzzle(String id, FavoriteKind kind) {
+    if (kind != FavoriteKind.puzzle) return false;
+    if (!AdventService.isSilvesterPuzzle(id)) return false;
+    return !StickerCollectionStore.silvesterPackRevealedCached;
+  }
+
   bool requiresStars(String id, FavoriteKind kind) {
     final unlocked =
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return false;
+    // Silvester-Puzzle nur über die Box — kein Stern-Kauf.
+    if (_isSilvesterLockedPuzzle(id, kind)) return false;
     final eco = _economy;
     if (eco != null && eco.isLocked(id, kind)) return true;
     // Advent-Motive: im Event-Screen gesperrt, bis Türchen / Sterne / Werbung.
@@ -154,6 +163,7 @@ class StarWalletStore extends ChangeNotifier {
   }
 
   int? unlockCost(String id, FavoriteKind kind) {
+    if (_isSilvesterLockedPuzzle(id, kind)) return null;
     final fromEco = _economy?.costFor(id, kind);
     if (fromEco != null) return fromEco;
     if (_isAdventLockedContent(id, kind)) return adventUnlockCost;
@@ -164,6 +174,7 @@ class StarWalletStore extends ChangeNotifier {
     final unlocked =
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return true;
+    if (_isSilvesterLockedPuzzle(id, kind)) return false;
     final ecoLocked = _economy?.isLocked(id, kind) ?? false;
     if (!ecoLocked && !_isAdventLockedContent(id, kind)) return true;
     return false;
@@ -226,65 +237,62 @@ class StarWalletStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Vergibt Sterne für neues/besseres Rating. Anzeige lokal im Overlay.
+  /// Vergibt Sterne bei jedem Abschluss (auch Wiederholung). Bestwert wird weiter gespeichert.
   Future<int> awardColoringRating(String id, int rating) async {
     if (rating < 1 || rating > 3) return 0;
     if (!_ready) await load();
     final eco = _economy;
     if (eco == null) return 0;
+    final gain = eco.currencyForColoringRating(rating);
     final prev = _coloringRatings[id] ?? 0;
-    if (rating <= prev) return 0;
-    final prevCurrency = prev == 0 ? 0 : eco.currencyForColoringRating(prev);
-    final nextCurrency = eco.currencyForColoringRating(rating);
-    final gain = nextCurrency - prevCurrency;
-    _coloringRatings[id] = rating;
+    if (rating > prev) {
+      _coloringRatings[id] = rating;
+      await _persistRatings();
+    }
     if (gain > 0) {
       _balance += gain;
       await _persistBalance();
     }
-    await _persistRatings();
     notifyListeners();
     return gain;
   }
 
-  /// Puzzle-Abschluss: Easy=1 / Medium=2 / Pro=3. Anzeige lokal im Overlay.
+  /// Puzzle-Abschluss: Easy=1 / Medium=2 / Pro=3 — jedes Mal, auch bei Wiederholung.
   Future<int> awardPuzzleComplete(String id, {required int rating}) async {
     if (rating < 1 || rating > 3) return 0;
     if (!_ready) await load();
     final eco = _economy;
     if (eco == null) return 0;
+    final gain = eco.currencyForPuzzleRating(rating);
     final prev = _puzzleRatings[id] ?? 0;
-    if (rating <= prev) return 0;
-    final prevCurrency = prev == 0 ? 0 : eco.currencyForPuzzleRating(prev);
-    final nextCurrency = eco.currencyForPuzzleRating(rating);
-    final gain = nextCurrency - prevCurrency;
-    _puzzleRatings[id] = rating;
+    if (rating > prev) {
+      _puzzleRatings[id] = rating;
+      await _persistRatings();
+    }
     if (gain > 0) {
       _balance += gain;
       await _persistBalance();
     }
-    await _persistRatings();
     notifyListeners();
     return gain;
   }
 
-  /// Pixelart: gleiche Währung wie Ausmalen (1/2/5), eigener Progress-Stand.
+  /// Pixelart: gleiche Währung wie Ausmalen (1/2/5) — jedes Mal, auch bei Wiederholung.
   Future<int> awardPixelRating(String id, {required int rating}) async {
     if (rating < 1 || rating > 3) return 0;
     if (!_ready) await load();
     final eco = _economy;
     if (eco == null) return 0;
+    final gain = eco.currencyForColoringRating(rating);
     final prev = _pixelRatings[id] ?? 0;
-    if (rating <= prev) return 0;
-    final prevCurrency = prev == 0 ? 0 : eco.currencyForColoringRating(prev);
-    final nextCurrency = eco.currencyForColoringRating(rating);
-    final gain = nextCurrency - prevCurrency;
-    _pixelRatings[id] = rating;
+    if (rating > prev) {
+      _pixelRatings[id] = rating;
+      await _persistRatings();
+    }
     if (gain > 0) {
       _balance += gain;
       await _persistBalance();
     }
-    await _persistRatings();
     notifyListeners();
     return gain;
   }

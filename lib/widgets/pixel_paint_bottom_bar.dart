@@ -4,7 +4,7 @@ import '../data/paint_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../utils/app_layout.dart';
 
-/// Untere Farbleiste für Pixel-/Malen-nach-Zahlen (wie PaintBottomBar).
+/// Untere Farbleiste für Dot-Art / Malen-nach-Zahlen.
 ///
 /// Glühbirne (Ad-Hilfe) zuerst, danach nummerierte Bildfarben — horizontal.
 class PixelPaintBottomBar extends StatelessWidget {
@@ -40,7 +40,6 @@ class PixelPaintBottomBar extends StatelessWidget {
     });
     final showBulb = onHelpWithAd != null;
 
-    // Glühbirne + Farben.
     final itemCount = (showBulb ? 1 : 0) + swatches.length;
 
     return Material(
@@ -81,6 +80,7 @@ class PixelPaintBottomBar extends StatelessWidget {
                 child: _NumberedColorWell(
                   color: swatch.color,
                   number: number,
+                  remaining: left,
                   selected: selected,
                   enabled: !done,
                   onTap: () => onSelect(number),
@@ -174,6 +174,7 @@ class _NumberedColorWell extends StatelessWidget {
   const _NumberedColorWell({
     required this.color,
     required this.number,
+    required this.remaining,
     required this.selected,
     required this.enabled,
     required this.onTap,
@@ -181,6 +182,7 @@ class _NumberedColorWell extends StatelessWidget {
 
   final Color color;
   final int number;
+  final int remaining;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
@@ -194,38 +196,80 @@ class _NumberedColorWell extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
+      clipBehavior: Clip.none,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: enabled ? onTap : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+        child: SizedBox(
           width: 56,
           height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
-            border: Border.all(
-              color: selected ? const Color(0xFFFFE7A0) : Colors.white54,
-              width: selected ? 3 : 1.5,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
-                      blurRadius: 10,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color,
+                  border: Border.all(
+                    color: selected ? const Color(0xFFFFE7A0) : Colors.white54,
+                    width: selected ? 3 : 1.5,
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color:
+                                const Color(0xFFFFD56A).withValues(alpha: 0.45),
+                            blurRadius: 10,
+                          ),
+                        ]
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$number',
+                  style: TextStyle(
+                    color: ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+              ),
+              if (remaining > 0)
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    constraints: const BoxConstraints(minWidth: 22),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? const Color(0xFFFFE7A0)
+                          : const Color(0xFF1A2438).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
                     ),
-                  ]
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$number',
-            style: TextStyle(
-              color: ink,
-              fontWeight: FontWeight.w900,
-              fontSize: 17,
-            ),
+                    child: Text(
+                      '$remaining',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: selected
+                            ? const Color(0xFF2A2410)
+                            : Colors.white.withValues(alpha: 0.92),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

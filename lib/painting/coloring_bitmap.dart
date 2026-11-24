@@ -9,6 +9,7 @@ import '../data/paint_catalog.dart';
 import '../utils/image_source.dart';
 import 'flood_fill_tuning.dart';
 import 'flood_fill_worker.dart';
+import 'image_codec_isolate.dart';
 
 /// PNG-Ausmalbild mit Flood-Fill auf hellen Flächen (Linien bleiben).
 class ColoringBitmap {
@@ -33,16 +34,24 @@ class ColoringBitmap {
 
   static Future<ColoringBitmap> load(String assetPath) async {
     final bytes = await loadImageBytes(assetPath);
-    final decoded = img.decodeImage(bytes);
+    final decoded = await decodePngToRgba(bytes);
     if (decoded == null) {
       throw StateError('PNG konnte nicht geladen werden: $assetPath');
     }
-    final rgba = decoded.convert(numChannels: 4);
+    final image = img.Image.fromBytes(
+      width: decoded.width,
+      height: decoded.height,
+      bytes: decoded.rgba.buffer,
+      bytesOffset: decoded.rgba.offsetInBytes,
+      rowStride: decoded.width * 4,
+      numChannels: 4,
+      order: img.ChannelOrder.rgba,
+    );
     return ColoringBitmap._(
-      width: rgba.width,
-      height: rgba.height,
-      original: img.Image.from(rgba),
-      working: img.Image.from(rgba),
+      width: decoded.width,
+      height: decoded.height,
+      original: img.Image.from(image),
+      working: img.Image.from(image),
     );
   }
 
@@ -71,31 +80,44 @@ class ColoringBitmap {
   /// Gespeicherten PNG-Fortschritt als Arbeitsbild laden.
   ///
   /// Bei anderer Größe (ausgetauschtes Motiv) → false, kein Aufblasen alter Bilder.
-  bool applyWorkingPng(Uint8List pngBytes) {
-    final decoded = img.decodeImage(pngBytes);
+  Future<bool> applyWorkingPng(Uint8List pngBytes) async {
+    final decoded = await decodePngToRgba(pngBytes);
     if (decoded == null) return false;
-    final rgba = decoded.convert(numChannels: 4);
-    if (rgba.width != width || rgba.height != height) {
+    if (decoded.width != width || decoded.height != height) {
       return false;
     }
-    working = rgba;
+    working = img.Image.fromBytes(
+      width: decoded.width,
+      height: decoded.height,
+      bytes: decoded.rgba.buffer,
+      bytesOffset: decoded.rgba.offsetInBytes,
+      rowStride: decoded.width * 4,
+      numChannels: 4,
+      order: img.ChannelOrder.rgba,
+    );
     return true;
   }
 
-  /// Aktuelles Arbeitsbild als PNG-Bytes.
-  Uint8List encodeWorkingPng() =>
-      Uint8List.fromList(img.encodePng(working));
+  /// Aktuelles Arbeitsbild als PNG-Bytes (Hintergrund-Isolate).
+  Future<Uint8List> encodeWorkingPng() {
+    return encodeRgbaToPng(
+      rgba: snapshot(),
+      width: width,
+      height: height,
+    );
+  }
 
-  /// Anteil der ausgemalten Flächen (0..1), Linien zählen nicht.
+  /// Anteil der ausgemalten Flächen (0..1).
   ///
-  /// Samplet für Performance; ausreichend für die Sticker-70%-Anzeige.
+  /// Zählt nur Pixel, die Flood-Fill auch wirklich bemalen kann — nicht die
+  /// AA-Grauzone zwischen Linie und Fläche (die sonst 3★ unerreichbar macht).
   double paintedCoverageRatio({int step = 3}) {
     final s = step < 1 ? 1 : step;
     var fillable = 0;
     var painted = 0;
     for (var y = 0; y < height; y += s) {
       for (var x = 0; x < width; x += s) {
-        if (isLinePixel(original, x, y)) continue;
+        if (!_isFillableSeed(x, y)) continue;
         fillable++;
         final o = original.getPixel(x, y);
         final w = working.getPixel(x, y);

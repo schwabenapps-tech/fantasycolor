@@ -11,6 +11,7 @@ import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
+import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
@@ -243,7 +244,14 @@ class _StickerAlbumOverlayState extends State<StickerAlbumOverlay>
     final cat = store.catalog;
     final stickers = cat == null
         ? const <StickerEntry>[]
-        : cat.forAlbum(widget.album);
+        : [
+            for (final s in cat.forAlbum(widget.album))
+              // Silvester erst nach Box-Öffnung (oder wenn schon besessen).
+              if (!AdventService.isSilvesterSticker(s.id) ||
+                  store.isSilvesterPackRevealed ||
+                  store.owns(s.id))
+                s,
+          ];
     final pageCount = stickers.isEmpty
         ? 1
         : ((stickers.length + _perPage - 1) / _perPage).ceil();

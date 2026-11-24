@@ -35,15 +35,23 @@ class AdventService extends ChangeNotifier {
   /// Exklusiv über Weihnachts-Geschenkbox am 1. Advent (nicht als Türchen).
   static const firstAdventStickerId = 'winter_advent_1';
 
-  /// Nur am 31.12. über Daily Gift — nie im Adventskalender.
-  /// silvester / silvester1 nicht im Geschenk (Puzzle bzw. entfernt).
+  /// Nur am 31.12. über Silvester-Box / Daily Gift — nie im Adventskalender.
+  /// Bis die Silvester-Box geöffnet wurde: nicht im Album sichtbar.
   static const silvesterStickerIds = <String>{
-    'winter_silvester_2',
+    'winter_silvester_sticker',
     'winter_happy_new_year',
   };
 
-  /// Feuerwerk-Puzzle (Winter-Event), kein Advent-Türchen.
-  static const silvesterPuzzleId = 'feen_bestaunen_das_feuerwerk_im_schnee';
+  /// Silvester-Puzzles — erst nach Öffnen der Silvester-Box sichtbar/spielbar.
+  /// 1) mehrere Feen / Feuerwerk  2) zwei Feen mit Raketen
+  static const silvesterPuzzleIds = <String>{
+    'feen_bestaunen_das_feuerwerk_im_schnee',
+    'silvester_zwei_feen_mit_feuerwerk',
+  };
+
+  static bool isSilvesterSticker(String id) => silvesterStickerIds.contains(id);
+
+  static bool isSilvesterPuzzle(String id) => silvesterPuzzleIds.contains(id);
 
   /// 1. Adventssonntag (vier Sonntage vor Weihnachten, lokal).
   static DateTime firstAdventDate(int year) {

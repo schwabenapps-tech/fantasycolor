@@ -23,6 +23,7 @@ import '../utils/app_orientations.dart';
 import '../utils/image_source.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/snap_sparkle_burst.dart';
 
 /// Jigsaw-Puzzle: Board oben maximal groß, Tray unten (Phone-freundlich).
 class PuzzleScreen extends StatefulWidget {
@@ -116,12 +117,15 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   int _earnedStars = 0;
   int _finishRating = 0;
   int? _popPiece;
+  int? _sparklePiece;
+  bool _sparkleFinale = false;
   int? _shakeSlot;
   int? _hoverSlot;
   final _levelKey = GlobalKey<LevelCompleteOverlayState>();
 
   late final AnimationController _revealController;
   late final AnimationController _popController;
+  late final AnimationController _sparkleController;
   late final AnimationController _shakeController;
   late final AnimationController _introController;
   late final TransformationController _boardTransform;
@@ -155,7 +159,11 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
     _popController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
+      duration: const Duration(milliseconds: 160),
+    );
+    _sparkleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
     );
     _shakeController = AnimationController(
       vsync: this,
@@ -170,6 +178,15 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       if (status == AnimationStatus.completed && mounted) {
         setState(() => _popPiece = null);
         _popController.value = 0;
+      }
+    });
+    _sparkleController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() {
+          _sparklePiece = null;
+          _sparkleFinale = false;
+        });
+        _sparkleController.value = 0;
       }
     });
     _shakeController.addStatusListener((status) {
@@ -236,6 +253,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _boardTransform.dispose();
     _revealController.dispose();
     _popController.dispose();
+    _sparkleController.dispose();
     _shakeController.dispose();
     _introController.dispose();
     unawaited(AppOrientations.leavePlay());
@@ -265,10 +283,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     _earnedStars = 0;
     _finishRating = 0;
     _popPiece = null;
+    _sparklePiece = null;
+    _sparkleFinale = false;
     _shakeSlot = null;
     _hoverSlot = null;
     _revealController.value = 0;
     _popController.value = 0;
+    _sparkleController.value = 0;
     _shakeController.value = 0;
     _introController.value = 0;
     _introDone = false;
@@ -611,8 +632,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      // Genau so viele Sterne fliegen wie gerade verdient (Easy → 1).
-      _finishRating = gained.clamp(0, 3);
+      // Flug-Sterne = Schwierigkeit (Easy 1 / Medium 2 / Pro 3), auch bei Wiederholung.
+      _finishRating = rating;
+      // +N im Overlay nur, wenn wirklich Wallet-Sterne dazukamen.
       _earnedStars = gained;
     });
     unawaited(AudioService.instance.playLevelComplete());
@@ -662,12 +684,18 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       _tray.remove(pieceId);
       _board[pieceId] = pieceId;
       _popPiece = pieceId;
+      _sparklePiece = pieceId;
       _hoverSlot = null;
       _checkSolved();
+      _sparkleFinale = _solved;
     });
     _popController.forward(from: 0);
+    _sparkleController.duration = Duration(
+      milliseconds: _sparkleFinale ? 720 : 420,
+    );
+    _sparkleController.forward(from: 0);
     if (_solved) {
-      Future<void>.delayed(const Duration(milliseconds: 320), () {
+      Future<void>.delayed(const Duration(milliseconds: 520), () {
         if (mounted) _onSolved();
       });
     }
@@ -767,6 +795,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
       hintFactor: _hintFactor,
       popPiece: _popPiece,
       popAnimation: _popController,
+      sparklePiece: _sparklePiece,
+      sparkleAnimation: _sparkleController,
+      sparkleFinale: _sparkleFinale,
       shakeSlot: _shakeSlot,
       shakeAnimation: _shakeController,
       hoverSlot: _hoverSlot,
@@ -1457,6 +1488,9 @@ class _JigsawBoard extends StatelessWidget {
     required this.hintFactor,
     required this.popPiece,
     required this.popAnimation,
+    required this.sparklePiece,
+    required this.sparkleAnimation,
+    required this.sparkleFinale,
     required this.shakeSlot,
     required this.shakeAnimation,
     required this.hoverSlot,
@@ -1480,6 +1514,9 @@ class _JigsawBoard extends StatelessWidget {
   final double hintFactor;
   final int? popPiece;
   final Animation<double> popAnimation;
+  final int? sparklePiece;
+  final Animation<double> sparkleAnimation;
+  final bool sparkleFinale;
   final int? shakeSlot;
   final Animation<double> shakeAnimation;
   final int? hoverSlot;
@@ -1621,7 +1658,8 @@ class _JigsawBoard extends StatelessWidget {
             ),
           ),
           // Platzierte Teile unter dem DragTarget, damit Snap nicht blockiert wird.
-          if (!solved)
+          // Beim letzten Teil kurz sichtbar lassen (Bounce + Finale-Funken).
+          if (!solved || popPiece != null || sparklePiece != null)
             for (var i = 0; i < layout.pieceCount; i++)
               if (board[i] != null || shakeSlot == i)
                 _BoardPieceLayer(
@@ -1638,6 +1676,28 @@ class _JigsawBoard extends StatelessWidget {
                   shakeAnimation: shakeAnimation,
                   onReturnPiece: onReturnPiece,
                 ),
+          if (sparklePiece != null)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: sparkleAnimation,
+                builder: (context, _) {
+                  final col = sparklePiece! % layout.columns;
+                  final row = sparklePiece! ~/ layout.columns;
+                  final center = Offset(
+                    pad + (col + 0.5) * cellW,
+                    pad + (row + 0.5) * cellH,
+                  );
+                  final burstR = math.min(cellW, cellH) * 0.55;
+                  return SnapSparkleBurst(
+                    progress: sparkleAnimation.value,
+                    center: center,
+                    count: sparkleFinale ? 26 : 10,
+                    radius: burstR.clamp(28.0, 72.0),
+                    finale: sparkleFinale,
+                  );
+                },
+              ),
+            ),
           // Ein DragTarget fürs ganze Board.
           // Wichtig: onWillAccept muss true bleiben, sobald man über dem Board ist —
           // sonst merkt Flutter den Reject und akzeptiert später nicht mehr,
@@ -1752,8 +1812,11 @@ class _BoardPieceLayer extends StatelessWidget {
         child = AnimatedBuilder(
           animation: popAnimation,
           builder: (context, c) {
-            final t = Curves.easeOutBack.transform(popAnimation.value);
-            return Transform.scale(scale: 0.92 + 0.1 * t, child: c);
+            // 1.0 → 1.12 → 1.0 in ~160ms.
+            final t = popAnimation.value.clamp(0.0, 1.0);
+            final peak = t < 0.5 ? (t * 2) : (2 - t * 2);
+            final bounce = Curves.easeOut.transform(peak.clamp(0.0, 1.0));
+            return Transform.scale(scale: 1.0 + 0.12 * bounce, child: c);
           },
           child: child,
         );

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 100 %-Ausmalbilder für Pixelart + Ad-Freischaltung + Sticker-Belohnung.
+/// Fertig ausgemalte Bilder für Dot Art + Ad-Freischaltung + Sticker-Belohnung.
 class PixelReadyStore extends ChangeNotifier {
   PixelReadyStore();
 
@@ -49,41 +49,51 @@ class PixelReadyStore extends ChangeNotifier {
   Future<void> markReady(String id) async {
     if (id.isEmpty || _ids.contains(id)) return;
     _ids.add(id);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _readyKey,
-      _ids.toList(growable: false)..sort(),
-    );
+    await _persistReady();
     notifyListeners();
   }
 
-  /// Nachträglich: fertige Ausmalbilder (ab 1★ / Daily) → Pixelart-Galerie.
+  /// Nach Ausmal-Reset / leerem PNG — aus Dot-Art-Galerie entfernen.
+  Future<void> revokeReady(String id) async {
+    if (id.isEmpty || !_ids.contains(id)) return;
+    _ids.remove(id);
+    await _persistReady();
+    notifyListeners();
+  }
+
+  /// Nur Bilder mit gespeichertem Ausmal-PNG bleiben / werden ready.
+  ///
+  /// Ohne Progress (z. B. nach Reset auf Weiß) fliegen IDs wieder raus —
+  /// sonst landet die leere Vorlage in Dot Art.
   Future<void> syncFromCompletedColoring({
     required Iterable<String> progressIds,
     required int Function(String id) coloringRating,
     Iterable<String> extraIds = const [],
   }) async {
     if (!_ready) await load();
+    final progressSet = progressIds.toSet();
+    final extraSet = extraIds.toSet();
     var changed = false;
-    void consider(String id) {
-      if (id.isEmpty || _ids.contains(id)) return;
-      _ids.add(id);
+
+    for (final id in progressSet) {
+      if (id.isEmpty || _ids.contains(id)) continue;
+      if (coloringRating(id) >= 1 || extraSet.contains(id)) {
+        _ids.add(id);
+        changed = true;
+      }
+    }
+
+    final stale = [
+      for (final id in _ids)
+        if (!progressSet.contains(id)) id,
+    ];
+    for (final id in stale) {
+      _ids.remove(id);
       changed = true;
     }
 
-    for (final id in progressIds) {
-      // Done/Daily ab ~1★ reicht — erscheint in Pixel Art und für Reuse-Dailys.
-      if (coloringRating(id) >= 1) consider(id);
-    }
-    for (final id in extraIds) {
-      consider(id);
-    }
     if (!changed) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _readyKey,
-      _ids.toList(growable: false)..sort(),
-    );
+    await _persistReady();
     notifyListeners();
   }
 
@@ -107,5 +117,13 @@ class PixelReadyStore extends ChangeNotifier {
       _stickerRewarded.toList(growable: false)..sort(),
     );
     notifyListeners();
+  }
+
+  Future<void> _persistReady() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _readyKey,
+      _ids.toList(growable: false)..sort(),
+    );
   }
 }

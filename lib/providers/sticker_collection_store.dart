@@ -13,6 +13,9 @@ import '../services/remote_pack_service.dart';
 class StickerCollectionStore extends ChangeNotifier {
   StickerCollectionStore();
 
+  /// Für Katalog-Filter ohne Provider-Zugriff (z. B. EventTags).
+  static bool silvesterPackRevealedCached = false;
+
   static const _ownedKey = 'sticker_owned_ids_v1';
   static const _tempUnlockKey = 'sticker_temp_unlock_by_page_v1';
   static const _dailyClaimKey = 'sticker_daily_claim_day_v1';
@@ -20,6 +23,8 @@ class StickerCollectionStore extends ChangeNotifier {
   static const _puzzleRewardedKey = 'sticker_puzzle_rewarded_ids_v1';
   /// Jahr, in dem die einmalige Silvester-Box schon genutzt wurde.
   static const _silvesterBoxUsedYearKey = 'silvester_gift_box_used_year_v1';
+  /// Silvester-Pack (Sticker+Puzzle) freigeschaltet nach Box-Öffnung.
+  static const _silvesterPackRevealedKey = 'silvester_pack_revealed_v1';
   /// Legacy — wird beim Load gelesen und verworfen (Besitz reicht jetzt).
   static const _paintUnlockedKey = 'sticker_paint_unlocked_ids_v1';
 
@@ -32,6 +37,7 @@ class StickerCollectionStore extends ChangeNotifier {
   bool _ready = false;
   String? _lastDailyClaimDay;
   int? _silvesterBoxUsedYear;
+  bool _silvesterPackRevealed = false;
 
   final _rng = Random();
 
@@ -85,6 +91,14 @@ class StickerCollectionStore extends ChangeNotifier {
     }
     _lastDailyClaimDay = prefs.getString(_dailyClaimKey);
     _silvesterBoxUsedYear = prefs.getInt(_silvesterBoxUsedYearKey);
+    _silvesterPackRevealed = prefs.getBool(_silvesterPackRevealedKey) ?? false;
+    // Migration: Besitz eines Silvester-Stickers = Pack schon offen.
+    if (!_silvesterPackRevealed &&
+        _owned.any(AdventService.isSilvesterSticker)) {
+      _silvesterPackRevealed = true;
+      await prefs.setBool(_silvesterPackRevealedKey, true);
+    }
+    silvesterPackRevealedCached = _silvesterPackRevealed;
     _ready = true;
     notifyListeners();
   }
@@ -138,6 +152,8 @@ class StickerCollectionStore extends ChangeNotifier {
     _puzzleRewarded.clear();
     _lastDailyClaimDay = null;
     _silvesterBoxUsedYear = null;
+    _silvesterPackRevealed = false;
+    silvesterPackRevealedCached = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_ownedKey);
     await prefs.remove(_tempUnlockKey);
@@ -146,8 +162,12 @@ class StickerCollectionStore extends ChangeNotifier {
     await prefs.remove(_coloringRewardedKey);
     await prefs.remove(_puzzleRewardedKey);
     await prefs.remove(_silvesterBoxUsedYearKey);
+    await prefs.remove(_silvesterPackRevealedKey);
     notifyListeners();
   }
+
+  /// Silvester-Sticker/-Puzzle dürfen in Album/Galerie gezeigt werden.
+  bool get isSilvesterPackRevealed => _silvesterPackRevealed;
 
   /// Einmalige Silvester-Box am 31.12. noch verfügbar?
   bool get canUseSilvesterGiftBox {
@@ -165,6 +185,16 @@ class StickerCollectionStore extends ChangeNotifier {
     await prefs.setInt(_silvesterBoxUsedYearKey, year);
     notifyListeners();
     return true;
+  }
+
+  /// Nach Öffnen der Silvester-Box: Pack sichtbar (Sticker im Album, Puzzle im Event).
+  Future<void> revealSilvesterPack() async {
+    if (_silvesterPackRevealed) return;
+    _silvesterPackRevealed = true;
+    silvesterPackRevealedCached = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_silvesterPackRevealedKey, true);
+    notifyListeners();
   }
 
   /// Pro Ausmal-Durchgang: nach Reset wieder belohnbar.
@@ -311,6 +341,11 @@ class StickerCollectionStore extends ChangeNotifier {
     final free = <StickerEntry>[];
     final locked = <StickerEntry>[];
     for (final s in cat.stickers) {
+      if (AdventService.isSilvesterSticker(s.id) &&
+          !_silvesterPackRevealed &&
+          !_owned.contains(s.id)) {
+        continue;
+      }
       if (canPlaceInColoring(s.id, pageId: pageId)) {
         free.add(s);
       } else {

@@ -25,7 +25,7 @@ import '../widgets/pixel_paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/sticker_daily_gift_overlay.dart';
 
-/// Interaktives Malen-nach-Zahlen auf einem quantisierten Pixel-Raster.
+/// Interaktives Malen-nach-Zahlen als Dot-Art (Kreise statt Quadrate).
 class PixelPaintScreen extends StatefulWidget {
   const PixelPaintScreen({
     super.key,
@@ -74,6 +74,9 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   Uint8List? _finishedPng;
   late final AnimationController _celebrateController;
   late final AnimationController _zoomController;
+  late final AnimationController _dotPopController;
+  late final Animation<double> _dotPopScale;
+  int? _popCellIndex;
   final TransformationController _transform = TransformationController();
   Animation<Matrix4>? _matrixAnimation;
   VoidCallback? _matrixListener;
@@ -97,6 +100,25 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       vsync: this,
       duration: const Duration(milliseconds: 380),
     );
+    _dotPopController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 170),
+    );
+    _dotPopScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.18)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 45,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.18, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 55,
+      ),
+    ]).animate(_dotPopController);
+    _dotPopController.addListener(() {
+      if (mounted) setState(() => _paintTick++);
+    });
     _puzzleFuture = _load();
   }
 
@@ -132,6 +154,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
           filled: List<bool>.filled(puzzle.totalCells, true),
           cellSize: 20,
           emptyAsLightGray: false,
+          dense: true,
         );
         _celebrating = true;
         _showFinishActions = true;
@@ -164,6 +187,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
     WidgetsBinding.instance.removeObserver(this);
     _autoSaveTimer?.cancel();
     _clearMatrixAnimation();
+    _dotPopController.dispose();
     _zoomController.dispose();
     _celebrateController.dispose();
     _transform.dispose();
@@ -217,7 +241,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
   void _onZoomInteractionEnd() {
     final scale = _transform.value.getMaxScaleOnAxis();
-    if (scale <= 1.08) {
+    if (scale <= 1.06) {
       _animateTo(Matrix4.identity());
       return;
     }
@@ -302,6 +326,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
           filled: markCompleted
               ? List<bool>.filled(puzzle.totalCells, true)
               : filledCopy,
+          dense: markCompleted,
         );
         if (!mounted) break;
         await context.read<PixelProgressStore>().saveSnapshot(
@@ -360,7 +385,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
 
     // Beim Ziehen nur einmal pro Strich vibrieren — sonst ruckelt's.
     if (!fromDrag || !_strokeDidPaint) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
     }
     _strokeDidPaint = true;
 
@@ -368,11 +393,97 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       _filled[i] = true;
       _filledCount++;
       _paintTick++;
+      _popCellIndex = i;
     });
+    _dotPopController.forward(from: 0);
     _scheduleAutoSave();
 
     if (_remainingFor(_selectedNumber) == 0) {
       _advanceFromCompletedNumber();
+    }
+  }
+
+  Future<void> _confirmResetProgress() async {
+    if (_puzzle == null || _celebrating) return;
+    if (_filledCount == 0) return;
+    final t = AppStrings.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2744),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
+          ),
+        ),
+        title: Text(
+          t.pixelResetTitle,
+          style: const TextStyle(
+            color: Color(0xFFFFE7A0),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Text(
+          t.pixelResetBody,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.85),
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              t.back,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              t.pixelReset,
+              style: const TextStyle(
+                color: Color(0xFFFFE7A0),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await _resetProgress();
+    }
+  }
+
+  Future<void> _resetProgress({bool fromFinish = false}) async {
+    final puzzle = _puzzle;
+    if (puzzle == null) return;
+    _autoSaveTimer?.cancel();
+    _saveDirty = false;
+    _saveCompletedFlag = false;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _filled = List<bool>.filled(puzzle.totalCells, false);
+      _filledCount = 0;
+      _paintTick++;
+      _popCellIndex = null;
+      _adFillsUsed = 0;
+      _selectedNumber = 1;
+      _celebrating = false;
+      _showFinishActions = false;
+      _finishedPng = null;
+      _finishRating = 0;
+      _earnedStars = 0;
+      _exitAdShown = false;
+      _stickerGiftShown = false;
+    });
+    _snapToIdentity();
+    await context.read<PixelProgressStore>().clearProgress(widget.page.id);
+    if (fromFinish && mounted) {
+      // Nach Abschluss wieder in den Mal-Modus.
+      setState(() {});
     }
   }
 
@@ -490,6 +601,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       filled: List<bool>.from(_filled),
       cellSize: 24,
       emptyAsLightGray: false,
+      dense: true,
     );
     await _persistProgress(completed: rating >= 2);
 
@@ -516,7 +628,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
       _celebrating = true;
       _showFinishActions = true;
       _completionRating = rating;
-      _finishRating = gained > 0 ? rating.clamp(0, 3) : 0;
+      // Flug-Sterne = Session-Rating; +N = Wallet (auch bei Wiederholung).
+      _finishRating = rating.clamp(0, 3);
       _earnedStars = gained;
     });
   }
@@ -688,6 +801,10 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                             filled: _filled,
                             selectedNumber: _selectedNumber,
                             paintTick: _paintTick,
+                            popCellIndex: _popCellIndex,
+                            popScale: _dotPopController.isAnimating
+                                ? _dotPopScale.value
+                                : 1.0,
                           ),
                           size: sheet,
                         ),
@@ -728,7 +845,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Pixelbild konnte nicht erstellt werden.\n${snapshot.error}',
+                        'Dot Art konnte nicht erstellt werden.\n${snapshot.error}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white70),
                       ),
@@ -750,7 +867,7 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                         ),
                         SizedBox(height: 14),
                         Text(
-                          'Ganzes Bild wird verpixelt…',
+                          'Bild wird in Dots umgewandelt…',
                           style: TextStyle(
                             color: Color(0xFFFFE7A0),
                             fontSize: 15,
@@ -789,6 +906,15 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      if (!_celebrating &&
+                                          _filledCount > 0) ...[
+                                        _ResetChip(
+                                          onPressed: () => unawaited(
+                                            _confirmResetProgress(),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
                                       if (!_celebrating && _rating >= 1) ...[
                                         _DoneChip(
                                           onPressed: () =>
@@ -846,6 +972,13 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                       onPressed: () => unawaited(_saveToPhotos()),
                     ),
                     LevelCompleteActionButton(
+                      icon: Icons.refresh_rounded,
+                      label: AppStrings.of(context).pixelPlayAgain,
+                      filled: false,
+                      onPressed: () =>
+                          unawaited(_resetProgress(fromFinish: true)),
+                    ),
+                    LevelCompleteActionButton(
                       icon: Icons.check_rounded,
                       label: AppStrings.of(context).done,
                       filled: false,
@@ -855,6 +988,53 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetChip extends StatelessWidget {
+  const _ResetChip({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: Colors.black.withValues(alpha: 0.42),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.28),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.refresh_rounded,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                t.pixelReset,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -972,33 +1152,34 @@ class _PixelGridPainter extends CustomPainter {
     required this.filled,
     required this.selectedNumber,
     required this.paintTick,
+    this.popCellIndex,
+    this.popScale = 1.0,
   });
 
   final PixelPuzzle puzzle;
   final List<bool> filled;
   final int selectedNumber;
   final int paintTick;
+  final int? popCellIndex;
+  final double popScale;
 
-  static const _targetGray = Color(0xFF8B95A8);
-  static const _numberOnEmpty = Color(0xFF243044);
-  static const _numberOnTarget = Color(0xFFFFFFFF);
+  static const _targetRing = Color(0xFF4A7AD9);
+  static const _emptyRing = Color(0xFF2A3348);
+  static const _numberOnEmpty = Color(0xFF3A4558);
+  static const _numberOnTarget = Color(0xFF152238);
 
-  /// Leerer Schleier — Originalfoto darunter bleibt sichtbar.
-  static const _veilAlpha = 0.28;
+  /// Dot-Radius relativ zur Zelle — kleiner = mehr Luft zwischen Punkten.
+  static const _dotScale = PixelExporter.playDotScale;
 
   @override
   void paint(Canvas canvas, Size size) {
     final cellW = size.width / puzzle.cols;
     final cellH = size.height / puzzle.rows;
     final cellMin = math.min(cellW, cellH);
-    final gridPaint = Paint()
-      ..color = const Color(0xFF2A3348).withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = cellMin < 10 ? 0.35 : 0.6;
+    final radius = cellMin * _dotScale;
+    final ringW = cellMin < 10 ? 0.45 : 0.7;
 
-    // Zahlen müssen in die Zelle passen — kein Mindest-Font, der größer als
-    // die Zelle ist (bei ~96 Spalten sonst starke Überlappung, v. a. 10–20).
-    final maxFont = math.min(cellMin * 0.72, 18.0);
+    final maxFont = math.min(radius * 1.15, 16.0);
     final numberCache = <int, TextPainter>{};
 
     TextPainter numberPainter(int number, {required bool isTarget}) {
@@ -1013,25 +1194,10 @@ class _PixelGridPainter extends CustomPainter {
             style: TextStyle(
               color: isTarget
                   ? _numberOnTarget
-                  : _numberOnEmpty.withValues(alpha: 0.88),
+                  : _numberOnEmpty.withValues(alpha: 0.72),
               fontSize: size,
-              fontWeight: FontWeight.w800,
+              fontWeight: isTarget ? FontWeight.w800 : FontWeight.w600,
               height: 1,
-              shadows: size >= 6
-                  ? (isTarget
-                      ? const [
-                          Shadow(
-                            color: Color(0x66000000),
-                            blurRadius: 2,
-                          ),
-                        ]
-                      : const [
-                          Shadow(
-                            color: Color(0x55FFFFFF),
-                            blurRadius: 2,
-                          ),
-                        ])
-                  : null,
             ),
           ),
           textAlign: TextAlign.center,
@@ -1040,14 +1206,12 @@ class _PixelGridPainter extends CustomPainter {
       }
 
       var tp = layoutAt(fontSize);
-      // Zweistellige Zahlen (und enge Zellen) auf Zellenbreite/-höhe schrumpfen.
-      final maxW = cellW * 0.92;
-      final maxH = cellH * 0.92;
+      final maxW = radius * 1.45;
+      final maxH = radius * 1.45;
       if (tp.width > maxW || tp.height > maxH) {
         final scale = math.min(maxW / tp.width, maxH / tp.height);
         fontSize = fontSize * scale;
         if (fontSize < 1.0) {
-          // Zu klein — kein Label (Zoom vergrößert Zelle+Text gemeinsam).
           final empty = TextPainter(textDirection: TextDirection.ltr)
             ..layout();
           numberCache[number * 2 + (isTarget ? 1 : 0)] = empty;
@@ -1060,68 +1224,72 @@ class _PixelGridPainter extends CustomPainter {
       return tp;
     }
 
-    // Zellen: ausgefüllt = voll, leer = leichter Schleier + Nummer
-    // (Originalfoto liegt als Widget darunter).
+    Offset numberOrigin(TextPainter tp, Offset center) {
+      final metrics = tp.computeLineMetrics();
+      if (metrics.isEmpty) {
+        return Offset(center.dx - tp.width / 2, center.dy - tp.height / 2);
+      }
+      final m = metrics.first;
+      return Offset(
+        center.dx - tp.width / 2,
+        center.dy - m.baseline + (m.ascent - m.descent) / 2,
+      );
+    }
+
+    final fillPaint = Paint()..style = PaintingStyle.fill;
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = ringW;
+
     for (var y = 0; y < puzzle.rows; y++) {
       for (var x = 0; x < puzzle.cols; x++) {
         final i = y * puzzle.cols + x;
         final number = puzzle.cells[i] + 1;
         final color = puzzle.palette[puzzle.cells[i]].color;
-        final rect = Rect.fromLTWH(x * cellW, y * cellH, cellW, cellH);
+        final center = Offset((x + 0.5) * cellW, (y + 0.5) * cellH);
+        final isPop = popCellIndex == i && popScale != 1.0;
+        final r = isPop ? radius * popScale : radius;
 
         if (filled[i]) {
-          canvas.drawRect(rect, Paint()..color = color);
+          fillPaint.color = color;
+          canvas.drawCircle(center, r, fillPaint);
         } else {
           final isTarget = number == selectedNumber;
-          canvas.drawRect(
-            rect,
-            Paint()
-              ..color = Colors.white.withValues(
-                alpha: isTarget ? _veilAlpha * 0.4 : _veilAlpha,
-              ),
-          );
           if (isTarget) {
-            canvas.drawRect(
-              rect,
-              Paint()..color = _targetGray.withValues(alpha: 0.4),
-            );
+            fillPaint.color = Colors.white.withValues(alpha: 0.88);
+            canvas.drawCircle(center, r, fillPaint);
+            fillPaint.color = _targetRing.withValues(alpha: 0.18);
+            canvas.drawCircle(center, r, fillPaint);
+            ringPaint
+              ..color = _targetRing.withValues(alpha: 0.95)
+              ..strokeWidth = ringW * 1.7;
+            canvas.drawCircle(center, r - ringW * 0.4, ringPaint);
+          } else {
+            // Andere Farben dimmen — aktive Farbe liest sich klarer.
+            fillPaint.color = Colors.white.withValues(alpha: 0.34);
+            canvas.drawCircle(center, r * 0.96, fillPaint);
+            ringPaint
+              ..color = _emptyRing.withValues(alpha: 0.16)
+              ..strokeWidth = ringW * 0.75;
+            canvas.drawCircle(center, r * 0.96 - ringW * 0.25, ringPaint);
           }
 
           final tp = numberPainter(number, isTarget: isTarget);
           if (tp.width >= 1.0 && tp.height >= 1.0) {
-            canvas.save();
-            canvas.clipRect(rect);
-            tp.paint(
-              canvas,
-              Offset(
-                rect.left + (cellW - tp.width) / 2,
-                rect.top + (cellH - tp.height) / 2,
-              ),
-            );
-            canvas.restore();
+            tp.paint(canvas, numberOrigin(tp, center));
           }
         }
-        canvas.drawRect(rect, gridPaint);
       }
     }
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.width, size.height),
-        const Radius.circular(2),
-      ),
-      Paint()
-        ..color = const Color(0xFF243044).withValues(alpha: 0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4,
-    );
   }
 
   @override
   bool shouldRepaint(covariant _PixelGridPainter oldDelegate) {
     return oldDelegate.paintTick != paintTick ||
         oldDelegate.selectedNumber != selectedNumber ||
-        oldDelegate.puzzle != puzzle;
+        oldDelegate.puzzle != puzzle ||
+        oldDelegate.popCellIndex != popCellIndex ||
+        oldDelegate.popScale != popScale;
   }
 }
 

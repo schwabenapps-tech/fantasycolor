@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/services.dart';
 
 import '../models/coloring_page.dart';
+import '../providers/sticker_collection_store.dart';
 import '../services/advent_service.dart';
 import '../services/remote_pack_service.dart';
 import 'event_catalog.dart';
@@ -223,12 +224,17 @@ class EventTags {
     final active = <GallerySection>[];
     final past = <GallerySection>[];
 
+    final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
     for (final event in allEvents()) {
       if (event.isUpcoming()) continue;
       final ids = event.idsFor(coloring: coloring);
       final eventPages = <ColoringPage>[
         for (final id in ids)
-          if (byId.containsKey(id)) byId[id]!,
+          if (byId.containsKey(id))
+            if (coloring ||
+                !AdventService.isSilvesterPuzzle(id) ||
+                silvesterOpen)
+              byId[id]!,
       ];
       if (eventPages.isEmpty) continue;
       for (final p in eventPages) {
@@ -250,6 +256,10 @@ class EventTags {
     }
 
     final featuredOrder = coloring ? featuredColoring : featuredPuzzle;
+    // Silvester-Puzzles nicht in der Standard-Galerie, bis die Box geöffnet wurde.
+    if (!coloring && !silvesterOpen) {
+      claimed.addAll(AdventService.silvesterPuzzleIds);
+    }
     final restIds = byId.keys.where((id) => !claimed.contains(id)).toList();
 
     bool isNewId(String id) =>
@@ -329,10 +339,17 @@ class EventTags {
     Random? random,
     bool coloring = true,
   }) {
-    final byId = {for (final p in pages) p.id: p};
+    final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
+    final filtered = (!coloring && !silvesterOpen)
+        ? [
+            for (final p in pages)
+              if (!AdventService.isSilvesterPuzzle(p.id)) p,
+          ]
+        : pages;
+    final byId = {for (final p in filtered) p.id: p};
     final newPages = sortNewestFirst(
       [
-        for (final p in pages)
+        for (final p in filtered)
           if (coloring ? isNewColoring(p.id) : isNewPuzzle(p.id)) p,
       ],
       coloring: coloring,

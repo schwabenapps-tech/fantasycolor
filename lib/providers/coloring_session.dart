@@ -211,10 +211,10 @@ class ColoringSession extends ChangeNotifier {
   static const stickerUnlockCoverage = 0.50;
   static const star1Coverage = 0.50;
   static const star2Coverage = 0.80;
-  /// 3★ / +5 Sterne nur bei echten 100 %.
-  static const star3Coverage = 1.0;
-  /// 100 % → Sticker-Belohnung + Pixelart freischalten.
-  static const fullCompleteCoverage = 1.0;
+  /// 3★ bei praktisch voll — Sampling + winzige Restflecken erlauben ~2 % Luft.
+  static const star3Coverage = 0.98;
+  /// Sticker / Dot Art: gleiche Schwelle wie 3★.
+  static const fullCompleteCoverage = 0.98;
 
   bool get meetsStickerCoverage =>
       paintedCoverageRatio(includeOpenStrokes: false) >= stickerUnlockCoverage;
@@ -497,7 +497,7 @@ class ColoringSession extends ChangeNotifier {
     if (bitmap == null) return null;
 
     if (_strokes.isEmpty) {
-      return bitmap.encodeWorkingPng();
+      return await bitmap.encodeWorkingPng();
     }
 
     final sheet = sheetSize;
@@ -534,7 +534,7 @@ class ColoringSession extends ChangeNotifier {
 
     final png = await renderColoredPng();
     if (png != null) {
-      bitmap.applyWorkingPng(png);
+      await bitmap.applyWorkingPng(png);
       _strokes.clear();
       _undoStack.clear();
       _bitmapGeneration++;

@@ -12,6 +12,7 @@ import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../providers/coloring_sticker_placements_store.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_progress_store.dart';
 import '../providers/pixel_ready_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/star_wallet_store.dart';
@@ -108,7 +109,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     if (!mounted) return bitmap;
     final saved = await progress.loadProgressBytes(widget.page.id);
     if (saved != null) {
-      if (bitmap.applyWorkingPng(saved)) {
+      if (await bitmap.applyWorkingPng(saved)) {
         _session.markLoadedProgress();
       } else {
         // Altes Motiv / andere Größe → Fortschritt verwerfen.
@@ -168,10 +169,15 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     final progress = context.read<ColoringProgressStore>();
     final stickers = context.read<StickerCollectionStore>();
     final placements = context.read<ColoringStickerPlacementsStore>();
+    final pixelReady = context.read<PixelReadyStore>();
+    final pixelProgress = context.read<PixelProgressStore>();
     await progress.clearProgress(widget.page.id);
     await stickers.clearColoringRewarded(widget.page.id);
     await placements.setPlacements(widget.page.id, const []);
     await stickers.clearTempUnlocksForPage(widget.page.id);
+    // Weiß nach Recycle → nicht weiter in Dot Art anbieten.
+    await pixelReady.revokeReady(widget.page.id);
+    await pixelProgress.clearProgress(widget.page.id);
   }
 
   @override
@@ -315,8 +321,8 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     if (!mounted) return;
     setState(() {
       _celebrating = true;
-      // Wie Puzzle: fliegende Sterne = verdient (max 3), +N = Währung (1/2/5).
-      _finishRating = gained > 0 ? rating.clamp(0, 3) : 0;
+      // Flug-Sterne = Session-Rating; +N = Wallet (auch bei Wiederholung).
+      _finishRating = rating.clamp(0, 3);
       _earnedStars = gained;
     });
     unawaited(AudioService.instance.playLevelComplete());
@@ -394,11 +400,16 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
 
   Future<void> _resetAllColors() async {
     _session.resetAll();
-    await context.read<ColoringProgressStore>().clearProgress(widget.page.id);
+    final progress = context.read<ColoringProgressStore>();
+    final stickers = context.read<StickerCollectionStore>();
+    final pixelReady = context.read<PixelReadyStore>();
+    final pixelProgress = context.read<PixelProgressStore>();
+    await progress.clearProgress(widget.page.id);
     // Nach Reset darf beim erneuten Fertigstellen wieder ein Sticker verdient werden.
-    await context
-        .read<StickerCollectionStore>()
-        .clearColoringRewarded(widget.page.id);
+    await stickers.clearColoringRewarded(widget.page.id);
+    // Ausmalbild wieder weiß → Dot-Art-Freischaltung + Dot-Fortschritt weg.
+    await pixelReady.revokeReady(widget.page.id);
+    await pixelProgress.clearProgress(widget.page.id);
   }
 
   @override
@@ -558,14 +569,15 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
                 fallbackSubtitle: t.levelComplete,
                 actions: [
                   LevelCompleteActionButton(
+                    icon: Icons.extension_rounded,
+                    label: t.playColoredAsPuzzle,
+                    prominent: true,
+                    onPressed: () => unawaited(_playAsPuzzle()),
+                  ),
+                  LevelCompleteActionButton(
                     icon: Icons.download_rounded,
                     label: t.photos,
                     onPressed: () => unawaited(_saveToPhotos()),
-                  ),
-                  LevelCompleteActionButton(
-                    icon: Icons.extension_rounded,
-                    label: t.asPuzzle,
-                    onPressed: () => unawaited(_playAsPuzzle()),
                   ),
                   LevelCompleteActionButton(
                     icon: Icons.check_rounded,

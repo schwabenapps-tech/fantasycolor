@@ -8,6 +8,7 @@ import '../data/coloring_pages_loader.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
+import '../painting/colored_png_probe.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/pixel_mode_unlock_store.dart';
 import '../providers/pixel_progress_store.dart';
@@ -85,6 +86,71 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     super.dispose();
   }
 
+  Future<void> _confirmResetPage(String pageId) async {
+    final t = AppStrings.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A2744),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
+          ),
+        ),
+        title: Text(
+          t.pixelResetTitle,
+          style: const TextStyle(
+            color: Color(0xFFFFE7A0),
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Text(
+          t.pixelResetBody,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.85),
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              t.back,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              t.pixelReset,
+              style: const TextStyle(
+                color: Color(0xFFFFE7A0),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      HapticFeedback.mediumImpact();
+      await context.read<PixelProgressStore>().clearProgress(pageId);
+    }
+  }
+
+  Future<void> _rejectEmptyColoring(String pageId) async {
+    final readyStore = context.read<PixelReadyStore>();
+    final pixelStore = context.read<PixelProgressStore>();
+    await readyStore.revokeReady(pageId);
+    await pixelStore.clearProgress(pageId);
+    if (!mounted) return;
+    HapticFeedback.selectionClick();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppStrings.of(context).pixelNeedsColoring)),
+    );
+  }
+
   Future<void> _openPage(ColoringPage page) async {
     HapticFeedback.selectionClick();
     final readyStore = context.read<PixelReadyStore>();
@@ -101,6 +167,13 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     final sourceBytes = await coloringProgress.loadProgressBytes(page.id);
 
     if (!mounted) return;
+
+    // Kein ausgemaltes PNG / nur Weiß+Linien → nicht in Dot Art öffnen.
+    if (sourceBytes == null ||
+        !await ColoredPngProbe.hasFillColors(sourceBytes)) {
+      await _rejectEmptyColoring(page.id);
+      return;
+    }
 
     PixelProgressSnapshot? resume;
     if (existing != null && !existing.completed && existing.filledCount > 0) {
@@ -150,9 +223,11 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
         }
 
         final all = snapshot.data ?? const <ColoringPage>[];
+        final coloringProgress = context.watch<ColoringProgressStore>();
+        // Nur mit gespeichertem Ausmal-PNG — Reset auf Weiß fliegt raus.
         final pages = [
           for (final p in all)
-            if (ready.isReadyFor(p.id)) p,
+            if (ready.isReadyFor(p.id) && coloringProgress.hasProgress(p.id)) p,
         ];
         if (pages.isEmpty) {
           return Center(
@@ -204,12 +279,16 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
                 itemBuilder: (context, index) {
                   final page = pages[index];
                   final pixelProgress = context.watch<PixelProgressStore>();
+                  final hasProgress = pixelProgress.hasProgress(page.id);
                   return _PixelPageTile(
                     page: page,
-                    hasProgress: pixelProgress.hasProgress(page.id),
+                    hasProgress: hasProgress,
                     isCompleted: pixelProgress.isCompleted(page.id),
                     requiresAdUnlock: !ready.isPaintUnlocked(page.id),
                     onTap: () => _openPage(page),
+                    onReset: hasProgress
+                        ? () => unawaited(_confirmResetPage(page.id))
+                        : null,
                   );
                 },
               ),
@@ -477,6 +556,7 @@ class _PixelPageTile extends StatelessWidget {
     required this.hasProgress,
     required this.isCompleted,
     required this.onTap,
+    this.onReset,
     this.requiresAdUnlock = false,
   });
 
@@ -484,72 +564,99 @@ class _PixelPageTile extends StatelessWidget {
   final bool hasProgress;
   final bool isCompleted;
   final VoidCallback onTap;
+  final VoidCallback? onReset;
   final bool requiresAdUnlock;
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     return GestureDetector(
-        onTap: onTap,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFF8E8),
-                Color(0xFFFFE0A0),
-                Color(0xFFE8B86A),
-                Color(0xFFFFF0C8),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFFD56A).withValues(alpha: 0.3),
-                blurRadius: 18,
-                spreadRadius: 1,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFFF8E8),
+              Color(0xFFFFE0A0),
+              Color(0xFFE8B86A),
+              Color(0xFFFFF0C8),
             ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: ColoredBox(
-                      color: Colors.white,
-                      child: _PixelTilePreview(page: page),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFFD56A).withValues(alpha: 0.3),
+              blurRadius: 18,
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: ColoredBox(
+                    color: const Color(0xFFF7F4EE),
+                    child: _PixelTilePreview(page: page),
+                  ),
+                ),
+              ),
+              if (hasProgress && !requiresAdUnlock)
+                Positioned(
+                  left: 10,
+                  bottom: 10,
+                  child: ProgressBadge(
+                    label: isCompleted ? t.pixelDoneBadge : t.pixelContinue,
+                    done: isCompleted,
+                  ),
+                ),
+              if (onReset != null && !requiresAdUnlock)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: onReset,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.black.withValues(alpha: 0.48),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 18,
+                        color: Colors.white.withValues(alpha: 0.95),
+                      ),
                     ),
                   ),
                 ),
-                if (hasProgress && !requiresAdUnlock)
-                  Positioned(
-                    left: 10,
-                    bottom: 10,
-                    child: ProgressBadge(
-                      label: isCompleted ? 'Done' : 'Continue',
-                      done: isCompleted,
-                    ),
+              if (requiresAdUnlock)
+                Positioned.fill(
+                  child: AdUnlockCover(
+                    label: AppStrings.of(context).unlockWithAd,
+                    compact: true,
+                    large: true,
                   ),
-                if (requiresAdUnlock)
-                  Positioned.fill(
-                    child: AdUnlockCover(
-                      label: AppStrings.of(context).unlockWithAd,
-                      compact: true,
-                      large: true,
-                    ),
-                  ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
+      ),
     );
   }
 }

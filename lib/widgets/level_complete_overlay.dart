@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../l10n/app_strings.dart';
 import 'star_balance_pill.dart';
 
 /// Gemeinsame Level-Complete-Ansicht: Fade-in, Konfetti, fliegende Sterne, Buttons.
@@ -29,7 +31,7 @@ class LevelCompleteOverlay extends StatefulWidget {
 
   final List<Widget> actions;
 
-  /// Nach Fade-in + kurzem Moment (Buttons sichtbar).
+  /// Nach Fade-in + Stern-Flug + Earn-Count (Buttons sichtbar).
   final VoidCallback? onReady;
 
   @override
@@ -41,12 +43,16 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
   late final AnimationController _fade;
   late final AnimationController _confetti;
   late final AnimationController _stars;
+  late final AnimationController _earn;
   late final Animation<double> _fadeAnim;
   late final Animation<double> _scaleAnim;
+  late final Animation<double> _earnAnim;
   bool _showActions = false;
+  bool _showEarn = false;
   bool _dismissing = false;
 
   int get _rating => widget.ratingStars.clamp(0, 3);
+  int get _earned => widget.earnedStars.clamp(0, 999);
 
   @override
   void initState() {
@@ -64,23 +70,40 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
       vsync: this,
       duration: Duration(milliseconds: starMs),
     );
+    _earn = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    );
     _fadeAnim = CurvedAnimation(parent: _fade, curve: Curves.easeOutCubic);
     _scaleAnim = Tween<double>(begin: 0.86, end: 1.0).animate(
       CurvedAnimation(parent: _fade, curve: Curves.easeOutBack),
     );
+    _earnAnim = CurvedAnimation(parent: _earn, curve: Curves.easeOutCubic);
     _runIntro();
   }
 
   Future<void> _runIntro() async {
     await _fade.forward();
     if (!mounted) return;
+
+    // Immer zuerst die Qualitäts-Sterne hochfliegen.
     if (_rating > 0) {
       await _stars.forward();
       if (!mounted) return;
-      // Kurz sitzen lassen, dann Geschenk / Buttons.
-      await Future<void>.delayed(const Duration(milliseconds: 280));
+      await Future<void>.delayed(const Duration(milliseconds: 220));
       if (!mounted) return;
     }
+
+    // Danach verdiente Sterne hochzählen + Text.
+    if (_earned > 0) {
+      setState(() => _showEarn = true);
+      HapticFeedback.lightImpact();
+      await _earn.forward();
+      if (!mounted) return;
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      if (!mounted) return;
+    }
+
     setState(() => _showActions = true);
     widget.onReady?.call();
   }
@@ -98,6 +121,7 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
     _fade.dispose();
     _confetti.dispose();
     _stars.dispose();
+    _earn.dispose();
     super.dispose();
   }
 
@@ -105,13 +129,18 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final landscape = size.width > size.height;
-    // Hochkant deutlich höher; Querformat etwas hoch, aber nicht am Rand.
     final topPad = landscape ? size.height * 0.14 : size.height * 0.12;
+    final tStrings = AppStrings.of(context);
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_fade, _confetti, _stars]),
+      animation: Listenable.merge([_fade, _confetti, _stars, _earn]),
       builder: (context, _) {
         final t = _fadeAnim.value;
+        final earnCount = _showEarn
+            ? (_earned * _earnAnim.value).round().clamp(0, _earned)
+            : 0;
+        final earnOpacity = _showEarn ? _earnAnim.value.clamp(0.0, 1.0) : 0.0;
+
         return Opacity(
           opacity: t,
           child: Stack(
@@ -160,28 +189,60 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                       // Platzhalter: Abstand Titel → Sterne (Flug im Fullscreen-Layer).
                       if (_rating > 0)
                         SizedBox(height: landscape ? 118 : 132),
-                      if (widget.earnedStars > 0) ...[
+                      if (_earned > 0) ...[
                         const SizedBox(height: 8),
-                        Text(
-                          '+${widget.earnedStars}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: const Color(0xFFFFF4C8),
-                            fontSize: landscape ? 36 : 42,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                            shadows: [
-                              Shadow(
-                                color: const Color(0xFFFFD56A)
-                                    .withValues(alpha: 0.5),
-                                blurRadius: 16,
+                        Opacity(
+                          opacity: earnOpacity,
+                          child: Transform.translate(
+                            offset: Offset(0, 12 * (1 - earnOpacity)),
+                            child: Transform.scale(
+                              scale: 0.88 + 0.12 * earnOpacity,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '+$earnCount',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: const Color(0xFFFFF4C8),
+                                      fontSize: landscape ? 36 : 42,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.0,
+                                      shadows: [
+                                        Shadow(
+                                          color: const Color(0xFFFFD56A)
+                                              .withValues(alpha: 0.5),
+                                          blurRadius: 16,
+                                        ),
+                                        const Shadow(
+                                          color: Color(0xAA000000),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    tStrings.youEarnedStars(earnCount),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.92),
+                                      fontSize: landscape ? 15 : 16,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.25,
+                                      shadows: const [
+                                        Shadow(
+                                          color: Color(0xAA000000),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const Shadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ] else if (_rating <= 0 &&
@@ -212,11 +273,16 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                             padding: EdgeInsets.only(
                               top: landscape ? 56 : 72,
                             ),
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 12,
-                              runSpacing: 10,
-                              children: widget.actions,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (var i = 0;
+                                    i < widget.actions.length;
+                                    i++) ...[
+                                  if (i > 0) const SizedBox(height: 10),
+                                  widget.actions[i],
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -230,7 +296,6 @@ class LevelCompleteOverlayState extends State<LevelCompleteOverlay>
                   child: _FlyingRatingStars(
                     count: _rating,
                     progress: _stars.value,
-                    // Weiter unter „Wonderful“, damit nichts auf die Überschrift springt.
                     landY: topPad + (landscape ? 92 : 108),
                     screenSize: size,
                   ),
@@ -274,7 +339,6 @@ class _FlyingRatingStars extends StatelessWidget {
   }
 
   Widget _buildStar(int index, double originX) {
-    // Klar gestaffelt: einer nach dem anderen.
     final slot = 1.0 / count;
     final start = index * slot * 0.92;
     final local = ((progress - start) / (slot * 0.88)).clamp(0.0, 1.0);
@@ -374,14 +438,15 @@ class _ConfettiRain extends StatelessWidget {
   }
 }
 
-/// Goldener Aktions-Button für Level-Complete.
-class LevelCompleteActionButton extends StatelessWidget {
+/// Spieliger Aktions-Button mit Press-Bounce (kein Material-Ripple).
+class LevelCompleteActionButton extends StatefulWidget {
   const LevelCompleteActionButton({
     super.key,
     required this.icon,
     required this.label,
     required this.onPressed,
     this.filled = true,
+    this.prominent = false,
   });
 
   final IconData icon;
@@ -389,73 +454,144 @@ class LevelCompleteActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool filled;
 
+  /// Hero-CTA: breiter, höher, stärkerer Schatten.
+  final bool prominent;
+
+  @override
+  State<LevelCompleteActionButton> createState() =>
+      _LevelCompleteActionButtonState();
+}
+
+class _LevelCompleteActionButtonState extends State<LevelCompleteActionButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _press;
+
+  @override
+  void initState() {
+    super.initState();
+    _press = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 90),
+      reverseDuration: const Duration(milliseconds: 180),
+    );
+  }
+
+  @override
+  void dispose() {
+    _press.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) => _press.forward();
+
+  void _onTapCancel() => _press.reverse();
+
+  Future<void> _onTapUp(TapUpDetails _) async {
+    await _press.reverse();
+    if (!mounted) return;
+    HapticFeedback.lightImpact();
+    widget.onPressed();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: filled
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFFFF0C2),
-                      Color(0xFFFFD56A),
-                      Color(0xFFE0A93A),
+    final height = widget.prominent ? 56.0 : 48.0;
+    final fontSize = widget.prominent ? 16.0 : 15.0;
+    final radius = widget.prominent ? 18.0 : 16.0;
+
+    return AnimatedBuilder(
+      animation: _press,
+      builder: (context, child) {
+        final t = Curves.easeOut.transform(_press.value);
+        final scale = 1.0 - 0.08 * t;
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: _onTapDown,
+        onTapUp: _onTapUp,
+        onTapCancel: _onTapCancel,
+        child: SizedBox(
+          width: widget.prominent ? double.infinity : null,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              gradient: widget.filled
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFFF0C2),
+                        Color(0xFFFFD56A),
+                        Color(0xFFE0A93A),
+                      ],
+                    )
+                  : null,
+              color: widget.filled ? null : const Color(0xFF2A3D58),
+              border: Border.all(
+                color: widget.filled
+                    ? const Color(0xFFFFE7A0)
+                    : Colors.white.withValues(alpha: 0.72),
+                width: widget.filled ? 1.2 : 1.5,
+              ),
+              boxShadow: widget.filled
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFFFD56A).withValues(
+                          alpha: widget.prominent ? 0.5 : 0.35,
+                        ),
+                        blurRadius: widget.prominent ? 18 : 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
                     ],
-                  )
-                : null,
-            color: filled ? null : const Color(0xFF2A3D58),
-            border: Border.all(
-              color: filled
-                  ? const Color(0xFFFFE7A0)
-                  : Colors.white.withValues(alpha: 0.72),
-              width: filled ? 1 : 1.5,
             ),
-            boxShadow: filled
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFFD56A).withValues(alpha: 0.35),
-                      blurRadius: 12,
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.prominent ? 20 : 16,
+                ),
+                child: Row(
+                  mainAxisSize: widget.prominent
+                      ? MainAxisSize.max
+                      : MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      widget.icon,
+                      size: widget.prominent ? 22 : 20,
+                      color: widget.filled
+                          ? const Color(0xFF3A2810)
+                          : Colors.white.withValues(alpha: 0.92),
                     ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.28),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        textAlign: TextAlign.center,
+                        maxLines: widget.prominent ? 2 : 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: widget.filled
+                              ? const Color(0xFF3A2810)
+                              : Colors.white.withValues(alpha: 0.95),
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w800,
+                          height: 1.15,
+                        ),
+                      ),
                     ),
                   ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: filled
-                    ? const Color(0xFF3A2810)
-                    : Colors.white.withValues(alpha: 0.92),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: filled
-                      ? const Color(0xFF3A2810)
-                      : Colors.white.withValues(alpha: 0.95),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

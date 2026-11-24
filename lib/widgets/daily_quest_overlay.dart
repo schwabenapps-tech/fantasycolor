@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,12 +9,12 @@ import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
 import '../models/puzzle_settings.dart';
+import '../painting/colored_png_probe.dart';
 import '../providers/coloring_progress_store.dart';
-import '../providers/coloring_sticker_placements_store.dart';
 import '../providers/favorites_store.dart';
 import '../providers/pixel_progress_store.dart';
+import '../providers/pixel_ready_store.dart';
 import '../providers/star_wallet_store.dart';
-import '../providers/sticker_collection_store.dart';
 import '../screens/advent_calendar_screen.dart';
 import '../screens/coloring_preview_screen.dart';
 import '../screens/pixel_paint_screen.dart';
@@ -114,7 +116,17 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
     if (task.isPixel || task.isPixelThreeStar) {
       final progress = ctx.read<ColoringProgressStore>();
       final pixelStore = ctx.read<PixelProgressStore>();
+      final readyStore = ctx.read<PixelReadyStore>();
       final colored = await progress.loadProgressBytes(page.id);
+      if (colored == null || !await ColoredPngProbe.hasFillColors(colored)) {
+        await readyStore.revokeReady(page.id);
+        await pixelStore.clearProgress(page.id);
+        if (!ctx.mounted) return;
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text(AppStrings.of(ctx).pixelNeedsColoring)),
+        );
+        return;
+      }
       final existing = await pixelStore.loadSnapshot(page.id);
       // Schon fertig bemalt → für Daily von vorn (Bilder wiederverwendbar).
       if (existing != null && existing.completed) {
@@ -203,14 +215,19 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
     final puzzles = await loadPuzzleImages(shuffle: false);
     if (!mounted) return;
 
-    final locked = <({ColoringPage page, FavoriteKind kind})>[
+    final coloringLocked = <({ColoringPage page, FavoriteKind kind})>[
       for (final page in coloring)
         if (wallet.requiresStars(page.id, FavoriteKind.coloring))
           (page: page, kind: FavoriteKind.coloring),
+    ];
+    final puzzleLocked = <({ColoringPage page, FavoriteKind kind})>[
       for (final page in puzzles)
         if (wallet.requiresStars(page.id, FavoriteKind.puzzle))
           (page: page, kind: FavoriteKind.puzzle),
     ];
+
+    // Abwechslung: beide Arten mischen, nicht erst alle Malen dann Puzzle.
+    final locked = _mixedUnlockChoices(coloringLocked, puzzleLocked);
 
     if (locked.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -498,6 +515,26 @@ class _TaskCard extends StatelessWidget {
   }
 }
 
+/// Malen + Puzzle shufflen und abwechselnd einreihen (max. 16).
+List<({ColoringPage page, FavoriteKind kind})> _mixedUnlockChoices(
+  List<({ColoringPage page, FavoriteKind kind})> coloring,
+  List<({ColoringPage page, FavoriteKind kind})> puzzles, {
+  int maxItems = 16,
+}) {
+  final rng = math.Random();
+  final a = [...coloring]..shuffle(rng);
+  final b = [...puzzles]..shuffle(rng);
+  final mixed = <({ColoringPage page, FavoriteKind kind})>[];
+  var i = 0;
+  var j = 0;
+  while (i < a.length || j < b.length) {
+    if (i < a.length) mixed.add(a[i++]);
+    if (j < b.length) mixed.add(b[j++]);
+  }
+  if (mixed.length <= maxItems) return mixed;
+  return mixed.take(maxItems).toList(growable: false);
+}
+
 class _DailyUnlockPickerDialog extends StatelessWidget {
   const _DailyUnlockPickerDialog({required this.items});
 
@@ -506,6 +543,7 @@ class _DailyUnlockPickerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(context);
+    final wallet = context.watch<StarWalletStore>();
     final maxH = MediaQuery.sizeOf(context).height * 0.55;
     return AlertDialog(
       backgroundColor: StarBalancePill.fill,
@@ -515,12 +553,36 @@ class _DailyUnlockPickerDialog extends StatelessWidget {
           color: StarBalancePill.border.withValues(alpha: 0.95),
         ),
       ),
-      title: Text(
-        t.dailyUnlockPickTitle,
-        style: const TextStyle(
-          color: StarBalancePill.ink,
-          fontWeight: FontWeight.w800,
-        ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.dailyUnlockPickTitle,
+                  style: const TextStyle(
+                    color: StarBalancePill.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _UnlockBalanceChip(balance: wallet.balance),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            t.dailyUnlockPickHint,
+            style: TextStyle(
+              color: StarBalancePill.ink.withValues(alpha: 0.72),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -530,12 +592,13 @@ class _DailyUnlockPickerDialog extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.85,
+            childAspectRatio: 0.78,
           ),
           itemCount: items.length,
           itemBuilder: (context, index) {
             final item = items[index];
             final isPuzzle = item.kind == FavoriteKind.puzzle;
+            final cost = wallet.unlockCost(item.page.id, item.kind);
             return Material(
               color: Colors.transparent,
               child: InkWell(
@@ -554,13 +617,24 @@ class _DailyUnlockPickerDialog extends StatelessWidget {
                     child: Column(
                       children: [
                         Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: ColoringPageImage(
-                              page: item.page,
-                              fit: BoxFit.cover,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: ColoringPageImage(
+                                  page: item.page,
+                                  fit: BoxFit.cover,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              if (cost != null)
+                                Positioned(
+                                  top: 6,
+                                  right: 6,
+                                  child: _UnlockCostBadge(cost: cost),
+                                ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -590,6 +664,86 @@ class _DailyUnlockPickerDialog extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _UnlockBalanceChip extends StatelessWidget {
+  const _UnlockBalanceChip({required this.balance});
+
+  final int balance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: StarBalancePill.border.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            StarBalancePill.asset,
+            width: 22,
+            height: 22,
+            filterQuality: FilterQuality.medium,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$balance',
+            style: const TextStyle(
+              color: StarBalancePill.ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnlockCostBadge extends StatelessWidget {
+  const _UnlockCostBadge({required this.cost});
+
+  final int cost;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(5, 3, 7, 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2438).withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFFD56A).withValues(alpha: 0.65),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            StarBalancePill.asset,
+            width: 14,
+            height: 14,
+            filterQuality: FilterQuality.medium,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '$cost',
+            style: const TextStyle(
+              color: Color(0xFFFFE7A0),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

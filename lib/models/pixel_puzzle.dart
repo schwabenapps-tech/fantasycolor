@@ -7,10 +7,10 @@ import 'package:flutter/material.dart';
 enum PixelDifficulty {
   standard;
 
-  /// Feines Raster: längere Seite — Konturen bleiben besser erkennbar.
-  int get maxSide => 128;
+  /// Feines Dot-Raster: längere Seite — Motiv bleibt deutlich erkennbar.
+  int get maxSide => 256;
 
-  int get colorCount => 18;
+  int get colorCount => 30;
 
   /// Für Fortschritts-JSON und alte Speichernamen (`easy`/`medium`/`hard`).
   static PixelDifficulty fromStorageName(String? _) =>

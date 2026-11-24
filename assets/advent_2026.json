@@ -27,5 +27,5 @@
     {"day": 24, "pulls": 1, "special": true, "stickerId": "winter_chibi_weihnachtsmann"},
     {"day": 25, "pulls": 1, "special": true, "bonusStars": 20, "stickerId": "winter_merry_christmas"}
   ],
-  "notes": "1. Advent (winter_advent_1) kommt exklusiv über die Weihnachts-Geschenkbox am 1. Adventssonntag — nicht als Türchen. Silvester-Geschenk 31.12.: silvester.sticker, silvester2, happynewyear (silvester.png/silvester1 = Puzzle). Tag 23 + Ausmal-/Puzzle-IDs später ergänzen."
+  "notes": "1. Advent (winter_advent_1) kommt exklusiv über die Weihnachts-Geschenkbox am 1. Adventssonntag — nicht als Türchen. Silvester am 31.12.: Sticker (silvester.sticker, happynewyear) + 2 Puzzles (silvester.png, silvester2.png) erst nach Box-Öffnung. Tag 23 + Ausmal-/Puzzle-IDs später ergänzen."
 }

@@ -16,10 +16,11 @@ class PixelQuantizer {
   PixelQuantizer._();
 
   /// Algo-Stand — bei Änderung Pixel-Saves invalidieren.
-  static const algoVersion = 4;
+  static const algoVersion = 8;
 
   /// CIE76 ΔE — darunter gilt „gleiche Farbe“ für die Palette.
-  static const mergeDeltaE = 22.0;
+  /// Kleiner = mehr Farbnuancen bleiben erhalten.
+  static const mergeDeltaE = 11.0;
 
   static const lineArgb = 0xFF1A1A1A;
 
@@ -99,7 +100,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   }
 
   final src = decoded.convert(numChannels: 4);
-  final maxSide = args.maxSide.clamp(24, 144);
+  final maxSide = args.maxSide.clamp(24, 256);
   late final int cols;
   late final int rows;
   if (src.width >= src.height) {
@@ -128,6 +129,8 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
 
   // Dünne Linien verbinden: Zelle mit etwas Linie zwischen Linien-Nachbarn.
   _restoreLineContinuity(cellArgb, lineHint, cols, rows);
+  // Einzelne Fehl-Dots glätten — ruhigere Flächen für Dot Art.
+  _despeckleCellArgb(cellArgb, cols, rows);
 
   // Häufigste exakte Zellenfarben → Palette (Winner behält RGB).
   final freq = <int, int>{};
@@ -140,7 +143,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   // Linie zuerst in die Palette, damit sie nicht „weggemerged“ wird.
   final paletteArgb = <int>[];
   final keyToPalette = <int, int>{};
-  final maxColors = args.colorCount.clamp(4, 32);
+  final maxColors = args.colorCount.clamp(4, 40);
 
   if (freq.containsKey(PixelQuantizer.lineArgb)) {
     keyToPalette[PixelQuantizer.lineArgb] = 0;
@@ -207,11 +210,14 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
     cells[i] = remap[cells[i]];
   }
 
+  final orderedPalette = [for (final oi in order) paletteArgb[oi]];
+  _despecklePaletteCells(cells, orderedPalette, cols, rows);
+
   return _QuantizeResult(
     cols: cols,
     rows: rows,
     cells: cells,
-    paletteArgb: [for (final oi in order) paletteArgb[oi]],
+    paletteArgb: orderedPalette,
   );
 }
 
@@ -223,6 +229,9 @@ class _CellSample {
 
 _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
   final fillHist = <int, int>{};
+  final sumR = <int, int>{};
+  final sumG = <int, int>{};
+  final sumB = <int, int>{};
   var lineN = 0;
   var fillN = 0;
   var centerLine = 0;
@@ -230,8 +239,9 @@ _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
 
   final w = x1 - x0;
   final h = y1 - y0;
-  final stepX = math.max(1, w ~/ 16);
-  final stepY = math.max(1, h ~/ 16);
+  // Sehr dicht sampeln → genaue Dot-Farben aus fertigen Ausmalbildern.
+  final stepX = math.max(1, w ~/ 48);
+  final stepY = math.max(1, h ~/ 48);
   final cx0 = x0 + w ~/ 4;
   final cx1 = x1 - w ~/ 4;
   final cy0 = y0 + h ~/ 4;
@@ -253,12 +263,17 @@ _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
       }
 
       fillN++;
-      // Füllfarbe bucketed; Linien-AA fliegt raus → sauberere Flächen.
-      final br = (r >> 3) << 3;
-      final bg = (g >> 3) << 3;
-      final bb = (b >> 3) << 3;
+      // Feinere Buckets (4er statt 8er) — Motivfarben bleiben klarer.
+      final br = (r >> 2) << 2;
+      final bg = (g >> 2) << 2;
+      final bb = (b >> 2) << 2;
       final key = 0xFF000000 | (br << 16) | (bg << 8) | bb;
-      fillHist[key] = (fillHist[key] ?? 0) + 1;
+      // Zentrum zählt doppelt — mittlere Flächenfarbe gewinnt gegen Rand-AA.
+      final weight = inCenter ? 2 : 1;
+      fillHist[key] = (fillHist[key] ?? 0) + weight;
+      sumR[key] = (sumR[key] ?? 0) + r * weight;
+      sumG[key] = (sumG[key] ?? 0) + g * weight;
+      sumB[key] = (sumB[key] ?? 0) + b * weight;
     }
   }
 
@@ -267,14 +282,9 @@ _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
   final centerRatio =
       centerTotal == 0 ? 0.0 : centerLine / centerTotal;
 
-  // Dünne Konturen: schon ab ~18 % oder starkes Zentrum → Linie.
-  if (lineRatio >= 0.18 || centerRatio >= 0.28 || (lineRatio >= 0.12 && centerRatio >= 0.18)) {
-    return _CellSample(argb: PixelQuantizer.lineArgb, lineRatio: lineRatio);
-  }
-
   if (fillHist.isEmpty) {
     return _CellSample(
-      argb: lineRatio > 0 ? PixelQuantizer.lineArgb : 0xFFFFFFFF,
+      argb: lineRatio > 0.08 ? PixelQuantizer.lineArgb : 0xFFFFFFFF,
       lineRatio: lineRatio,
     );
   }
@@ -287,7 +297,126 @@ _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
       bestKey = e.key;
     }
   }
-  return _CellSample(argb: bestKey, lineRatio: lineRatio);
+  // Mittelwert der Samples im Winner-Bucket → natürlichere Dot-Farbe.
+  final n = fillHist[bestKey]!;
+  final ar = (sumR[bestKey]! / n).round().clamp(0, 255);
+  final ag = (sumG[bestKey]! / n).round().clamp(0, 255);
+  final ab = (sumB[bestKey]! / n).round().clamp(0, 255);
+  final fillArgb = 0xFF000000 | (ar << 16) | (ag << 8) | ab;
+
+  // Füllfarbe hat Vorrang: dunkle Motivfarben nicht als Linie opfern.
+  // Nur klar linien-dominante Zellen → Kontur.
+  final mostlyLine = lineRatio >= 0.52 || centerRatio >= 0.62;
+  final edgeOnlyLine = lineRatio >= 0.38 &&
+      centerRatio >= 0.48 &&
+      fillN < lineN * 0.45;
+  if (mostlyLine || edgeOnlyLine) {
+    return _CellSample(argb: PixelQuantizer.lineArgb, lineRatio: lineRatio);
+  }
+
+  return _CellSample(argb: fillArgb, lineRatio: lineRatio);
+}
+
+/// Entfernt einzelne „Falschfarben“-Zellen zugunsten der Nachbar-Mehrheit.
+void _despeckleCellArgb(List<int> cellArgb, int cols, int rows) {
+  final line = PixelQuantizer.lineArgb;
+  for (var pass = 0; pass < 2; pass++) {
+    final next = List<int>.from(cellArgb);
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        final i = y * cols + x;
+        final self = cellArgb[i];
+        final hist = <int, int>{};
+        var same = 0;
+        void tap(int nx, int ny) {
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) return;
+          final c = cellArgb[ny * cols + nx];
+          hist[c] = (hist[c] ?? 0) + 1;
+          if (c == self) same++;
+        }
+
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
+            tap(x + dx, y + dy);
+          }
+        }
+        if (hist.isEmpty) continue;
+
+        var maj = self;
+        var majN = 0;
+        for (final e in hist.entries) {
+          if (e.value > majN) {
+            majN = e.value;
+            maj = e.key;
+          }
+        }
+
+        // Nur echte Einzel-Pixel glätten — Details nicht weichwaschen.
+        if (self == line) {
+          if (same == 0 && maj != line && majN >= 6) {
+            next[i] = maj;
+          }
+          continue;
+        }
+        if (same == 0 && maj != self && majN >= 5) {
+          next[i] = maj;
+        }
+      }
+    }
+    for (var i = 0; i < cellArgb.length; i++) {
+      cellArgb[i] = next[i];
+    }
+  }
+}
+
+void _despecklePaletteCells(
+  List<int> cells,
+  List<int> paletteArgb,
+  int cols,
+  int rows,
+) {
+  final lineIdx = paletteArgb.indexWhere((c) => c == PixelQuantizer.lineArgb);
+  for (var pass = 0; pass < 1; pass++) {
+    final next = List<int>.from(cells);
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
+        final i = y * cols + x;
+        final self = cells[i];
+        if (self == lineIdx) continue;
+        final hist = <int, int>{};
+        var same = 0;
+        void tap(int nx, int ny) {
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) return;
+          final c = cells[ny * cols + nx];
+          hist[c] = (hist[c] ?? 0) + 1;
+          if (c == self) same++;
+        }
+
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
+            tap(x + dx, y + dy);
+          }
+        }
+        if (same > 0 || hist.isEmpty) continue;
+        var maj = self;
+        var majN = 0;
+        for (final e in hist.entries) {
+          if (e.value > majN) {
+            majN = e.value;
+            maj = e.key;
+          }
+        }
+        if (maj != self && maj != lineIdx && majN >= 5) {
+          next[i] = maj;
+        }
+      }
+    }
+    for (var i = 0; i < cells.length; i++) {
+      cells[i] = next[i];
+    }
+  }
 }
 
 void _restoreLineContinuity(
@@ -304,7 +433,8 @@ void _restoreLineContinuity(
       for (var x = 0; x < cols; x++) {
         final i = y * cols + x;
         if (cellArgb[i] == line) continue;
-        if (lineHint[i] < 0.06) continue;
+        // Nur echte Lücken schließen — keine farbigen Flächen „auffressen“.
+        if (lineHint[i] < 0.14) continue;
 
         var lineNeighbors = 0;
         void check(int nx, int ny) {
@@ -327,7 +457,7 @@ void _restoreLineContinuity(
             cellArgb[(y - 1) * cols + x] == line &&
             cellArgb[(y + 1) * cols + x] == line;
 
-        if (horiz || vert || (lineNeighbors >= 2 && lineHint[i] >= 0.10)) {
+        if (horiz || vert || (lineNeighbors >= 3 && lineHint[i] >= 0.22)) {
           next[i] = line;
         }
       }
@@ -341,9 +471,11 @@ void _restoreLineContinuity(
 bool _isLineRgb(int r, int g, int b) {
   final lum = 0.299 * r + 0.587 * g + 0.114 * b;
   final chroma = math.max(r, math.max(g, b)) - math.min(r, math.min(g, b));
-  // Harte Linie + leichtes AA-Grau (wie ColoringBitmap).
-  if (lum <= 72) return true;
-  if (lum <= 125 && chroma <= 30) return true;
+  // Nur dunkles Grau/Schwarz = Kontur.
+  // Dunkles Blau/Rot/Lila ist Füllfarbe und darf nicht zur Linie werden.
+  if (lum <= 48 && chroma <= 40) return true;
+  if (lum <= 90 && chroma <= 26) return true;
+  if (lum <= 120 && chroma <= 18) return true;
   return false;
 }
 

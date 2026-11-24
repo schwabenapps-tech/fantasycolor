@@ -14,6 +14,7 @@ import '../data/sticker_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../models/pixel_puzzle.dart';
+import '../painting/colored_png_probe.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/favorites_store.dart';
 import '../providers/pixel_progress_store.dart';
@@ -330,6 +331,17 @@ class _HubScreenState extends State<HubScreen>
     final existing = await store.loadSnapshot(page.id);
     final sourceBytes = await coloringProgress.loadProgressBytes(page.id);
     if (!mounted) return;
+    if (sourceBytes == null ||
+        !await ColoredPngProbe.hasFillColors(sourceBytes)) {
+      await readyStore.revokeReady(page.id);
+      await store.clearProgress(page.id);
+      if (!mounted) return;
+      HapticFeedback.selectionClick();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.of(context).pixelNeedsColoring)),
+      );
+      return;
+    }
     PixelProgressSnapshot? resume;
     if (existing != null && !existing.completed && existing.filledCount > 0) {
       resume = existing;
@@ -1325,6 +1337,7 @@ class _HomeTabState extends State<_HomeTab> {
     final recent = context.watch<RecentContentStore>();
     final advent = context.watch<AdventService>();
     final pixelReady = context.watch<PixelReadyStore>();
+    final coloringProgress = context.watch<ColoringProgressStore>();
     final allColoring = tags.sortNewestFirst(
       _flatten(widget.catalog.coloring),
       coloring: true,
@@ -1420,7 +1433,8 @@ class _HomeTabState extends State<_HomeTab> {
         allColoring.where((p) => !highlightIds.contains(p.id)).toList();
     final readyPixelPool = [
       for (final p in allColoring)
-        if (pixelReady.isReadyFor(p.id)) p,
+        if (pixelReady.isReadyFor(p.id) && coloringProgress.hasProgress(p.id))
+          p,
     ];
     final dayKey = _todayKey();
     if (_previewDayKey != dayKey) {

@@ -61,9 +61,12 @@ class AppStrings {
   String get colorMoreForDone => _t('colorMoreForDone');
   String get colorBeforeSave => _t('colorBeforeSave');
   String get wonderful => _t('wonderful');
+  String youEarnedStars(int n) =>
+      _t('youEarnedStars').replaceAll('{n}', '$n');
   String get levelComplete => _t('levelComplete');
   String get photos => _t('photos');
   String get asPuzzle => _t('asPuzzle');
+  String get playColoredAsPuzzle => _t('playColoredAsPuzzle');
   String get couldNotLoadImage => _t('couldNotLoadImage');
   String get pickAGift => _t('pickAGift');
   String get eachBoxDifferent => _t('eachBoxDifferent');
@@ -137,6 +140,7 @@ class AppStrings {
   String get dailyTaskEventFinish => _t('dailyTaskEventFinish');
   String get dailyTaskAdventDoor => _t('dailyTaskAdventDoor');
   String get dailyUnlockPickTitle => _t('dailyUnlockPickTitle');
+  String get dailyUnlockPickHint => _t('dailyUnlockPickHint');
   String get dailyUnlockEmpty => _t('dailyUnlockEmpty');
   String get dailyUnlockDone => _t('dailyUnlockDone');
   String get pixelArt => _t('pixelArt');
@@ -177,6 +181,13 @@ class AppStrings {
   String pixelAdFillsLeft(int n) =>
       _t('pixelAdFillsLeft').replaceAll('{n}', '$n');
   String get pixelAdFillsExhausted => _t('pixelAdFillsExhausted');
+  String get pixelResetTitle => _t('pixelResetTitle');
+  String get pixelResetBody => _t('pixelResetBody');
+  String get pixelReset => _t('pixelReset');
+  String get pixelContinue => _t('pixelContinue');
+  String get pixelDoneBadge => _t('pixelDoneBadge');
+  String get pixelPlayAgain => _t('pixelPlayAgain');
+  String get pixelNeedsColoring => _t('pixelNeedsColoring');
   String get adUnavailable => _t('adUnavailable');
   String get watchAd => _t('watchAd');
   String get templateSaved => _t('templateSaved');
@@ -244,9 +255,11 @@ const _en = {
   'colorMoreForDone': 'Color a bit more to finish and earn a sticker!',
   'colorBeforeSave': 'Color a little first before saving.',
   'wonderful': 'Wonderful!',
+  'youEarnedStars': 'You earned +{n} stars',
   'levelComplete': 'Level complete',
   'photos': 'Save',
   'asPuzzle': 'As puzzle',
+  'playColoredAsPuzzle': 'Play your picture as a puzzle now!',
   'couldNotLoadImage': 'Could not load image',
   'pickAGift': 'Pick a gift!',
   'eachBoxDifferent': 'Each box holds a different sticker',
@@ -275,7 +288,7 @@ const _en = {
   'notifyAdventTitle': 'Your Advent door is open ✨',
   'notifyAdventBody': 'A Christmas bauble is waiting — come open today’s gift!',
   'stickerRulesBody':
-      '• Finish a coloring page at 100% to earn a sticker (once per picture until reset) and unlock it for Pixel Art. Daily finishes also unlock Pixel Art.\n'
+      '• Finish a coloring page at 100% to earn a sticker (once per picture until reset) and unlock it for Dot Art. Daily finishes also unlock Dot Art.\n'
       '• Solve a puzzle on Pro for a sticker — once. Easy and Medium do not give stickers.\n'
       '• Daily quests (bell): finish all tasks → stickers + bonus stars.\n'
       '• Advent calendar doors gift winter stickers.\n'
@@ -331,23 +344,25 @@ const _en = {
   'dailyTaskPuzzleHard': 'Finish this puzzle on Medium',
   'dailyTaskPuzzleExpert': 'Finish this puzzle on Hard (Pro)',
   'dailyTaskPlaceSticker': 'Place at least one sticker on this picture',
-  'dailyTaskPixel': 'Finish this picture in Pixel Art',
+  'dailyTaskPixel': 'Finish this picture in Dot Art',
   'dailyTaskRecolor': 'Reset this finished picture and color it again',
   'dailyTaskUnlockChoice': 'Unlock a coloring page or puzzle of your choice — free!',
   'dailyTaskWatchAd': 'Watch a short video for stars',
   'dailyTaskColorThreeStar': 'Finish this coloring with 3 stars (~100%)',
-  'dailyTaskPixelThreeStar': 'Finish this pixel art with 3 stars',
+  'dailyTaskPixelThreeStar': 'Finish this Dot Art with 3 stars',
   'dailyTaskEventFinish': 'Finish this event picture',
   'dailyTaskAdventDoor': 'Open today’s Advent door',
   'dailyUnlockPickTitle': 'Pick something to unlock',
+  'dailyUnlockPickHint':
+      'Free today — each picture shows its normal star price',
   'dailyUnlockEmpty': 'Nothing left to unlock right now',
   'dailyUnlockDone': 'Unlocked! Enjoy your new picture',
-  'pixelArt': 'Pixel Art',
+  'pixelArt': 'Dot Art',
   'pixelArtHint': 'Finished coloring pages appear here (including daily quests)',
-  'pixelArtEmpty': 'Finish a coloring page (or a daily) to unlock Pixel Art',
+  'pixelArtEmpty': 'Finish a coloring page (or a daily) to unlock Dot Art',
   'pixelArtInfoBody':
-      'Finish a coloring page completely (100%). It then appears here for Pixel Art. Tap a picture and watch a short ad to unlock painting. Daily quest coloring pages count too.',
-  'readyForPixel': 'Ready for Pixel',
+      'Finish a coloring page completely (100%). It then appears here for Dot Art. Tap a picture and watch a short ad to unlock painting. Daily quest coloring pages count too.',
+  'readyForPixel': 'Ready for Dot Art',
   'recentlyUsed': 'Used today',
   'recentlyUsedEmpty': 'Open a coloring page or puzzle today to see it here.',
   'notifyTitle': 'A surprise awaits ✨',
@@ -373,6 +388,15 @@ const _en = {
   'pixelPickColorToFill': 'Which color should we fill?',
   'pixelAdFillsLeft': '{n} left',
   'pixelAdFillsExhausted': 'Help used up — paint the rest yourself!',
+  'pixelResetTitle': 'Reset Dot Art?',
+  'pixelResetBody':
+      'Your progress on this picture will be cleared. You can paint it again from scratch.',
+  'pixelReset': 'Reset',
+  'pixelContinue': 'Continue',
+  'pixelDoneBadge': 'Done',
+  'pixelPlayAgain': 'Play again',
+  'pixelNeedsColoring':
+      'This picture has no color yet. Finish coloring it first — then Dot Art unlocks.',
   'adUnavailable': 'Ad not ready — try again in a moment',
   'watchAd': 'Watch ad',
   'templateSaved': 'Template saved to Photos',
@@ -422,9 +446,11 @@ const _de = {
   'colorMoreForDone': 'Male noch etwas weiter, um fertig zu werden und einen Sticker zu verdienen!',
   'colorBeforeSave': 'Male erst ein bisschen, bevor du speicherst.',
   'wonderful': 'Wunderbar!',
+  'youEarnedStars': 'Du hast +{n} Sterne verdient',
   'levelComplete': 'Level geschafft',
   'photos': 'Speichern',
   'asPuzzle': 'Als Puzzle',
+  'playColoredAsPuzzle': 'Dein Bild jetzt als Puzzle spielen!',
   'couldNotLoadImage': 'Bild konnte nicht geladen werden',
   'pickAGift': 'Wähle ein Geschenk!',
   'eachBoxDifferent': 'In jeder Box steckt ein anderer Sticker',
@@ -454,7 +480,7 @@ const _de = {
   'notifyAdventBody':
       'Eine Weihnachtskugel wartet — hol dir das Geschenk von heute!',
   'stickerRulesBody':
-      '• Male ein Bild zu 100 % fertig aus → Sticker (einmal pro Bild, bis Reset) und freigeschaltet für Pixel Art. Daily-fertig zählt auch für Pixel Art.\n'
+      '• Male ein Bild zu 100 % fertig aus → Sticker (einmal pro Bild, bis Reset) und freigeschaltet für Dot Art. Daily-fertig zählt auch für Dot Art.\n'
       '• Puzzle auf Pro → Sticker (einmal). Easy und Medium geben keine.\n'
       '• Tägliche Aufgaben (Glocke): alle Tasks fertig → Sticker + Bonus-Sterne.\n'
       '• Adventskalender schenkt Winter-Stickers.\n'
@@ -510,23 +536,25 @@ const _de = {
   'dailyTaskPuzzleHard': 'Löse dieses Puzzle auf Medium',
   'dailyTaskPuzzleExpert': 'Löse dieses Puzzle auf Schwer (Pro)',
   'dailyTaskPlaceSticker': 'Setze mindestens einen Sticker auf dieses Bild',
-  'dailyTaskPixel': 'Male dieses Bild in Pixel Art fertig',
+  'dailyTaskPixel': 'Male dieses Bild in Dot Art fertig',
   'dailyTaskRecolor': 'Setze dieses fertige Bild zurück und male es neu aus',
   'dailyTaskUnlockChoice': 'Schalte ein Ausmalbild oder Puzzle deiner Wahl frei — gratis!',
   'dailyTaskWatchAd': 'Schau ein kurzes Video für Sterne',
   'dailyTaskColorThreeStar': 'Male dieses Bild mit 3 Sternen fertig (~100 %)',
-  'dailyTaskPixelThreeStar': 'Beende diese Pixelart mit 3 Sternen',
+  'dailyTaskPixelThreeStar': 'Beende diese Dot Art mit 3 Sternen',
   'dailyTaskEventFinish': 'Beende dieses Event-Bild',
   'dailyTaskAdventDoor': 'Öffne das heutige Advents-Türchen',
   'dailyUnlockPickTitle': 'Was möchtest du freischalten?',
+  'dailyUnlockPickHint':
+      'Heute gratis — am Bild steht der normale Stern-Preis',
   'dailyUnlockEmpty': 'Gerade ist nichts mehr gesperrt',
   'dailyUnlockDone': 'Freigeschaltet! Viel Spaß damit',
-  'pixelArt': 'Pixel Art',
+  'pixelArt': 'Dot Art',
   'pixelArtHint': 'Fertige Ausmalbilder erscheinen hier (auch aus Dailys)',
-  'pixelArtEmpty': 'Male ein Bild fertig (oder eine Daily), um Pixel Art freizuschalten',
+  'pixelArtEmpty': 'Male ein Bild fertig (oder eine Daily), um Dot Art freizuschalten',
   'pixelArtInfoBody':
-      'Male ein Ausmalbild komplett fertig (100 %). Danach erscheint es hier für Pixel Art. Tippe auf ein Bild und schau dir eine kurze Werbung an, um es freizuschalten und zu malen. Auch fertige Daily-Bilder zählen.',
-  'readyForPixel': 'Bereit für Pixel',
+      'Male ein Ausmalbild komplett fertig (100 %). Danach erscheint es hier für Dot Art. Tippe auf ein Bild und schau dir eine kurze Werbung an, um es freizuschalten und zu malen. Auch fertige Daily-Bilder zählen.',
+  'readyForPixel': 'Bereit für Dot Art',
   'recentlyUsed': 'Heute benutzt',
   'recentlyUsedEmpty': 'Öffne heute ein Ausmalbild oder Puzzle, dann erscheint es hier.',
   'notifyTitle': 'Eine Überraschung wartet ✨',
@@ -552,6 +580,15 @@ const _de = {
   'pixelPickColorToFill': 'Welche Farbe soll gefüllt werden?',
   'pixelAdFillsLeft': 'noch {n}',
   'pixelAdFillsExhausted': 'Hilfe aufgebraucht — male den Rest selbst!',
+  'pixelResetTitle': 'Dot Art zurücksetzen?',
+  'pixelResetBody':
+      'Dein Fortschritt bei diesem Bild wird gelöscht. Du kannst wieder von vorne malen.',
+  'pixelReset': 'Zurücksetzen',
+  'pixelContinue': 'Weiter',
+  'pixelDoneBadge': 'Fertig',
+  'pixelPlayAgain': 'Nochmal',
+  'pixelNeedsColoring':
+      'Dieses Bild hat noch keine Farbe. Male es zuerst aus — danach ist Dot Art frei.',
   'adUnavailable': 'Werbung noch nicht bereit — gleich nochmal versuchen',
   'watchAd': 'Werbung ansehen',
   'templateSaved': 'Vorlage in Fotos gespeichert',
@@ -598,9 +635,11 @@ const _es = {
   'colorMoreForDone': '¡Colorea un poco más para terminar y ganar un sticker!',
   'colorBeforeSave': 'Colorea un poco antes de guardar.',
   'wonderful': '¡Maravilloso!',
+  'youEarnedStars': 'Has ganado +{n} estrellas',
   'levelComplete': 'Nivel completado',
   'photos': 'Guardar',
   'asPuzzle': 'Como puzzle',
+  'playColoredAsPuzzle': '¡Juega tu dibujo como puzzle ahora!',
   'couldNotLoadImage': 'No se pudo cargar la imagen',
   'pickAGift': '¡Elige un regalo!',
   'eachBoxDifferent': 'Cada caja tiene un sticker distinto',
@@ -711,6 +750,7 @@ const _fr = {
   'colorMoreForDone': 'Colorie encore un peu pour terminer et gagner un sticker !',
   'colorBeforeSave': 'Colorie un peu avant d’enregistrer.',
   'wonderful': 'Merveilleux !',
+  'youEarnedStars': 'Tu as gagné +{n} étoiles',
   'levelComplete': 'Niveau terminé',
   'photos': 'Enregistrer',
   'asPuzzle': 'En puzzle',
@@ -824,6 +864,7 @@ const _pt = {
   'colorMoreForDone': 'Colorir um pouco mais para terminar e ganhar um sticker!',
   'colorBeforeSave': 'Colorir um pouco antes de guardar.',
   'wonderful': 'Maravilhoso!',
+  'youEarnedStars': 'Ganhaste +{n} estrelas',
   'levelComplete': 'Nível concluído',
   'photos': 'Guardar',
   'asPuzzle': 'Como puzzle',
@@ -937,6 +978,7 @@ const _it = {
   'colorMoreForDone': 'Colora ancora un po’ per finire e guadagnare uno sticker!',
   'colorBeforeSave': 'Colora un po’ prima di salvare.',
   'wonderful': 'Meraviglioso!',
+  'youEarnedStars': 'Hai guadagnato +{n} stelle',
   'levelComplete': 'Livello completato',
   'photos': 'Salva',
   'asPuzzle': 'Come puzzle',
@@ -1050,6 +1092,7 @@ const _nl = {
   'colorMoreForDone': 'Kleur nog wat meer om klaar te zijn en een sticker te verdienen!',
   'colorBeforeSave': 'Kleur eerst een beetje voordat je opslaat.',
   'wonderful': 'Geweldig!',
+  'youEarnedStars': 'Je hebt +{n} sterren verdiend',
   'levelComplete': 'Level voltooid',
   'photos': 'Opslaan',
   'asPuzzle': 'Als puzzel',
@@ -1163,6 +1206,7 @@ const _pl = {
   'colorMoreForDone': 'Pokoloruj jeszcze trochę, by skończyć i zdobyć naklejkę!',
   'colorBeforeSave': 'Pokoloruj trochę, zanim zapiszesz.',
   'wonderful': 'Wspaniale!',
+  'youEarnedStars': 'Zdobyłeś +{n} gwiazdek',
   'levelComplete': 'Poziom ukończony',
   'photos': 'Zapisz',
   'asPuzzle': 'Jako puzzle',
@@ -1276,6 +1320,7 @@ const _tr = {
   'colorMoreForDone': 'Bitirmek ve sticker kazanmak için biraz daha boya!',
   'colorBeforeSave': 'Kaydetmeden önce biraz boya.',
   'wonderful': 'Harika!',
+  'youEarnedStars': '+{n} yıldız kazandın',
   'levelComplete': 'Seviye tamamlandı',
   'photos': 'Kaydet',
   'asPuzzle': 'Yapboz olarak',

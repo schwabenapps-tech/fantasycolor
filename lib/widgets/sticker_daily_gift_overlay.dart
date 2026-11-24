@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/sticker_catalog.dart';
+import '../providers/star_wallet_store.dart';
 import '../providers/sticker_collection_store.dart';
+import '../providers/favorites_store.dart';
 import '../services/advent_service.dart';
 import '../services/analytics_service.dart';
 import 'sticker_reveal_overlay.dart';
@@ -64,6 +66,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
   _GiftPhase _phase = _GiftPhase.pick;
   List<StickerEntry> _choices = const [];
   String _boxAsset = StickerDailyGiftOverlay.closedBox;
+  bool _silvesterGift = false;
 
   late final AnimationController _intro;
   late final AnimationController _shake;
@@ -144,6 +147,7 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
     setState(() {
       _boxAsset = box;
       _choices = choices;
+      _silvesterGift = silvesterOnce;
     });
   }
 
@@ -190,7 +194,19 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
     } else {
       won = await store.unlock(chosen.id, forPaint: widget.forPaint) ?? chosen;
       if (!mounted) return;
-      AnalyticsService.instance.logStickerUnlock(won.id, source: widget.source);
+      AnalyticsService.instance.logStickerUnlock(
+        won.id,
+        source: _silvesterGift ? 'silvester_box' : widget.source,
+      );
+    }
+    if (_silvesterGift) {
+      await store.revealSilvesterPack();
+      if (mounted) {
+        final wallet = context.read<StarWalletStore>();
+        for (final id in AdventService.silvesterPuzzleIds) {
+          await wallet.grantUnlock(id, FavoriteKind.puzzle);
+        }
+      }
     }
     if (!mounted) return;
     setState(() {
