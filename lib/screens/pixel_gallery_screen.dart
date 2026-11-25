@@ -142,8 +142,11 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
   Future<void> _rejectEmptyColoring(String pageId) async {
     final readyStore = context.read<PixelReadyStore>();
     final pixelStore = context.read<PixelProgressStore>();
+    final wallet = context.read<StarWalletStore>();
     await readyStore.revokeReady(pageId);
     await pixelStore.clearProgress(pageId);
+    // Sonst holt syncFromCompletedColoring die ID über stale Rating ≥ 3 zurück.
+    await wallet.clearColoringRating(pageId);
     if (!mounted) return;
     HapticFeedback.selectionClick();
     ScaffoldMessenger.of(context).showSnackBar(

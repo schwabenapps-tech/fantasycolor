@@ -333,8 +333,12 @@ class _HubScreenState extends State<HubScreen>
     if (!mounted) return;
     if (sourceBytes == null ||
         !await ColoredPngProbe.hasFillColors(sourceBytes)) {
+      if (!mounted) return;
+      final wallet = context.read<StarWalletStore>();
       await readyStore.revokeReady(page.id);
       await store.clearProgress(page.id);
+      // Sonst holt syncFromCompletedColoring die ID über stale Rating ≥ 3 zurück.
+      await wallet.clearColoringRating(page.id);
       if (!mounted) return;
       HapticFeedback.selectionClick();
       ScaffoldMessenger.of(context).showSnackBar(

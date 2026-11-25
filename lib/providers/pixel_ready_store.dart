@@ -63,8 +63,10 @@ class PixelReadyStore extends ChangeNotifier {
 
   /// Nur Bilder mit gespeichertem Ausmal-PNG bleiben / werden ready.
   ///
-  /// Ohne Progress (z. B. nach Reset auf Weiß) fliegen IDs wieder raus —
-  /// sonst landet die leere Vorlage in Dot Art.
+  /// Neu aufnehmen wie Done: 3★ oder Daily (`extraIds`). Bereits ready bleibt,
+  /// solange Progress existiert (Daily soll nach Tageswechsel nutzbar bleiben).
+  /// Ohne Progress (z. B. Reset) fliegen IDs raus — zusammen mit
+  /// `clearColoringRating` verhindert das Re-Ready nach wenig Neu-Malen.
   Future<void> syncFromCompletedColoring({
     required Iterable<String> progressIds,
     required int Function(String id) coloringRating,
@@ -75,14 +77,18 @@ class PixelReadyStore extends ChangeNotifier {
     final extraSet = extraIds.toSet();
     var changed = false;
 
+    bool qualifiesForAdd(String id) =>
+        coloringRating(id) >= 3 || extraSet.contains(id);
+
     for (final id in progressSet) {
       if (id.isEmpty || _ids.contains(id)) continue;
-      if (coloringRating(id) >= 1 || extraSet.contains(id)) {
+      if (qualifiesForAdd(id)) {
         _ids.add(id);
         changed = true;
       }
     }
 
+    // Nur ohne PNG entfernen — nicht wegen Rating < 3 (Daily-Reuse).
     final stale = [
       for (final id in _ids)
         if (!progressSet.contains(id)) id,

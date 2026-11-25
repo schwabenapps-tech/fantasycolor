@@ -119,8 +119,11 @@ class _DailyQuestDialogState extends State<_DailyQuestDialog> {
       final readyStore = ctx.read<PixelReadyStore>();
       final colored = await progress.loadProgressBytes(page.id);
       if (colored == null || !await ColoredPngProbe.hasFillColors(colored)) {
+        if (!ctx.mounted) return;
+        final wallet = ctx.read<StarWalletStore>();
         await readyStore.revokeReady(page.id);
         await pixelStore.clearProgress(page.id);
+        await wallet.clearColoringRating(page.id);
         if (!ctx.mounted) return;
         ScaffoldMessenger.of(ctx).showSnackBar(
           SnackBar(content: Text(AppStrings.of(ctx).pixelNeedsColoring)),
@@ -386,10 +389,15 @@ class _TaskCard extends StatelessWidget {
   final bool loading;
   final VoidCallback onTap;
 
-  String _brief(AppStrings t) {
+  String _brief(BuildContext context, AppStrings t) {
     if (task.isPlaceSticker) return t.dailyTaskPlaceSticker;
     if (task.isPixelThreeStar) return t.dailyTaskPixelThreeStar;
-    if (task.isPixel) return t.dailyTaskPixel;
+    if (task.isPixel) {
+      final progress = context.read<PixelProgressStore>();
+      final inProgress =
+          progress.hasProgress(task.pageId) && !progress.isCompleted(task.pageId);
+      return inProgress ? t.dailyTaskPixelContinue : t.dailyTaskPixel;
+    }
     if (task.isRecolor) return t.dailyTaskRecolor;
     if (task.isUnlockChoice) return t.dailyTaskUnlockChoice;
     if (task.isWatchAd) return t.dailyTaskWatchAd;
@@ -489,7 +497,7 @@ class _TaskCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _brief(t),
+                    _brief(context, t),
                     style: TextStyle(
                       color: StarBalancePill.ink.withValues(alpha: 0.92),
                       fontSize: 14,

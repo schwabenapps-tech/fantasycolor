@@ -25,6 +25,8 @@ class AdventCalendarScreen extends StatefulWidget {
   const AdventCalendarScreen({super.key});
 
   static const backgroundAsset = 'assets/images/winterhintergrund.png';
+  static const titleBannerAsset =
+      'assets/images/advent_merry_christmas_banner.png';
 
   @override
   State<AdventCalendarScreen> createState() => _AdventCalendarScreenState();
@@ -78,10 +80,10 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = AppStrings.of(context);
     final advent = context.watch<AdventService>();
     final layout = AppLayout.of(context);
     final landscape = layout.isLandscape;
+    final today = advent.todayDoorDay;
 
     return Scaffold(
       body: Stack(
@@ -100,36 +102,50 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
                   child: Row(
                     children: [
                       SilverBackButton(onPressed: () => Navigator.pop(context)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          t.adventCalendar,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            shadows: [
-                              Shadow(blurRadius: 8, color: Colors.black54),
-                            ],
-                          ),
-                        ),
+                      const Spacer(),
+                      _AdventProgressPill(
+                        opened: advent.openedCount,
+                        total: 25,
                       ),
                     ],
                   ),
                 ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    landscape ? 40 : 10,
+                    2,
+                    landscape ? 40 : 10,
+                    0,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: landscape ? 96 : 132,
+                    ),
+                    child: Image.asset(
+                      AdventCalendarScreen.titleBannerAsset,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
+                  ),
+                ),
+                // Kalender bewusst tiefer — Banner braucht Luft darunter.
+                SizedBox(height: landscape ? 14 : 20),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: landscape ? 24 : 12,
-                      vertical: 8,
+                    padding: EdgeInsets.fromLTRB(
+                      landscape ? 24 : 12,
+                      0,
+                      landscape ? 24 : 12,
+                      12,
                     ),
                     child: GridView.builder(
                       key: const PageStorageKey<String>('advent_doors'),
+                      clipBehavior: Clip.none,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: landscape ? 8 : 5,
-                        mainAxisSpacing: 8,
+                        mainAxisSpacing: 10,
                         crossAxisSpacing: 8,
-                        childAspectRatio: 0.82,
+                        childAspectRatio: 0.78,
                       ),
                       itemCount: 25,
                       itemBuilder: (context, index) {
@@ -139,6 +155,7 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
                           opened: advent.isOpened(day),
                           locked: advent.isLockedFuture(day),
                           canOpen: advent.canOpen(day),
+                          isToday: today > 0 && day == today,
                           onTap: () => _onDoorTap(day),
                         );
                       },
@@ -169,12 +186,63 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
   }
 }
 
+class _AdventProgressPill extends StatelessWidget {
+  const _AdventProgressPill({
+    required this.opened,
+    required this.total,
+  });
+
+  final int opened;
+  final int total;
+
+  static const _bauble = 'assets/images/advent_bauble_gold.png';
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2A44).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFFFD56A).withValues(alpha: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 4, 12, 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              _bauble,
+              width: 26,
+              height: 26,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$opened / $total',
+              style: const TextStyle(
+                color: Color(0xFFFFE7A0),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DoorBauble extends StatefulWidget {
   const _DoorBauble({
     required this.day,
     required this.opened,
     required this.locked,
     required this.canOpen,
+    required this.isToday,
     required this.onTap,
   });
 
@@ -182,6 +250,7 @@ class _DoorBauble extends StatefulWidget {
   final bool opened;
   final bool locked;
   final bool canOpen;
+  final bool isToday;
   final VoidCallback onTap;
 
   static const _baubles = [
@@ -195,25 +264,59 @@ class _DoorBauble extends StatefulWidget {
 }
 
 class _DoorBaubleState extends State<_DoorBauble>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _sway;
+  late final AnimationController _pulse;
+
+  bool get _todayHighlight =>
+      widget.isToday && !widget.opened && widget.canOpen;
+
+  bool get _shouldSway => !widget.opened;
 
   @override
   void initState() {
     super.initState();
-    // Leicht versetzt pro Tag → natürliches Schaukeln im Grid.
-    // Alle Kugeln schaukeln (gesperrt, offen, freigegeben).
     final phase = (widget.day % 7) / 7.0;
     _sway = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 2200 + (widget.day % 5) * 180),
     )..value = phase;
-    unawaited(_sway.repeat(reverse: true));
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _syncAnimations();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DoorBauble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.opened != widget.opened ||
+        oldWidget.canOpen != widget.canOpen ||
+        oldWidget.isToday != widget.isToday) {
+      _syncAnimations();
+    }
+  }
+
+  void _syncAnimations() {
+    if (_shouldSway) {
+      if (!_sway.isAnimating) unawaited(_sway.repeat(reverse: true));
+    } else {
+      _sway.stop();
+      _sway.value = 0;
+    }
+    if (_todayHighlight) {
+      if (!_pulse.isAnimating) unawaited(_pulse.repeat(reverse: true));
+    } else {
+      _pulse.stop();
+      _pulse.value = 0;
+    }
   }
 
   @override
   void dispose() {
     _sway.dispose();
+    _pulse.dispose();
     super.dispose();
   }
 
@@ -222,68 +325,162 @@ class _DoorBaubleState extends State<_DoorBauble>
     final interactive = widget.canOpen || widget.opened;
     final asset = _DoorBauble._baubles[(widget.day - 1) % 3];
     final showLock = widget.locked && !widget.opened;
+    final dimmed = widget.opened;
 
     return GestureDetector(
       onTap: interactive ? widget.onTap : null,
       child: AnimatedBuilder(
-        animation: _sway,
-        builder: (context, child) {
-          final angle = math.sin(_sway.value * math.pi * 2) * 0.11;
+        animation: Listenable.merge([_sway, _pulse]),
+        builder: (context, _) {
+          final angle = _shouldSway
+              ? math.sin(_sway.value * math.pi * 2) * 0.11
+              : 0.0;
+          // Heutiges (noch zu öffnen): etwas größer + Pulse.
+          final scale =
+              _todayHighlight ? 1.08 + (_pulse.value * 0.07) : 1.0;
+          final glowStrength = _todayHighlight
+              ? 0.35 + _pulse.value * 0.45
+              : 0.0;
+
           return Transform.rotate(
             angle: angle,
-            alignment: const Alignment(0, -0.85),
-            child: child,
+            alignment: const Alignment(0, -0.9),
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.topCenter,
+              child: Opacity(
+                opacity: dimmed ? 0.55 : 1,
+                child: CustomPaint(
+                  painter: _BaubleStringPainter(
+                    color: const Color(0xFFE8D5A3).withValues(alpha: 0.85),
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      if (glowStrength > 0)
+                        Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD56A)
+                                      .withValues(alpha: glowStrength),
+                                  blurRadius: 18,
+                                  spreadRadius: 2,
+                                ),
+                                BoxShadow(
+                                  color: const Color(0xFFFFF4C8)
+                                      .withValues(alpha: glowStrength * 0.55),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Image.asset(
+                            asset,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ),
+                      ),
+                      if (_todayHighlight)
+                        Positioned.fill(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Color.lerp(
+                                    const Color(0xFFFFD56A),
+                                    const Color(0xFFFFF4C8),
+                                    _pulse.value,
+                                  )!
+                                      .withValues(alpha: 0.55 + _pulse.value * 0.35),
+                                  width: 2.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Optische Mitte der Kugel (unter dem Aufhänger).
+                      Transform.translate(
+                        offset: const Offset(0, 10),
+                        child: Text(
+                          widget.opened ? '✓' : '${widget.day}',
+                          style: TextStyle(
+                            color: widget.opened
+                                ? const Color(0xFFFFE7A0)
+                                : Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: widget.opened ? 18 : 16,
+                            shadows: const [
+                              Shadow(blurRadius: 6, color: Colors.black87),
+                              Shadow(blurRadius: 2, color: Colors.black54),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (showLock)
+                        Positioned(
+                          right: 2,
+                          bottom: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white70,
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.lock_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           );
         },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: Image.asset(
-                asset,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.medium,
-              ),
-            ),
-            // Etwas tiefer: optische Mitte der Kugel (unter dem Aufhänger).
-            Transform.translate(
-              offset: const Offset(0, 7),
-              child: Text(
-                widget.opened ? '✓' : '${widget.day}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: widget.opened ? 20 : 17,
-                  shadows: const [
-                    Shadow(blurRadius: 6, color: Colors.black87),
-                    Shadow(blurRadius: 2, color: Colors.black54),
-                  ],
-                ),
-              ),
-            ),
-            if (showLock)
-              Positioned(
-                right: 2,
-                bottom: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white70, width: 1),
-                  ),
-                  child: const Icon(
-                    Icons.lock_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }
+}
+
+/// Dünne Aufhängeschnur von oben zur Kugel.
+class _BaubleStringPainter extends CustomPainter {
+  const _BaubleStringPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final x = size.width / 2;
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height * 0.14), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BaubleStringPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Großes Vollbild-Overlay für bereits geöffnete Türchen (Hoch- + Querformat).

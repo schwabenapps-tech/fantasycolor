@@ -10,6 +10,7 @@ import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
 import '../l10n/app_strings.dart';
 import '../providers/favorites_store.dart';
+import '../providers/feedback_survey_store.dart';
 import '../providers/recent_content_store.dart';
 import '../providers/star_wallet_store.dart';
 import '../services/ads_service.dart';
@@ -21,6 +22,7 @@ import '../services/streak_service.dart';
 import '../utils/app_layout.dart';
 import '../utils/app_orientations.dart';
 import '../utils/image_source.dart';
+import '../widgets/feedback_survey_overlay.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/silver_back_button.dart';
 import '../widgets/snap_sparkle_burst.dart';
@@ -584,6 +586,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 
   Future<void> _leavePuzzle() async {
+    if (_celebrating && mounted) {
+      await FeedbackSurveyOverlay.maybeShowIfEligible(context);
+    }
     if (!_exitAdShown) {
       _exitAdShown = true;
       await AdsService.showPuzzleFinishInterstitial();
@@ -626,6 +631,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
     await quest.claimProgressRewards(wallet);
 
+    if (!mounted) return;
+    // Umfrage-Flag schon hier — auch wenn später per System-Back verlassen.
+    await context.read<FeedbackSurveyStore>().recordPuzzleCompleted();
     if (!mounted) return;
     // Fertiges Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
@@ -673,6 +681,9 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     if (!_exitAdShown) {
       _exitAdShown = true;
       await AdsService.showPuzzleFinishInterstitial();
+    }
+    if (mounted) {
+      await FeedbackSurveyOverlay.maybeShowIfEligible(context);
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -856,7 +867,13 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_celebrating,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_celebrating) unawaited(_leavePuzzle());
+      },
+      child: Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -1037,6 +1054,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             ),
         ],
       ),
+    ),
     );
   }
 }

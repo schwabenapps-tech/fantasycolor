@@ -67,6 +67,7 @@ class ColoringBitmap {
       height: height,
       bytes: ByteData.sublistView(bytes).buffer,
       bytesOffset: bytes.offsetInBytes,
+      rowStride: width * 4,
       numChannels: 4,
       order: img.ChannelOrder.rgba,
     );

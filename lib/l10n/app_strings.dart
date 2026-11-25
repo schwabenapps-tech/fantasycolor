@@ -79,6 +79,7 @@ class AppStrings {
   String get classicStickerAlbum => _t('classicStickerAlbum');
   String get chooseAlbum => _t('chooseAlbum');
   String get adventCalendar => _t('adventCalendar');
+  String get adventHappyHolidays => _t('adventHappyHolidays');
   String get christmasEvent => _t('christmasEvent');
   String get classicWorld => _t('classicWorld');
   String get pastEventsHub => _t('pastEventsHub');
@@ -132,7 +133,22 @@ class AppStrings {
   String get dailyTaskPuzzleExpert => _t('dailyTaskPuzzleExpert');
   String get dailyTaskPlaceSticker => _t('dailyTaskPlaceSticker');
   String get dailyTaskPixel => _t('dailyTaskPixel');
+  String get dailyTaskPixelContinue => _t('dailyTaskPixelContinue');
   String get dailyTaskRecolor => _t('dailyTaskRecolor');
+  String get feedbackSurveyTitle => _t('feedbackSurveyTitle');
+  String get feedbackSurveySubtitle => _t('feedbackSurveySubtitle');
+  String get feedbackSmileGood => _t('feedbackSmileGood');
+  String get feedbackSmileOkay => _t('feedbackSmileOkay');
+  String get feedbackSmileBad => _t('feedbackSmileBad');
+  String get feedbackFavoritePrompt => _t('feedbackFavoritePrompt');
+  String get feedbackFavoriteColor => _t('feedbackFavoriteColor');
+  String get feedbackFavoritePuzzle => _t('feedbackFavoritePuzzle');
+  String get feedbackFavoritePixel => _t('feedbackFavoritePixel');
+  String get feedbackFavoriteDaily => _t('feedbackFavoriteDaily');
+  String get feedbackSurveySend => _t('feedbackSurveySend');
+  String get feedbackSurveySkip => _t('feedbackSurveySkip');
+  String get feedbackNotePrompt => _t('feedbackNotePrompt');
+  String get feedbackNoteHint => _t('feedbackNoteHint');
   String get dailyTaskUnlockChoice => _t('dailyTaskUnlockChoice');
   String get dailyTaskWatchAd => _t('dailyTaskWatchAd');
   String get dailyTaskColorThreeStar => _t('dailyTaskColorThreeStar');
@@ -272,6 +288,7 @@ const _en = {
   'classicStickerAlbum': 'Classic album',
   'chooseAlbum': 'Choose an album',
   'adventCalendar': 'Advent calendar',
+  'adventHappyHolidays': 'Merry Christmas',
   'christmasEvent': 'Christmas',
   'classicWorld': 'Classic',
   'pastEventsHub': 'Past events',
@@ -345,7 +362,22 @@ const _en = {
   'dailyTaskPuzzleExpert': 'Finish this puzzle on Hard (Pro)',
   'dailyTaskPlaceSticker': 'Place at least one sticker on this picture',
   'dailyTaskPixel': 'Finish this picture in Dot Art',
+  'dailyTaskPixelContinue': 'Finish the Dot Art you started',
   'dailyTaskRecolor': 'Reset this finished picture and color it again',
+  'feedbackSurveyTitle': 'How do you like the app?',
+  'feedbackSurveySubtitle': 'A quick smile helps us make Fairy Fantasy Color better.',
+  'feedbackSmileGood': 'Love it',
+  'feedbackSmileOkay': 'It\'s okay',
+  'feedbackSmileBad': 'Not great',
+  'feedbackFavoritePrompt': 'What do you like most? (optional)',
+  'feedbackFavoriteColor': 'Coloring',
+  'feedbackFavoritePuzzle': 'Puzzle',
+  'feedbackFavoritePixel': 'Dot Art',
+  'feedbackFavoriteDaily': 'Daily',
+  'feedbackSurveySend': 'Send',
+  'feedbackSurveySkip': 'Not now',
+  'feedbackNotePrompt': 'Anything else? (optional)',
+  'feedbackNoteHint': 'Tell us what you think…',
   'dailyTaskUnlockChoice': 'Unlock a coloring page or puzzle of your choice — free!',
   'dailyTaskWatchAd': 'Watch a short video for stars',
   'dailyTaskColorThreeStar': 'Finish this coloring with 3 stars (~100%)',
@@ -463,6 +495,7 @@ const _de = {
   'classicStickerAlbum': 'Klassik-Album',
   'chooseAlbum': 'Album wählen',
   'adventCalendar': 'Adventskalender',
+  'adventHappyHolidays': 'Frohe Weihnachten',
   'christmasEvent': 'Weihnachten',
   'classicWorld': 'Klassik',
   'pastEventsHub': 'Vergangene Events',
@@ -537,7 +570,23 @@ const _de = {
   'dailyTaskPuzzleExpert': 'Löse dieses Puzzle auf Schwer (Pro)',
   'dailyTaskPlaceSticker': 'Setze mindestens einen Sticker auf dieses Bild',
   'dailyTaskPixel': 'Male dieses Bild in Dot Art fertig',
+  'dailyTaskPixelContinue': 'Mach dein angefangenes Dot Art fertig',
   'dailyTaskRecolor': 'Setze dieses fertige Bild zurück und male es neu aus',
+  'feedbackSurveyTitle': 'Wie gefällt dir die App?',
+  'feedbackSurveySubtitle':
+      'Ein kurzes Lächeln hilft uns, Fairy Fantasy Color schöner zu machen.',
+  'feedbackSmileGood': 'Ich liebe es',
+  'feedbackSmileOkay': 'Naja',
+  'feedbackSmileBad': 'Gar nicht toll',
+  'feedbackFavoritePrompt': 'Was macht am meisten Spaß? (optional)',
+  'feedbackFavoriteColor': 'Ausmalen',
+  'feedbackFavoritePuzzle': 'Puzzle',
+  'feedbackFavoritePixel': 'Dot Art',
+  'feedbackFavoriteDaily': 'Daily',
+  'feedbackSurveySend': 'Senden',
+  'feedbackSurveySkip': 'Nicht jetzt',
+  'feedbackNotePrompt': 'Noch was sagen? (optional)',
+  'feedbackNoteHint': 'Erzähl uns, was du denkst…',
   'dailyTaskUnlockChoice': 'Schalte ein Ausmalbild oder Puzzle deiner Wahl frei — gratis!',
   'dailyTaskWatchAd': 'Schau ein kurzes Video für Sterne',
   'dailyTaskColorThreeStar': 'Male dieses Bild mit 3 Sternen fertig (~100 %)',

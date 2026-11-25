@@ -171,6 +171,40 @@ class AnalyticsService {
     );
   }
 
+  void logFeedbackSurveySubmitted({
+    required String satisfaction,
+    String? favorite,
+    bool hasNote = false,
+    String? notePreview,
+  }) {
+    unawaited(
+      _safe(
+        () => _analytics.logEvent(
+          name: 'feedback_survey_submitted',
+          parameters: {
+            'satisfaction': satisfaction,
+            if (favorite != null) 'favorite': favorite,
+            'has_note': hasNote ? 1 : 0,
+            if (notePreview != null && notePreview.isNotEmpty)
+              'note_preview': notePreview,
+          },
+        ),
+      ),
+    );
+  }
+
+  void logFeedbackSurveyDismissed() {
+    unawaited(
+      _safe(() => _analytics.logEvent(name: 'feedback_survey_dismissed')),
+    );
+  }
+
+  void logInAppReviewPrompted() {
+    unawaited(
+      _safe(() => _analytics.logEvent(name: 'in_app_review_prompted')),
+    );
+  }
+
   Future<void> _safe(Future<void> Function() op) async {
     try {
       await op();

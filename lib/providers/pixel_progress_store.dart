@@ -30,6 +30,12 @@ class PixelProgressStore extends ChangeNotifier {
 
   bool isCompleted(String pageId) => _completed[pageId] ?? false;
 
+  /// Angefangen, aber noch nicht fertig — für Daily „Dot Art fertigmachen“.
+  List<String> get inProgressIds => [
+        for (final id in _ids)
+          if (!(_completed[id] ?? false)) id,
+      ];
+
   int versionOf(String pageId) => _versions[pageId] ?? 0;
 
   Future<void> load() async {

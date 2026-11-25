@@ -10,6 +10,7 @@ import '../data/puzzle_images_loader.dart';
 import '../data/star_economy.dart';
 import '../models/puzzle_settings.dart';
 import '../providers/favorites_store.dart';
+import '../providers/pixel_progress_store.dart';
 import '../providers/pixel_ready_store.dart';
 import '../providers/star_wallet_store.dart';
 import '../widgets/daily_quest_overlay.dart';
@@ -138,10 +139,20 @@ class DailyQuestService extends ChangeNotifier {
     return '${n.year}-$m-$d';
   }
 
+  /// Stabiler Tages-Index für „alle N Tage“-Quests (yyyy-MM-dd).
+  static int _dayOrdinal(String seed) {
+    final parsed = DateTime.tryParse(seed);
+    final day = parsed ?? DateTime.now();
+    return DateTime.utc(day.year, day.month, day.day)
+        .difference(DateTime.utc(2020, 1, 1))
+        .inDays;
+  }
+
   Future<void> load({
     List<String> freeColoringIds = const [],
     List<String> freePuzzleIds = const [],
     List<String> pixelReadyIds = const [],
+    List<String> pixelInProgressIds = const [],
     List<String> finishedColoringIds = const [],
     List<String> eventColoringIds = const [],
     bool hasStarLockedContent = false,
@@ -166,6 +177,7 @@ class DailyQuestService extends ChangeNotifier {
         freeColoringIds: freeColoringIds,
         freePuzzleIds: freePuzzleIds,
         pixelReadyIds: pixelReadyIds,
+        pixelInProgressIds: pixelInProgressIds,
         finishedColoringIds: finishedColoringIds,
         eventColoringIds: eventColoringIds,
         hasStarLockedContent: hasStarLockedContent,
@@ -192,6 +204,7 @@ class DailyQuestService extends ChangeNotifier {
           freeColoringIds: freeColoringIds,
           freePuzzleIds: freePuzzleIds,
           pixelReadyIds: pixelReadyIds,
+          pixelInProgressIds: pixelInProgressIds,
           finishedColoringIds: finishedColoringIds,
           eventColoringIds: eventColoringIds,
           hasStarLockedContent: hasStarLockedContent,
@@ -275,6 +288,7 @@ class DailyQuestService extends ChangeNotifier {
     required List<String> freePuzzleIds,
     required String seed,
     List<String> pixelReadyIds = const [],
+    List<String> pixelInProgressIds = const [],
     List<String> finishedColoringIds = const [],
     List<String> eventColoringIds = const [],
     bool hasStarLockedContent = false,
@@ -283,7 +297,15 @@ class DailyQuestService extends ChangeNotifier {
     final rng = Random(seed.hashCode);
     final coloring = [...freeColoringIds]..shuffle(rng);
     final puzzles = [...freePuzzleIds]..shuffle(rng);
-    final pixelReady = [...pixelReadyIds]..shuffle(rng);
+    // Offene Dot Arts zuerst — Daily soll angefangene Bilder priorisieren.
+    final inProgress = [...pixelInProgressIds]..shuffle(rng);
+    final inProgressSet = inProgress.toSet();
+    final pixelRest = [
+      for (final id in pixelReadyIds)
+        if (!inProgressSet.contains(id)) id,
+    ]..shuffle(rng);
+    final pixelReady = [...inProgress, ...pixelRest];
+    final hasOpenPixel = inProgress.isNotEmpty;
     final finished = [
       ...{
         ...finishedColoringIds,
@@ -399,20 +421,35 @@ class DailyQuestService extends ChangeNotifier {
       }
     }
 
+    // Schwere/leichte Spezial-Tasks nur alle 2–3 Tage (versetzt, nicht am selben Tag).
+    final dayOrd = _dayOrdinal(seed);
+    final allowWatchAd = dayOrd % 3 == 0;
+    final allowPixelQuest = dayOrd % 3 == 1;
+
     // Wiederkehrende Daily-Ideen — je Typ höchstens einmal.
     final kindPool = <DailyQuestTaskKind>[
       DailyQuestTaskKind.coloring,
       DailyQuestTaskKind.placeSticker,
-      DailyQuestTaskKind.watchAd,
+      if (allowWatchAd) DailyQuestTaskKind.watchAd,
       if (puzzles.isNotEmpty) DailyQuestTaskKind.puzzle,
-      if (pixelReady.isNotEmpty) DailyQuestTaskKind.pixel,
-      if (pixelReady.isNotEmpty) DailyQuestTaskKind.pixelThreeStar,
+      // Dot Art: max. 1 Task/Tag, und nur an erlaubten Tagen (außer offenes Bild).
+      if (allowPixelQuest && pixelReady.isNotEmpty)
+        (rng.nextBool()
+            ? DailyQuestTaskKind.pixel
+            : DailyQuestTaskKind.pixelThreeStar),
       if (finished.isNotEmpty) DailyQuestTaskKind.recolor,
       if (coloring.isNotEmpty) DailyQuestTaskKind.coloringThreeStar,
       if (events.isNotEmpty) DailyQuestTaskKind.eventFinish,
       if (hasStarLockedContent) DailyQuestTaskKind.unlockChoice,
       if (adventDoorAvailable) DailyQuestTaskKind.adventDoor,
     ]..shuffle(rng);
+
+    // Offenes Dot Art → „fertigmachen“ trotzdem priorisieren (auch an Off-Tagen).
+    if (hasOpenPixel) {
+      kindPool.remove(DailyQuestTaskKind.pixel);
+      kindPool.remove(DailyQuestTaskKind.pixelThreeStar);
+      kindPool.insert(0, DailyQuestTaskKind.pixel);
+    }
 
     for (final kind in kindPool) {
       if (out.length >= targetCount) break;
@@ -684,6 +721,7 @@ class DailyQuestService extends ChangeNotifier {
     List<String> freeColoringIds = const [],
     List<String> freePuzzleIds = const [],
     List<String> pixelReadyIds = const [],
+    List<String> pixelInProgressIds = const [],
     List<String> finishedColoringIds = const [],
     List<String> eventColoringIds = const [],
     bool hasStarLockedContent = false,
@@ -694,6 +732,7 @@ class DailyQuestService extends ChangeNotifier {
       freeColoringIds: freeColoringIds,
       freePuzzleIds: freePuzzleIds,
       pixelReadyIds: pixelReadyIds,
+      pixelInProgressIds: pixelInProgressIds,
       finishedColoringIds: finishedColoringIds,
       eventColoringIds: eventColoringIds,
       hasStarLockedContent: hasStarLockedContent,
@@ -741,6 +780,8 @@ class DailyQuestService extends ChangeNotifier {
       if (!context.mounted) return;
       final pixelIds =
           context.read<PixelReadyStore>().ids.toList(growable: false);
+      final pixelInProgress =
+          context.read<PixelProgressStore>().inProgressIds;
       final wallet = context.read<StarWalletStore>();
       final hasLocked = hasStarLockedContent(
         wallet: wallet,
@@ -762,6 +803,7 @@ class DailyQuestService extends ChangeNotifier {
         freeColoringIds: pools.coloring,
         freePuzzleIds: pools.puzzle,
         pixelReadyIds: pixelIds,
+        pixelInProgressIds: pixelInProgress,
         finishedColoringIds: pixelIds,
         eventColoringIds: eventIds,
         hasStarLockedContent: hasLockedAny,

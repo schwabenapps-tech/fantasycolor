@@ -16,6 +16,7 @@ import 'data/puzzle_images_loader.dart';
 import 'firebase_options.dart';
 import 'providers/coloring_progress_store.dart';
 import 'providers/favorites_store.dart';
+import 'providers/feedback_survey_store.dart';
 import 'providers/pixel_mode_unlock_store.dart';
 import 'providers/pixel_progress_store.dart';
 import 'providers/pixel_ready_store.dart';
@@ -86,6 +87,7 @@ Future<void> main() async {
   final recent = RecentContentStore();
   final stars = StarWalletStore();
   final dailyQuest = DailyQuestService();
+  final feedbackSurvey = FeedbackSurveyStore();
 
   // Schwere Init erst nach dem ersten Frame — UI darf nie am Boot hängen.
   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -100,6 +102,7 @@ Future<void> main() async {
     unawaited(pixelReady.load());
     unawaited(recent.load());
     unawaited(stars.load());
+    unawaited(feedbackSurvey.load());
     unawaited(() async {
       await stickers.load();
       await RemotePackService.instance.sync();
@@ -111,8 +114,10 @@ Future<void> main() async {
         allPuzzle: [for (final p in puzzles) p.id],
       );
       await pixelReady.load();
+      await pixelProgress.load();
       await stars.load();
       final readyIds = pixelReady.ids.toList(growable: false);
+      final inProgressIds = pixelProgress.inProgressIds;
       final hasLocked = DailyQuestService.hasStarLockedContent(
         wallet: stars,
         allColoring: [for (final p in coloring) p.id],
@@ -123,6 +128,7 @@ Future<void> main() async {
         freeColoringIds: pools.coloring,
         freePuzzleIds: pools.puzzle,
         pixelReadyIds: readyIds,
+        pixelInProgressIds: inProgressIds,
         finishedColoringIds: readyIds,
         eventColoringIds: eventIds,
         hasStarLockedContent: hasLocked,
@@ -143,6 +149,7 @@ Future<void> main() async {
       recent: recent,
       stars: stars,
       dailyQuest: dailyQuest,
+      feedbackSurvey: feedbackSurvey,
     ),
   );
 }
@@ -179,6 +186,7 @@ class FantasyColorApp extends StatefulWidget {
     this.recent,
     this.stars,
     this.dailyQuest,
+    this.feedbackSurvey,
   });
 
   /// Wenn null (z. B. Tests), werden leere Stores erzeugt.
@@ -191,6 +199,7 @@ class FantasyColorApp extends StatefulWidget {
   final RecentContentStore? recent;
   final StarWalletStore? stars;
   final DailyQuestService? dailyQuest;
+  final FeedbackSurveyStore? feedbackSurvey;
 
   @override
   State<FantasyColorApp> createState() => _FantasyColorAppState();
@@ -218,6 +227,8 @@ class _FantasyColorAppState extends State<FantasyColorApp>
   late final StarWalletStore _stars = widget.stars ?? StarWalletStore();
   late final DailyQuestService _dailyQuest =
       widget.dailyQuest ?? DailyQuestService();
+  late final FeedbackSurveyStore _feedbackSurvey =
+      widget.feedbackSurvey ?? FeedbackSurveyStore();
   late final ColoringStickerPlacementsStore _stickerPlacements =
       ColoringStickerPlacementsStore();
 
@@ -240,6 +251,9 @@ class _FantasyColorAppState extends State<FantasyColorApp>
     }
     if (widget.dailyQuest == null) {
       unawaited(_dailyQuest.load());
+    }
+    if (widget.feedbackSurvey == null) {
+      unawaited(_feedbackSurvey.load());
     }
   }
 
@@ -300,6 +314,7 @@ class _FantasyColorAppState extends State<FantasyColorApp>
         ChangeNotifierProvider.value(value: _recent),
         ChangeNotifierProvider.value(value: _stars),
         ChangeNotifierProvider.value(value: _dailyQuest),
+        ChangeNotifierProvider.value(value: _feedbackSurvey),
         ChangeNotifierProvider.value(value: _stickerPlacements),
         ChangeNotifierProvider.value(
           value: AudioService.instance,

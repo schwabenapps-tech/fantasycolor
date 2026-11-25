@@ -7,11 +7,13 @@ import 'package:provider/provider.dart';
 import '../data/paint_catalog.dart';
 import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
+import '../painting/colored_png_probe.dart';
 import '../painting/coloring_bitmap.dart';
 import '../providers/coloring_progress_store.dart';
 import '../providers/coloring_session.dart';
 import '../providers/coloring_sticker_placements_store.dart';
 import '../providers/favorites_store.dart';
+import '../providers/feedback_survey_store.dart';
 import '../providers/pixel_progress_store.dart';
 import '../providers/pixel_ready_store.dart';
 import '../providers/recent_content_store.dart';
@@ -28,6 +30,7 @@ import '../utils/app_orientations.dart';
 import '../utils/app_page_route.dart';
 import '../widgets/coloring_canvas.dart';
 import '../widgets/coloring_sticker_layer.dart';
+import '../widgets/feedback_survey_overlay.dart';
 import '../widgets/level_complete_overlay.dart';
 import '../widgets/paint_bottom_bar.dart';
 import '../widgets/silver_back_button.dart';
@@ -171,6 +174,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     final placements = context.read<ColoringStickerPlacementsStore>();
     final pixelReady = context.read<PixelReadyStore>();
     final pixelProgress = context.read<PixelProgressStore>();
+    final wallet = context.read<StarWalletStore>();
     await progress.clearProgress(widget.page.id);
     await stickers.clearColoringRewarded(widget.page.id);
     await placements.setPlacements(widget.page.id, const []);
@@ -178,6 +182,7 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     // Weiß nach Recycle → nicht weiter in Dot Art anbieten.
     await pixelReady.revokeReady(widget.page.id);
     await pixelProgress.clearProgress(widget.page.id);
+    await wallet.clearColoringRating(widget.page.id);
   }
 
   @override
@@ -249,6 +254,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     // Nur wenn man ohne Done-Feier zurückgeht.
     if (!_celebrating) {
       await _showLeaveAdOnce();
+    } else if (mounted) {
+      // 3★-Zähler schon in _finish — Umfrage auch bei Back während der Feier.
+      await FeedbackSurveyOverlay.maybeShowIfEligible(context);
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -301,12 +309,16 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     await stickers.clearTempUnlocksForPage(widget.page.id);
 
     // Daily-fertig ODER 3★ / ~100 % → Pixelart-Galerie (wiederverwendbar).
+    // Zusätzlich PNG-Probe: kein ready ohne echte Füllfarbe (Dot-Art-Gate).
     if (isDaily ||
         _session.starRating >= 3 ||
         _session.isFullyComplete) {
-      if (!mounted) return;
-      final pixelReady = context.read<PixelReadyStore>();
-      await pixelReady.markReady(widget.page.id);
+      final png = _finishedPng;
+      if (png != null && await ColoredPngProbe.hasFillColors(png)) {
+        if (!mounted) return;
+        final pixelReady = context.read<PixelReadyStore>();
+        await pixelReady.markReady(widget.page.id);
+      }
     }
     if (_session.isFullyComplete) {
       if (!mounted) return;
@@ -316,6 +328,11 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
       }
     }
 
+    if (!mounted) return;
+    // Umfrage-Zähler schon hier — unabhängig vom Exit-Pfad (Fertig / Back).
+    if (rating >= 3) {
+      await context.read<FeedbackSurveyStore>().recordColoringThreeStar();
+    }
     if (!mounted) return;
     await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
@@ -375,6 +392,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
   Future<void> _closeAfterFinish() async {
     await _levelKey.currentState?.fadeOut();
     await _showFinishChoiceAdOnce();
+    if (mounted) {
+      await FeedbackSurveyOverlay.maybeShowIfEligible(context);
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -386,6 +406,9 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     }
     await _levelKey.currentState?.fadeOut();
     await _showFinishChoiceAdOnce();
+    if (mounted) {
+      await FeedbackSurveyOverlay.maybeShowIfEligible(context);
+    }
     if (!mounted) return;
     HapticFeedback.mediumImpact();
     Navigator.of(context).pushReplacement(
@@ -404,12 +427,15 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     final stickers = context.read<StickerCollectionStore>();
     final pixelReady = context.read<PixelReadyStore>();
     final pixelProgress = context.read<PixelProgressStore>();
+    final wallet = context.read<StarWalletStore>();
     await progress.clearProgress(widget.page.id);
     // Nach Reset darf beim erneuten Fertigstellen wieder ein Sticker verdient werden.
     await stickers.clearColoringRewarded(widget.page.id);
     // Ausmalbild wieder weiß → Dot-Art-Freischaltung + Dot-Fortschritt weg.
     await pixelReady.revokeReady(widget.page.id);
     await pixelProgress.clearProgress(widget.page.id);
+    // Stales Wallet-Rating sonst → syncFromCompletedColoring markiert wieder ready.
+    await wallet.clearColoringRating(widget.page.id);
   }
 
   @override

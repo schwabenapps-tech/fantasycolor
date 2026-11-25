@@ -226,6 +226,16 @@ class StarWalletStore extends ChangeNotifier {
 
   int coloringRating(String id) => _coloringRatings[id] ?? 0;
 
+  /// Nach Ausmal-Reset: Bestwert löschen, damit Dot-Art-Sync nicht stale bleibt.
+  Future<void> clearColoringRating(String id) async {
+    if (id.isEmpty) return;
+    if (!_ready) await load();
+    if (!_coloringRatings.containsKey(id)) return;
+    _coloringRatings.remove(id);
+    await _persistRatings();
+    notifyListeners();
+  }
+
   /// Speichert nur das Qualitäts-Rating (ohne Währungs-Sterne), z. B. Daily.
   Future<void> recordColoringRating(String id, int rating) async {
     if (rating < 1 || rating > 3) return;

@@ -124,6 +124,9 @@ class AdventService extends ChangeNotifier {
     return n;
   }
 
+  /// Bereits geöffnete Türchen (1–25).
+  int get openedCount => _claims.length;
+
   Set<String> get unlockedColoringIds => Set.unmodifiable(_unlockedColoring);
   Set<String> get unlockedPuzzleIds => Set.unmodifiable(_unlockedPuzzle);
 
