@@ -20,6 +20,7 @@ class EventWorldHubScreen extends StatefulWidget {
     required this.title,
     required this.coloringSection,
     required this.puzzleSection,
+    this.isHalloween = false,
     this.halloweenIds = const {},
     this.tags,
   });
@@ -27,6 +28,7 @@ class EventWorldHubScreen extends StatefulWidget {
   final String title;
   final GallerySection coloringSection;
   final GallerySection puzzleSection;
+  final bool isHalloween;
   final Set<String> halloweenIds;
   final EventTags? tags;
 
@@ -107,23 +109,29 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
       for (final p in widget.puzzleSection.pages) p.assetPath,
     ];
 
+    final accent = widget.isHalloween
+        ? const Color(0xFFFF8C42)
+        : const Color(0xFFE8A0BF);
     final portals = [
       EventHubPortal(
         title: 'Color',
         subtitle: widget.title,
         imagePaths: coloringPaths,
-        accent: const Color(0xFFFF8C42),
-        isHalloween: true,
-        brightenImage: true,
+        accent: accent,
+        isHalloween: widget.isHalloween,
+        // Halloween blieb aufgehellt; Winter/Christmas normale Diaschau.
+        brightenImage: widget.isHalloween,
         onTap: () => _openPack(widget.coloringSection, coloring: true),
       ),
       EventHubPortal(
         title: 'Puzzle',
         subtitle: widget.title,
         imagePaths: puzzlePaths,
-        accent: const Color(0xFF6B3FA0),
-        isHalloween: true,
-        brightenImage: true,
+        accent: widget.isHalloween
+            ? const Color(0xFF6B3FA0)
+            : const Color(0xFF7EC8E3),
+        isHalloween: widget.isHalloween,
+        brightenImage: widget.isHalloween,
         slideOffset: const Duration(milliseconds: 1400),
         onTap: () => _openPack(widget.puzzleSection, coloring: false),
       ),
@@ -151,7 +159,9 @@ class _EventWorldHubScreenState extends State<EventWorldHubScreen>
                         Text(
                           widget.title,
                           style: TextStyle(
-                            color: const Color(0xFFFFB86B),
+                            color: widget.isHalloween
+                                ? const Color(0xFFFFB86B)
+                                : const Color(0xFFFFE7A0),
                             fontSize: layout.isTablet ? 32 : 26,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.6,

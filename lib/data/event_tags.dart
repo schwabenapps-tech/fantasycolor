@@ -83,13 +83,18 @@ class EventTags {
   bool isFeaturedColoring(String id) => featuredColoring.contains(id);
   bool isFeaturedPuzzle(String id) => featuredPuzzle.contains(id);
 
-  bool isNewColoring(String id, {DateTime? now}) =>
-      _isNew(newSinceColoring[id], now: now) ||
-      RemotePackService.instance.isNewPage(id, now: now);
+  bool isNewColoring(String id, {DateTime? now}) {
+    // Event-Motive (z. B. Merry Christmas) nie unter „Neu“.
+    if (isEventPage(id, coloring: true)) return false;
+    return _isNew(newSinceColoring[id], now: now) ||
+        RemotePackService.instance.isNewPage(id, now: now);
+  }
 
-  bool isNewPuzzle(String id, {DateTime? now}) =>
-      _isNew(newSincePuzzle[id], now: now) ||
-      RemotePackService.instance.isNewPage(id, now: now);
+  bool isNewPuzzle(String id, {DateTime? now}) {
+    if (isEventPage(id, coloring: false)) return false;
+    return _isNew(newSincePuzzle[id], now: now) ||
+        RemotePackService.instance.isNewPage(id, now: now);
+  }
 
   DateTime? coloringAddedAt(String id) => newSinceColoring[id];
   DateTime? puzzleAddedAt(String id) => newSincePuzzle[id];
@@ -165,22 +170,42 @@ class EventTags {
     return false;
   }
 
+  static const winterEventId = 'winter-2026';
+
+  /// Winter-/Weihnachts-Remote-Packs → immer ins Merry-Christmas-Event.
+  static String _eventMergeId(String packId) {
+    final lower = packId.toLowerCase();
+    if (lower.contains('winter') || lower.contains('christmas')) {
+      return winterEventId;
+    }
+    return packId;
+  }
+
   /// Bundle-Events + Remote-Pack-Events (Remote überschreibt gleiche ID).
-  /// Advent-Türchen-IDs werden ins Winter-/Weihnachts-Event gemerged.
+  /// Advent-Türchen-IDs + Winter-Packs werden ins Merry-Christmas-Event gemerged.
   List<ContentEvent> allEvents() {
     final byId = <String, ContentEvent>{
       for (final e in events) e.id: e,
     };
     for (final remote in RemotePackService.instance.remoteEvents()) {
-      final existing = byId[remote.id];
+      final mergeId = _eventMergeId(remote.id);
+      final existing = byId[mergeId];
       if (existing == null) {
-        byId[remote.id] = remote;
+        byId[mergeId] = ContentEvent(
+          id: mergeId,
+          title: remote.title,
+          startsAt: remote.startsAt,
+          endsAt: remote.endsAt,
+          coloringIds: remote.coloringIds,
+          puzzleIds: remote.puzzleIds,
+        );
       } else {
-        byId[remote.id] = ContentEvent(
+        byId[mergeId] = ContentEvent(
           id: existing.id,
-          title: remote.title.isNotEmpty ? remote.title : existing.title,
-          startsAt: remote.startsAt ?? existing.startsAt,
-          endsAt: remote.endsAt ?? existing.endsAt,
+          // Bundle-Titel („Merry Christmas“) hat Vorrang vor Pack-Titel.
+          title: existing.title.isNotEmpty ? existing.title : remote.title,
+          startsAt: existing.startsAt ?? remote.startsAt,
+          endsAt: existing.endsAt ?? remote.endsAt,
           coloringIds: {...existing.coloringIds, ...remote.coloringIds},
           puzzleIds: {...existing.puzzleIds, ...remote.puzzleIds},
         );
@@ -191,10 +216,14 @@ class EventTags {
     final adventPuzzle = advent.configuredPuzzleIds;
     if (adventColoring.isNotEmpty || adventPuzzle.isNotEmpty) {
       String? winterKey;
-      for (final id in byId.keys) {
-        if (id.contains('winter') || id.contains('christmas')) {
-          winterKey = id;
-          break;
+      if (byId.containsKey(winterEventId)) {
+        winterKey = winterEventId;
+      } else {
+        for (final id in byId.keys) {
+          if (id.contains('winter') || id.contains('christmas')) {
+            winterKey = id;
+            break;
+          }
         }
       }
       if (winterKey != null) {
@@ -225,6 +254,8 @@ class EventTags {
     final past = <GallerySection>[];
 
     final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
+    final firstAdventPuzzleOpen =
+        AdventService.instance.isFirstAdventPuzzleUnlocked;
     for (final event in allEvents()) {
       if (event.isUpcoming()) continue;
       final ids = event.idsFor(coloring: coloring);
@@ -232,8 +263,9 @@ class EventTags {
         for (final id in ids)
           if (byId.containsKey(id))
             if (coloring ||
-                !AdventService.isSilvesterPuzzle(id) ||
-                silvesterOpen)
+                ((!AdventService.isSilvesterPuzzle(id) || silvesterOpen) &&
+                    (!AdventService.isFirstAdventPuzzle(id) ||
+                        firstAdventPuzzleOpen)))
               byId[id]!,
       ];
       if (eventPages.isEmpty) continue;
@@ -256,9 +288,12 @@ class EventTags {
     }
 
     final featuredOrder = coloring ? featuredColoring : featuredPuzzle;
-    // Silvester-Puzzles nicht in der Standard-Galerie, bis die Box geöffnet wurde.
+    // Silvester-/1.-Advent-Puzzles nicht in der Standard-Galerie, bis freigeschaltet.
     if (!coloring && !silvesterOpen) {
       claimed.addAll(AdventService.silvesterPuzzleIds);
+    }
+    if (!coloring && !firstAdventPuzzleOpen) {
+      claimed.add(AdventService.firstAdventPuzzleId);
     }
     final restIds = byId.keys.where((id) => !claimed.contains(id)).toList();
 
@@ -340,10 +375,15 @@ class EventTags {
     bool coloring = true,
   }) {
     final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
-    final filtered = (!coloring && !silvesterOpen)
+    final firstAdventPuzzleOpen =
+        AdventService.instance.isFirstAdventPuzzleUnlocked;
+    final filtered = (!coloring)
         ? [
             for (final p in pages)
-              if (!AdventService.isSilvesterPuzzle(p.id)) p,
+              if ((!AdventService.isSilvesterPuzzle(p.id) || silvesterOpen) &&
+                  (!AdventService.isFirstAdventPuzzle(p.id) ||
+                      firstAdventPuzzleOpen))
+                p,
           ]
         : pages;
     final byId = {for (final p in filtered) p.id: p};

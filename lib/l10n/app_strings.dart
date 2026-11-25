@@ -95,6 +95,8 @@ class AppStrings {
   String get adventOpenThreeBoxes => _t('adventOpenThreeBoxes');
   String adventBoxesLeft(int n) =>
       _t('adventBoxesLeft').replaceAll('{n}', '$n');
+  String get packDownloadTitle => _t('packDownloadTitle');
+  String get packDownloadHint => _t('packDownloadHint');
   String get notifyAdventTitle => _t('notifyAdventTitle');
   String get notifyAdventBody => _t('notifyAdventBody');
   String get stickerRulesBody => _t('stickerRulesBody');
@@ -113,6 +115,7 @@ class AppStrings {
   String get color => _t('color');
   String get puzzle => _t('puzzle');
   String get events => _t('events');
+  String get eventsLive => _t('eventsLive');
   String get eventsArchive => _t('eventsArchive');
   String get eventsEmpty => _t('eventsEmpty');
   String get print => _t('print');
@@ -211,6 +214,19 @@ class AppStrings {
   String get sharingFailed => _t('sharingFailed');
   String get printTemplate => _t('printTemplate');
   String get shareAndPrint => _t('shareAndPrint');
+  String get puzzleMagicTitle => _t('puzzleMagicTitle');
+  String get puzzleMagicSubtitle => _t('puzzleMagicSubtitle');
+  String get puzzleAdventureTier => _t('puzzleAdventureTier');
+  String get puzzlePieces => _t('puzzlePieces');
+  String get puzzleMagicShape => _t('puzzleMagicShape');
+  String get puzzleHand => _t('puzzleHand');
+  String get puzzleHandRight => _t('puzzleHandRight');
+  String get puzzleHandLeft => _t('puzzleHandLeft');
+  String get puzzleHandRightHint => _t('puzzleHandRightHint');
+  String get puzzleHandLeftHint => _t('puzzleHandLeftHint');
+  String get puzzleZoomTip => _t('puzzleZoomTip');
+  String get puzzleDailyLockedHint => _t('puzzleDailyLockedHint');
+  String get fullImage => _t('fullImage');
 
   String streakSemantics(int n) =>
       _t('streakSemantics').replaceAll('{n}', '$n');
@@ -289,7 +305,7 @@ const _en = {
   'chooseAlbum': 'Choose an album',
   'adventCalendar': 'Advent calendar',
   'adventHappyHolidays': 'Merry Christmas',
-  'christmasEvent': 'Christmas',
+  'christmasEvent': 'Merry Christmas',
   'classicWorld': 'Classic',
   'pastEventsHub': 'Past events',
   'adventReviewTitle': 'Door {n} — your gifts',
@@ -302,6 +318,8 @@ const _en = {
   'adventOpenTwoBoxes': 'Open both Christmas boxes!',
   'adventOpenThreeBoxes': 'Open all three Christmas boxes!',
   'adventBoxesLeft': '{n} left',
+  'packDownloadTitle': 'Loading winter pack…',
+  'packDownloadHint': 'New puzzles are arriving',
   'notifyAdventTitle': 'Your Advent door is open ✨',
   'notifyAdventBody': 'A Christmas bauble is waiting — come open today’s gift!',
   'stickerRulesBody':
@@ -338,6 +356,7 @@ const _en = {
   'color': 'Color',
   'puzzle': 'Puzzle',
   'events': 'Events',
+  'eventsLive': 'Live now',
   'eventsArchive': 'Archive',
   'eventsEmpty': 'No past events yet',
   'print': 'Print',
@@ -436,6 +455,19 @@ const _en = {
   'sharingFailed': 'Sharing failed',
   'printTemplate': 'Print template',
   'shareAndPrint': 'Share & Print',
+  'puzzleMagicTitle': 'Puzzle Magic',
+  'puzzleMagicSubtitle': 'How magical should your puzzle be?',
+  'puzzleAdventureTier': 'Adventure level',
+  'puzzlePieces': 'Pieces',
+  'puzzleMagicShape': 'Magic shape',
+  'puzzleHand': 'Hand',
+  'puzzleHandRight': 'Right-handed',
+  'puzzleHandLeft': 'Left-handed',
+  'puzzleHandRightHint': 'Landscape: tray on the right — grab with your right hand',
+  'puzzleHandLeftHint': 'Landscape: tray on the left — grab with your left hand',
+  'puzzleZoomTip': 'Tip: Pinch with two fingers to zoom',
+  'puzzleDailyLockedHint': 'For the daily quest: Easy is locked.',
+  'fullImage': 'Full image',
   'streakSemantics': '{n} day streak',
   'versionLabel': 'Version {v}\nSchwaben Apps',
 };
@@ -496,7 +528,7 @@ const _de = {
   'chooseAlbum': 'Album wählen',
   'adventCalendar': 'Adventskalender',
   'adventHappyHolidays': 'Frohe Weihnachten',
-  'christmasEvent': 'Weihnachten',
+  'christmasEvent': 'Merry Christmas',
   'classicWorld': 'Klassik',
   'pastEventsHub': 'Vergangene Events',
   'adventReviewTitle': 'Türchen {n} — deine Geschenke',
@@ -509,6 +541,8 @@ const _de = {
   'adventOpenTwoBoxes': 'Öffne beide Weihnachtsboxen!',
   'adventOpenThreeBoxes': 'Öffne alle drei Weihnachtsboxen!',
   'adventBoxesLeft': 'Noch {n}',
+  'packDownloadTitle': 'Winterpaket wird geladen…',
+  'packDownloadHint': 'Neue Puzzles kommen an',
   'notifyAdventTitle': 'Dein Advents-Türchen ist offen ✨',
   'notifyAdventBody':
       'Eine Weihnachtskugel wartet — hol dir das Geschenk von heute!',
@@ -546,6 +580,7 @@ const _de = {
   'color': 'Malen',
   'puzzle': 'Puzzle',
   'events': 'Events',
+  'eventsLive': 'Jetzt live',
   'eventsArchive': 'Archive',
   'eventsEmpty': 'No past events yet',
   'print': 'Drucken',
@@ -645,6 +680,21 @@ const _de = {
   'sharingFailed': 'Teilen fehlgeschlagen',
   'printTemplate': 'Druckvorlage',
   'shareAndPrint': 'Teilen & Drucken',
+  'puzzleMagicTitle': 'Puzzle-Zauber',
+  'puzzleMagicSubtitle': 'Wie magisch soll dein Puzzle sein?',
+  'puzzleAdventureTier': 'Abenteuer-Stufe',
+  'puzzlePieces': 'Teile',
+  'puzzleMagicShape': 'Zauber-Form',
+  'puzzleHand': 'Hand',
+  'puzzleHandRight': 'Rechtshänder',
+  'puzzleHandLeft': 'Linkshänder',
+  'puzzleHandRightHint':
+      'Querformat: Tray rechts — greifen mit rechts',
+  'puzzleHandLeftHint':
+      'Querformat: Tray links — greifen mit links',
+  'puzzleZoomTip': 'Tipp: Mit zwei Fingern zoomen',
+  'puzzleDailyLockedHint': 'Für die Tagesaufgabe: Leicht ist gesperrt.',
+  'fullImage': 'Ganzes Bild',
   'streakSemantics': '{n}-Tage-Streak',
   'versionLabel': 'Version {v}\nSchwaben Apps',
 };

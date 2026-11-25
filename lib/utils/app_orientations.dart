@@ -21,9 +21,12 @@ abstract final class AppOrientations {
       SystemChrome.setPreferredOrientations(portraitOnly);
 
   /// Ausmalen / Puzzle / Pixel / Puzzle-Vorschau — Drehen erlaubt.
-  static Future<void> enterPlay() {
+  /// [lockPortrait]: z. B. Hochkant-Puzzles nur im Hochformat.
+  static Future<void> enterPlay({bool lockPortrait = false}) {
     _playDepth++;
-    return SystemChrome.setPreferredOrientations(all);
+    return SystemChrome.setPreferredOrientations(
+      lockPortrait ? portraitOnly : all,
+    );
   }
 
   /// Zurück zu Menü — wieder Hochkant.

@@ -376,6 +376,7 @@ class _HubScreenState extends State<HubScreen>
           title: event.title,
           coloringSection: coloring,
           puzzleSection: puzzle,
+          isHalloween: event.id.toLowerCase().contains('halloween'),
           halloweenIds: {
             ...tags.halloweenColoring,
             ...tags.halloweenPuzzle,
@@ -516,15 +517,6 @@ class _HubScreenState extends State<HubScreen>
                                         onOpenColoring: _openColoring,
                                         onOpenPuzzle: _openPuzzle,
                                         onOpenPixel: _openPixel,
-                                        onOpenEvent:
-                                            (event, coloring, puzzle) {
-                                          _openEventWorld(
-                                            event: event,
-                                            coloring: coloring,
-                                            puzzle: puzzle,
-                                            tags: data.tags,
-                                          );
-                                        },
                                       ),
                                   };
                                 },
@@ -1115,7 +1107,8 @@ class _EventsTab extends StatelessWidget {
               ? const Color(0xFFFF8C42)
               : const Color(0xFFE8A0BF),
           isHalloween: entry.event.id.toLowerCase().contains('halloween'),
-          brightenImage: true,
+          brightenImage:
+              entry.event.id.toLowerCase().contains('halloween'),
           slideOffset: Duration(milliseconds: 400 * index),
           onTap: () => onOpenEvent(
             entry.event,
@@ -1132,7 +1125,7 @@ class _EventsTab extends StatelessWidget {
           entry,
       String subtitle,
     })>[
-      for (final e in live) (entry: e, subtitle: t.events),
+      for (final e in live) (entry: e, subtitle: t.eventsLive),
       if (past.isNotEmpty) ...[
         (entry: past.first, subtitle: t.lastEvent),
         for (final e in past.skip(1)) (entry: e, subtitle: t.eventsArchive),
@@ -1143,7 +1136,7 @@ class _EventsTab extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          sectionTitle(t.events),
+          sectionTitle(live.isNotEmpty ? t.eventsLive : t.events),
           Expanded(
             child: Align(
               alignment: const Alignment(0, 0.15),
@@ -1183,11 +1176,15 @@ class _EventsTab extends StatelessWidget {
       ),
       children: [
         if (live.isNotEmpty) ...[
-          sectionTitle(t.events),
+          sectionTitle(t.eventsLive),
           for (var i = 0; i < live.length; i++) ...[
             if (i > 0) const SizedBox(height: 14),
             Center(
-              child: portalFor(live[i], subtitle: t.events, index: i),
+              child: portalFor(
+                live[i],
+                subtitle: t.eventsLive,
+                index: i,
+              ),
             ),
           ],
           if (past.isNotEmpty) const SizedBox(height: 18),
@@ -1221,7 +1218,8 @@ class _EventsTab extends StatelessWidget {
   }
 }
 
-/// Home: Zuletzt → Events → Neu → Favoriten → Puzzle/Color/Pixel-Vorschau.
+/// Home: Live-Event-Kategorie (Bilder) → Zuletzt → Neu → …
+/// Der Event-Hub selbst nur im Events-Tab.
 class _HomeTab extends StatefulWidget {
   const _HomeTab({
     required this.catalog,
@@ -1229,7 +1227,6 @@ class _HomeTab extends StatefulWidget {
     required this.onOpenColoring,
     required this.onOpenPuzzle,
     required this.onOpenPixel,
-    required this.onOpenEvent,
   });
 
   final _HubCatalog catalog;
@@ -1237,11 +1234,6 @@ class _HomeTab extends StatefulWidget {
   final ValueChanged<ColoringPage> onOpenColoring;
   final ValueChanged<ColoringPage> onOpenPuzzle;
   final ValueChanged<ColoringPage> onOpenPixel;
-  final void Function(
-    ContentEvent event,
-    GallerySection coloring,
-    GallerySection puzzle,
-  ) onOpenEvent;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -1369,7 +1361,7 @@ class _HomeTabState extends State<_HomeTab> {
       favorites.puzzleIds(),
     );
 
-    // Event-Motive: aktiv → eigener Home-Slot; abgelaufen → Events-Tab.
+    // Aktives Event: Kategorie oben auf Home (nur Bildzeilen, kein Hub).
     final liveEvents = <({
       ContentEvent event,
       GallerySection coloring,
@@ -1385,12 +1377,9 @@ class _HomeTabState extends State<_HomeTab> {
       if (coloring.pages.isEmpty && puzzle.pages.isEmpty) continue;
       liveEvents.add((event: event, coloring: coloring, puzzle: puzzle));
     }
+    // Event-Motive nie unter „Neu“.
     final eventPageIds = <String>{
-      for (final event in tags.activeEvents()) ...[
-        ...event.coloringIds,
-        ...event.puzzleIds,
-      ],
-      for (final event in tags.pastEvents()) ...[
+      for (final event in tags.allEvents()) ...[
         ...event.coloringIds,
         ...event.puzzleIds,
       ],
@@ -1402,15 +1391,16 @@ class _HomeTabState extends State<_HomeTab> {
     final taggedNewPuzzles = allPuzzles
         .where((p) => tags.isNewPuzzle(p.id) && !eventPageIds.contains(p.id))
         .toList();
-    // Advent-Türchen-Freischaltungen → New (ohne New-Badge).
+    // Advent-Freischaltungen nur in „Neu“, wenn sie keinem Event gehören
+    // (Winter/Merry Christmas bleibt in der Event-Zeile oben).
     final adventColoring = _pagesForIds(
       allColoring,
       advent.unlockedColoringIds,
-    );
+    ).where((p) => !eventPageIds.contains(p.id));
     final adventPuzzles = _pagesForIds(
       allPuzzles,
       advent.unlockedPuzzleIds,
-    );
+    ).where((p) => !eventPageIds.contains(p.id));
     final newColoring = <ColoringPage>[
       ...{
         for (final p in [...taggedNewColoring, ...adventColoring]) p.id: p,
@@ -1469,26 +1459,60 @@ class _HomeTabState extends State<_HomeTab> {
     final halloweenColor = tags.halloweenColoring;
     final halloweenPuzzle = tags.halloweenPuzzle;
 
-    final size = MediaQuery.sizeOf(context);
-    final layout = AppLayout.of(context);
-    final eventRowHeight = layout.isLandscape
-        ? layout.galleryTileHeight
-        : (size.height * 0.22).clamp(150.0, 210.0);
-    final eventHubWidth = layout.isLandscape
-        ? (eventRowHeight * 0.92).clamp(
-            eventRowHeight * 0.78,
-            eventRowHeight * 1.12,
-          )
-        : (eventRowHeight * 1.05).clamp(
-            eventRowHeight * 0.9,
-            size.width * 0.72,
+    final scrollBottom = MediaQuery.paddingOf(context).bottom;
+    final primaryLive = liveEvents.isEmpty ? null : liveEvents.first;
+    final livePuzzlePreview = primaryLive == null
+        ? const <ColoringPage>[]
+        : tags.sortNewestFirst(
+            primaryLive.puzzle.pages.toList(growable: false),
+            coloring: false,
+          );
+    final liveColorPreview = primaryLive == null
+        ? const <ColoringPage>[]
+        : tags.sortNewestFirst(
+            primaryLive.coloring.pages.toList(growable: false),
+            coloring: true,
           );
 
-    final scrollBottom = MediaQuery.paddingOf(context).bottom;
     return ListView(
       controller: widget.scrollController,
       padding: EdgeInsets.only(bottom: 16 + scrollBottom),
       children: [
+        // Event-Kategorie oben — nur Puzzle/Color-Zeilen, Hub nur unter Events.
+        if (primaryLive != null) ...[
+          _SectionHeader(title: primaryLive.event.title),
+          // Komplette Winter-/Merry-Christmas-Galerie (kein Preview-Limit).
+          if (livePuzzlePreview.isNotEmpty)
+            _HomeRow(
+              label: t.puzzle,
+              pages: livePuzzlePreview,
+              isNew: (_) => false,
+              isHalloween: (id) => halloweenPuzzle.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.puzzle,
+              ),
+              favoriteKind: FavoriteKind.puzzle,
+              showPreviewButton: true,
+              onOpen: widget.onOpenPuzzle,
+            ),
+          if (liveColorPreview.isNotEmpty)
+            _HomeRow(
+              label: t.color,
+              pages: liveColorPreview,
+              isNew: (_) => false,
+              isHalloween: (id) => halloweenColor.contains(id),
+              requiresAdUnlock: (id) => EventContentGate.isGatedId(
+                tags,
+                id,
+                kind: FavoriteKind.coloring,
+              ),
+              favoriteKind: FavoriteKind.coloring,
+              onOpen: widget.onOpenColoring,
+            ),
+          const SizedBox(height: 8),
+        ],
         _SectionHeader(title: t.recentlyUsed),
         if (recentItems.isEmpty)
           Padding(
@@ -1516,48 +1540,6 @@ class _HomeTabState extends State<_HomeTab> {
             onOpenColoring: widget.onOpenColoring,
             onOpenPuzzle: widget.onOpenPuzzle,
           ),
-        // Platzhalter nur wenn gerade ein Event läuft — sonst Home wie bisher.
-        if (liveEvents.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _SectionHeader(title: t.events),
-          SizedBox(
-            height: eventRowHeight,
-            child: ListView.separated(
-              key: const PageStorageKey<String>('home_live_events_row'),
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
-              itemCount: liveEvents.length,
-              separatorBuilder: (_, _) =>
-                  SizedBox(width: size.width * 0.028),
-              itemBuilder: (context, index) {
-                final item = liveEvents[index];
-                return SizedBox(
-                  width: eventHubWidth,
-                  height: eventRowHeight,
-                  child: EventHubPortal(
-                    title: item.event.title,
-                    imagePaths: [
-                      for (final p in item.coloring.pages) p.assetPath,
-                      for (final p in item.puzzle.pages) p.assetPath,
-                    ],
-                    accent: item.event.id.toLowerCase().contains('halloween')
-                        ? const Color(0xFFFF8C42)
-                        : const Color(0xFFE8A0BF),
-                    isHalloween:
-                        item.event.id.toLowerCase().contains('halloween'),
-                    brightenImage: true,
-                    slideOffset: Duration(milliseconds: 400 * index),
-                    onTap: () => widget.onOpenEvent(
-                      item.event,
-                      item.coloring,
-                      item.puzzle,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
         const SizedBox(height: 8),
         if (newPuzzles.isNotEmpty || newColoring.isNotEmpty) ...[
           _SectionHeader(title: t.newItems),
@@ -1950,31 +1932,29 @@ class _AdventMenuButton extends StatefulWidget {
 
 class _AdventMenuButtonState extends State<_AdventMenuButton>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _bounce;
+  late final AnimationController _pulse;
 
   @override
   void initState() {
     super.initState();
-    _bounce = AnimationController(
+    _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1400),
     );
   }
 
   @override
   void dispose() {
-    _bounce.dispose();
+    _pulse.dispose();
     super.dispose();
   }
 
-  void _syncBounce(bool shouldBounce) {
-    if (shouldBounce) {
-      if (!_bounce.isAnimating) {
-        unawaited(_bounce.repeat(reverse: true));
-      }
-    } else if (_bounce.isAnimating) {
-      _bounce.stop();
-      _bounce.value = 0;
+  void _syncPulse(bool active) {
+    if (active) {
+      if (!_pulse.isAnimating) unawaited(_pulse.repeat());
+    } else if (_pulse.isAnimating) {
+      _pulse.stop();
+      _pulse.value = 0;
     }
   }
 
@@ -1987,10 +1967,10 @@ class _AdventMenuButtonState extends State<_AdventMenuButton>
         ? 88.0
         : (widget.micro ? 58.0 : (widget.compact ? 68.0 : 78.0));
     final badge = advent.openableUnopenedCount;
-    final shouldBounce = badge > 0;
+    final shouldPulse = badge > 0;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _syncBounce(shouldBounce);
+      _syncPulse(shouldPulse);
     });
 
     return Semantics(
@@ -2006,11 +1986,37 @@ class _AdventMenuButtonState extends State<_AdventMenuButton>
             children: [
               Positioned.fill(
                 child: AnimatedBuilder(
-                  animation: _bounce,
+                  animation: _pulse,
                   builder: (context, child) {
-                    final tBounce = shouldBounce ? _bounce.value : 0.0;
-                    final scale = 1.0 + 0.08 * math.sin(tBounce * math.pi);
-                    return Transform.scale(scale: scale, child: child);
+                    if (!shouldPulse) return child!;
+                    // Sanftes Atmen: leichte Scale + Glow (nicht das harte Klopfen).
+                    final breath =
+                        0.5 + 0.5 * math.sin(_pulse.value * math.pi * 2);
+                    final scale = 1.0 + 0.06 * breath;
+                    final glow = 0.22 + 0.38 * breath;
+                    return Transform.scale(
+                      scale: scale,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFFD56A)
+                                  .withValues(alpha: glow),
+                              blurRadius: 10 + 10 * breath,
+                              spreadRadius: 1 + 2.5 * breath,
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFFFFF4C8)
+                                  .withValues(alpha: glow * 0.4),
+                              blurRadius: 5 + 4 * breath,
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: child,
+                      ),
+                    );
                   },
                   child: Image.asset(
                     HubScreen.adventButtonAsset,

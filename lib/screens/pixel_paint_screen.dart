@@ -1094,14 +1094,18 @@ class _ZoomResetChip extends StatelessWidget {
             color: Colors.black.withValues(alpha: 0.45),
             border: Border.all(color: Colors.white54),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 6),
+              const Icon(
+                Icons.zoom_out_map_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
               Text(
-                'Ganzes Bild',
-                style: TextStyle(
+                AppStrings.of(context).fullImage,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

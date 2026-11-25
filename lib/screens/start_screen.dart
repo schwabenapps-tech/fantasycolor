@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'hub_screen.dart';
+import '../l10n/app_strings.dart';
 import '../services/audio_service.dart';
 import '../services/deep_link_service.dart';
+import '../services/remote_pack_service.dart';
 import '../utils/app_orientations.dart';
 import '../utils/app_page_route.dart';
 
@@ -31,6 +34,8 @@ class _StartScreenState extends State<StartScreen>
     unawaited(AppOrientations.lockHubPortrait());
     // Musik schon auf dem Startscreen — Signal, dass die App bereit ist.
     unawaited(AudioService.instance.startAmbient());
+    // Pack-Sync früh anstoßen, damit Vorladen auf dem Splash sichtbar wird.
+    unawaited(RemotePackService.instance.sync());
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -114,7 +119,84 @@ class _StartScreenState extends State<StartScreen>
               ),
             ),
           ),
+          const _PackPreloadBanner(),
         ],
+      ),
+    );
+  }
+}
+
+/// Kurzes Vorladen, nur wenn ein Remote-Pack wirklich heruntergeladen wird.
+class _PackPreloadBanner extends StatelessWidget {
+  const _PackPreloadBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final packs = context.watch<RemotePackService>();
+    if (!packs.isDownloading) return const SizedBox.shrink();
+    final t = AppStrings.of(context);
+    final progress = packs.downloadProgress;
+
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A334F).withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFE8D5A3).withValues(alpha: 0.45),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    t.packDownloadTitle,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFFFF6E4),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    t.packDownloadHint,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xFFE8D5A3).withValues(alpha: 0.9),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress <= 0 ? null : progress,
+                      minHeight: 6,
+                      backgroundColor:
+                          Colors.white.withValues(alpha: 0.12),
+                      color: const Color(0xFFFFD56A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

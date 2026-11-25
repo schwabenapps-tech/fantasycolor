@@ -1,31 +1,149 @@
 {
   "year": 2026,
   "doors": [
-    {"day": 1, "pulls": 1, "stickerId": "winter_weihnachtskaninchen_im_geschenkesticker"},
-    {"day": 2, "pulls": 1, "stickerId": "winter_weihnachtliche_goldene_glocken_mit_schleife"},
-    {"day": 3, "pulls": 1, "stickerId": "winter_weihnachtskerzen_mit_festlichem_tannenschmuck"},
-    {"day": 4, "pulls": 1, "stickerId": "winter_festlich_geschmueckter_weihnachtsbaum_mit_geschenken"},
-    {"day": 5, "pulls": 1, "stickerId": "winter_froehlicher_weihnachtsfee_sticker_mit_geschenken"},
-    {"day": 6, "pulls": 1, "special": true, "stickerId": "winter_advent_2"},
-    {"day": 7, "pulls": 1, "stickerId": "winter_gluecklicher_weihnachtsfee_mit_lebkuchenmann"},
-    {"day": 8, "pulls": 1, "stickerId": "winter_froehliche_feen_verzieren_ein_lebkuchenhaus"},
-    {"day": 9, "pulls": 1, "stickerId": "winter_funkelnde_sternenfee_im_koeniglichen_gewand"},
-    {"day": 10, "pulls": 1, "stickerId": "winter_funkelnder_elfenviolinist_mit_feenfluegeln"},
-    {"day": 11, "pulls": 1, "stickerId": "winter_eiszaubernde_elfenfreundinnen_beim_schlittschuhlaufen"},
-    {"day": 12, "pulls": 1, "stickerId": "winter_maerchenhafte_eisfee_auf_funkelnder_eisbahn"},
-    {"day": 13, "pulls": 1, "special": true, "stickerId": "winter_advent_3"},
-    {"day": 14, "pulls": 1, "stickerId": "winter_winterfee_als_schneeengel"},
-    {"day": 15, "pulls": 1, "stickerId": "winter_chibi_schneeballschlacht_der_feenjungen"},
-    {"day": 16, "pulls": 1, "stickerId": "winter_froehliche_jungen_auf_dem_schlitten"},
-    {"day": 17, "pulls": 1, "stickerId": "winter_chibi_feeenjungs_bauen_einen_schneemann"},
-    {"day": 18, "pulls": 1, "stickerId": "winter_kranker_chibi_im_kuschelwinter"},
-    {"day": 19, "pulls": 1, "stickerId": "winter_chibi_fee_und_haeschen_mit_herzdetails"},
-    {"day": 20, "pulls": 1, "special": true, "stickerId": "winter_advent_4"},
-    {"day": 21, "pulls": 1, "stickerId": "winter_magischer_eisfalter_wirbel_mit_schneeflocken"},
-    {"day": 22, "pulls": 1, "stickerId": "winter_zwei_feen_mit_funkelnden_schmetterlingen"},
-    {"day": 23, "pulls": 1},
-    {"day": 24, "pulls": 1, "special": true, "stickerId": "winter_chibi_weihnachtsmann"},
-    {"day": 25, "pulls": 1, "special": true, "bonusStars": 20, "stickerId": "winter_merry_christmas"}
+    {
+      "day": 1,
+      "pulls": 1,
+      "stickerId": "winter_weihnachtskaninchen_im_geschenkesticker"
+    },
+    {
+      "day": 2,
+      "pulls": 2,
+      "stickerId": "winter_weihnachtliche_goldene_glocken_mit_schleife",
+      "puzzleId": "froehliche_schlittenfahrt_im_wintermorgenrot"
+    },
+    {
+      "day": 3,
+      "pulls": 1,
+      "stickerId": "winter_weihnachtskerzen_mit_festlichem_tannenschmuck"
+    },
+    {
+      "day": 4,
+      "pulls": 1,
+      "stickerId": "winter_festlich_geschmueckter_weihnachtsbaum_mit_geschenken"
+    },
+    {
+      "day": 5,
+      "pulls": 2,
+      "stickerId": "winter_froehlicher_weihnachtsfee_sticker_mit_geschenken",
+      "puzzleId": "lebkuchenzauber_mit_feenbaeckerinnen"
+    },
+    {
+      "day": 6,
+      "pulls": 2,
+      "special": true,
+      "stickerId": "winter_advent_2",
+      "puzzleId": "2_adventpuzzle"
+    },
+    {
+      "day": 7,
+      "pulls": 1,
+      "stickerId": "winter_gluecklicher_weihnachtsfee_mit_lebkuchenmann"
+    },
+    {
+      "day": 8,
+      "pulls": 2,
+      "stickerId": "winter_froehliche_feen_verzieren_ein_lebkuchenhaus",
+      "puzzleId": "zuckerfeen_in_der_winterlichen_backstube"
+    },
+    {
+      "day": 9,
+      "pulls": 1,
+      "stickerId": "winter_funkelnde_sternenfee_im_koeniglichen_gewand"
+    },
+    {
+      "day": 10,
+      "pulls": 1,
+      "stickerId": "winter_funkelnder_elfenviolinist_mit_feenfluegeln"
+    },
+    {
+      "day": 11,
+      "pulls": 2,
+      "stickerId": "winter_eiszaubernde_elfenfreundinnen_beim_schlittschuhlaufen",
+      "puzzleId": "eisfee_auf_dem_funkelnden_frostsee"
+    },
+    {
+      "day": 12,
+      "pulls": 1,
+      "stickerId": "winter_maerchenhafte_eisfee_auf_funkelnder_eisbahn"
+    },
+    {
+      "day": 13,
+      "pulls": 2,
+      "special": true,
+      "stickerId": "winter_advent_3",
+      "puzzleId": "3_adventpuzzle"
+    },
+    {
+      "day": 14,
+      "pulls": 1,
+      "stickerId": "winter_winterfee_als_schneeengel"
+    },
+    {
+      "day": 15,
+      "pulls": 1,
+      "stickerId": "winter_chibi_schneeballschlacht_der_feenjungen"
+    },
+    {
+      "day": 16,
+      "pulls": 2,
+      "stickerId": "winter_froehliche_jungen_auf_dem_schlitten",
+      "puzzleId": "froehlicher_schneeballkampf_im_winterwald"
+    },
+    {
+      "day": 17,
+      "pulls": 1,
+      "stickerId": "winter_chibi_feeenjungs_bauen_einen_schneemann"
+    },
+    {
+      "day": 18,
+      "pulls": 2,
+      "stickerId": "winter_kranker_chibi_im_kuschelwinter",
+      "puzzleId": "magischer_iglu-bau_im_winterglanz"
+    },
+    {
+      "day": 19,
+      "pulls": 1,
+      "stickerId": "winter_chibi_fee_und_haeschen_mit_herzdetails"
+    },
+    {
+      "day": 20,
+      "pulls": 2,
+      "special": true,
+      "stickerId": "winter_advent_4",
+      "puzzleId": "4_adventpuzzle"
+    },
+    {
+      "day": 21,
+      "pulls": 1,
+      "stickerId": "winter_magischer_eisfalter_wirbel_mit_schneeflocken"
+    },
+    {
+      "day": 22,
+      "pulls": 1,
+      "stickerId": "winter_zwei_feen_mit_funkelnden_schmetterlingen"
+    },
+    {
+      "day": 23,
+      "pulls": 2,
+      "stickerId": "winter_advent_1",
+      "puzzleId": "glitzernde_weihnachtsfeen_am_kristallbaum"
+    },
+    {
+      "day": 24,
+      "pulls": 2,
+      "special": true,
+      "stickerId": "winter_chibi_weihnachtsmann",
+      "puzzleId": "weihnachtsfee_mit_geschenk_im_schnee"
+    },
+    {
+      "day": 25,
+      "pulls": 2,
+      "special": true,
+      "bonusStars": 20,
+      "stickerId": "winter_merry_christmas",
+      "puzzleId": "winterliches_dorf_mit_festlichem_dirigenten"
+    }
   ],
-  "notes": "1. Advent (winter_advent_1) kommt exklusiv über die Weihnachts-Geschenkbox am 1. Adventssonntag — nicht als Türchen. Silvester am 31.12.: Sticker (silvester.sticker, happynewyear) + 2 Puzzles (silvester.png, silvester2.png) erst nach Box-Öffnung. Tag 23 + Ausmal-/Puzzle-IDs später ergänzen."
+  "notes": "1. Advent (winter_advent_1 + 1_adventpuzzle): Weihnachts-Geschenkbox am 1. Adventssonntag. Türchen 23: Catch-up für Advent-1-Sticker + Kristallbaum-Puzzle. Advents-Türchen 6/13/20: Sticker advent_2/3/4 + Puzzle 2/3/4. Tag 24: Chibi-Weihnachtsmann + Weihnachtsfee-Puzzle. Tag 25: Kugel → Geschenkboxen mit Merry-Christmas-Sticker + Dirigenten-Dorf-Puzzle (+20 Sterne)."
 }

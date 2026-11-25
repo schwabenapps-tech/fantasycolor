@@ -28,8 +28,21 @@ class RemotePackService extends ChangeNotifier {
   bool _syncing = false;
   bool get isSyncing => _syncing;
 
-  int _generation = 0;
+  /// true, wenn dieser Sync mindestens eine Datei herunterlädt.
+  bool _downloading = false;
+  bool get isDownloading => _downloading;
+
+  int _downloadDone = 0;
+  int _downloadTotal = 0;
+
+  /// 0..1 während [isDownloading], sonst 0.
+  double get downloadProgress {
+    if (_downloadTotal <= 0) return 0;
+    return (_downloadDone / _downloadTotal).clamp(0.0, 1.0);
+  }
+
   int get generation => _generation;
+  int _generation = 0;
 
   List<RemotePack> _packs = const [];
   List<RemotePack> get packs => List.unmodifiable(_packs);
@@ -42,6 +55,9 @@ class RemotePackService extends ChangeNotifier {
   Future<void> sync() async {
     if (_syncing) return;
     _syncing = true;
+    _downloading = false;
+    _downloadDone = 0;
+    _downloadTotal = 0;
     notifyListeners();
     try {
       await _ensureIndexLoaded();
@@ -56,13 +72,27 @@ class RemotePackService extends ChangeNotifier {
       var changed = false;
       final beforeSignature = _packsSignature(_packs);
 
+      // Vorab zählen, ob (und wie viele) Dateien fehlen → Preload-UI.
+      final pendingPacks = <RemotePack>[];
+      var pendingFiles = 0;
       for (final pack in remote.packs) {
         final localVersion = packVersions[pack.id] ?? 0;
         if (localVersion >= pack.version && await _packComplete(root, pack)) {
-          // Auch ohne Download: Remote-IDs merken (ohne Bundle-Stems).
           _rememberNewPages(pack);
           continue;
         }
+        pendingPacks.add(pack);
+        pendingFiles += await _missingFileCount(root, pack);
+      }
+      if (pendingFiles > 0) {
+        _downloading = true;
+        _downloadTotal = pendingFiles;
+        _downloadDone = 0;
+        notifyListeners();
+      }
+
+      for (final pack in pendingPacks) {
+        final localVersion = packVersions[pack.id] ?? 0;
         // Neue Pack-Version: alte Dateien entfernen, sonst bleiben stale PNGs.
         if (localVersion > 0 && localVersion < pack.version) {
           final dir = Directory('${root.path}/${pack.id}');
@@ -118,6 +148,7 @@ class RemotePackService extends ChangeNotifier {
       debugPrint('RemotePackService.sync failed: $e\n$st');
     } finally {
       _syncing = false;
+      _downloading = false;
       notifyListeners();
     }
   }
@@ -525,6 +556,10 @@ class RemotePackService extends ChangeNotifier {
         continue;
       }
       await dest.writeAsBytes(response.bodyBytes, flush: true);
+      if (_downloading) {
+        _downloadDone++;
+        notifyListeners();
+      }
     }
   }
 
@@ -536,6 +571,17 @@ class RemotePackService extends ChangeNotifier {
       if (!await file.exists()) return false;
     }
     return true;
+  }
+
+  Future<int> _missingFileCount(Directory root, RemotePack pack) async {
+    var n = 0;
+    for (final relative in pack.files) {
+      final parts = relative.split('/');
+      if (parts.length < 4) continue;
+      final file = File('${root.path}/${pack.id}/${parts[2]}/${parts.last}');
+      if (!await file.exists()) n++;
+    }
+    return n;
   }
 
   Map<String, int> _readPackVersions(SharedPreferences prefs) {

@@ -208,6 +208,14 @@ class _StickerDailyGiftOverlayState extends State<StickerDailyGiftOverlay>
         }
       }
     }
+    if (won.id == AdventService.firstAdventStickerId) {
+      final wallet = context.read<StarWalletStore>();
+      await AdventService.instance.unlockFirstAdventPuzzle();
+      await wallet.grantUnlock(
+        AdventService.firstAdventPuzzleId,
+        FavoriteKind.puzzle,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _won = won;

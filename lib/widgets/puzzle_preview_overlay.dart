@@ -1,13 +1,12 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
-import '../painting/jigsaw_layout.dart';
-import '../screens/puzzle_screen.dart';
+import '../painting/puzzle_etch_painter.dart';
 import '../utils/app_orientations.dart';
 import '../widgets/coloring_page_image.dart';
 import '../widgets/silver_back_button.dart';
@@ -87,6 +86,7 @@ class _PuzzlePreviewBody extends StatefulWidget {
 class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   PuzzleDifficulty _difficulty = PuzzleDifficulty.medium42;
   PuzzlePieceStyle _style = PuzzlePieceStyle.jigsaw;
+  PuzzleHandedness _handedness = PuzzleHandedness.rightHanded;
   bool _ready = false;
 
   bool _isTierLocked(PuzzleTier tier) => widget.lockedTiers.contains(tier);
@@ -118,7 +118,9 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   @override
   void initState() {
     super.initState();
-    unawaited(AppOrientations.enterPlay());
+    final aspect = widget.page.aspectRatio;
+    final lockPortrait = aspect > 0 && aspect < 0.92;
+    unawaited(AppOrientations.enterPlay(lockPortrait: lockPortrait));
     unawaited(_loadPrefs());
   }
 
@@ -135,6 +137,7 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
     setState(() {
       _difficulty = _clampDifficulty(forced ?? saved.difficulty);
       _style = saved.style;
+      _handedness = saved.handedness;
       _ready = true;
     });
   }
@@ -143,6 +146,7 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
     await PuzzlePreferences.save(
       difficulty: _difficulty,
       style: _style,
+      handedness: _handedness,
     );
   }
 
@@ -170,6 +174,12 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
     unawaited(_persist());
   }
 
+  void _setHandedness(PuzzleHandedness handedness) {
+    HapticFeedback.selectionClick();
+    setState(() => _handedness = handedness);
+    unawaited(_persist());
+  }
+
   Future<void> _play() async {
     await _persist();
     if (!mounted) return;
@@ -194,11 +204,13 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
     final settings = _PreviewSettingsPanel(
       difficulty: _difficulty,
       style: _style,
+      handedness: _handedness,
       lockedTiers: widget.lockedTiers,
       lockedDifficulties: widget.lockedDifficulties,
       onTier: _setTier,
       onDifficulty: _setDifficulty,
       onStyle: _setStyle,
+      onHandedness: _setHandedness,
     );
 
     final actions = Row(
@@ -280,7 +292,7 @@ class _PuzzlePreviewBodyState extends State<_PuzzlePreviewBody> {
   }
 }
 
-class _PreviewImage extends StatelessWidget {
+class _PreviewImage extends StatefulWidget {
   const _PreviewImage({
     required this.page,
     required this.aspect,
@@ -296,14 +308,53 @@ class _PreviewImage extends StatelessWidget {
   final bool ready;
 
   @override
+  State<_PreviewImage> createState() => _PreviewImageState();
+}
+
+class _PreviewImageState extends State<_PreviewImage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _etch;
+
+  @override
+  void initState() {
+    super.initState();
+    _etch = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2100),
+    );
+    if (widget.ready) {
+      _etch.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PreviewImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final becameReady = widget.ready && !oldWidget.ready;
+    final layoutChanged = widget.style != oldWidget.style ||
+        widget.difficulty != oldWidget.difficulty ||
+        widget.aspect != oldWidget.aspect ||
+        widget.page.id != oldWidget.page.id;
+    if (becameReady || (widget.ready && layoutChanged)) {
+      _etch.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _etch.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         var previewW = constraints.maxWidth;
-        var previewH = previewW / aspect;
+        var previewH = previewW / widget.aspect;
         if (previewH > constraints.maxHeight) {
           previewH = constraints.maxHeight;
-          previewW = previewH * aspect;
+          previewW = previewH * widget.aspect;
         }
 
         return Center(
@@ -329,18 +380,23 @@ class _PreviewImage extends StatelessWidget {
                     ColoredBox(
                       color: Colors.white,
                       child: ColoringPageImage(
-                        page: page,
+                        page: widget.page,
                         fit: BoxFit.cover,
                         alignment: Alignment.center,
                       ),
                     ),
-                    if (ready)
-                      CustomPaint(
-                        painter: _PuzzleSeamPainter(
-                          aspect: aspect,
-                          seed: page.id.hashCode,
-                          targetPieces: difficulty.targetPieces,
-                          style: style,
+                    if (widget.ready)
+                      AnimatedBuilder(
+                        animation: _etch,
+                        builder: (context, _) => CustomPaint(
+                          painter: PuzzleEtchPainter(
+                            aspect: widget.aspect,
+                            progress: Curves.easeInOutCubic
+                                .transform(_etch.value),
+                            seed: widget.page.id.hashCode,
+                            targetPieces: widget.difficulty.targetPieces,
+                            style: widget.style,
+                          ),
                         ),
                       ),
                   ],
@@ -358,24 +414,37 @@ class _PreviewSettingsPanel extends StatelessWidget {
   const _PreviewSettingsPanel({
     required this.difficulty,
     required this.style,
+    required this.handedness,
     required this.lockedTiers,
     required this.lockedDifficulties,
     required this.onTier,
     required this.onDifficulty,
     required this.onStyle,
+    required this.onHandedness,
   });
 
   final PuzzleDifficulty difficulty;
   final PuzzlePieceStyle style;
+  final PuzzleHandedness handedness;
   final Set<PuzzleTier> lockedTiers;
   final Set<PuzzleDifficulty> lockedDifficulties;
   final ValueChanged<PuzzleTier> onTier;
   final ValueChanged<PuzzleDifficulty> onDifficulty;
   final ValueChanged<PuzzlePieceStyle> onStyle;
+  final ValueChanged<PuzzleHandedness> onHandedness;
 
   @override
   Widget build(BuildContext context) {
+    final t = AppStrings.of(context);
     final pieceChoices = PuzzleDifficulty.forTier(difficulty.tier);
+    String handLabel(PuzzleHandedness h) => switch (h) {
+          PuzzleHandedness.rightHanded => t.puzzleHandRight,
+          PuzzleHandedness.leftHanded => t.puzzleHandLeft,
+        };
+    String handHint(PuzzleHandedness h) => switch (h) {
+          PuzzleHandedness.rightHanded => t.puzzleHandRightHint,
+          PuzzleHandedness.leftHanded => t.puzzleHandLeftHint,
+        };
 
     return Material(
       color: Colors.transparent,
@@ -412,9 +481,9 @@ class _PreviewSettingsPanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Puzzle-Zauber',
-                style: TextStyle(
+              Text(
+                t.puzzleMagicTitle,
+                style: const TextStyle(
                   color: Color(0xFFFFE7A0),
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -424,15 +493,15 @@ class _PreviewSettingsPanel extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 lockedTiers.isEmpty
-                    ? 'Wie magisch soll dein Puzzle sein?'
-                    : 'Für die Tagesaufgabe: Leicht ist gesperrt.',
+                    ? t.puzzleMagicSubtitle
+                    : t.puzzleDailyLockedHint,
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 12.5,
                 ),
               ),
               const SizedBox(height: 14),
-              _sectionLabel('Abenteuer-Stufe'),
+              _sectionLabel(t.puzzleAdventureTier),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -448,7 +517,7 @@ class _PreviewSettingsPanel extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              _sectionLabel('Teile'),
+              _sectionLabel(t.puzzlePieces),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -467,7 +536,7 @@ class _PreviewSettingsPanel extends StatelessWidget {
               if (difficulty.allowsZoom) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Tipp: Mit zwei Fingern zoomen',
+                  t.puzzleZoomTip,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 12,
@@ -475,7 +544,7 @@ class _PreviewSettingsPanel extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 14),
-              _sectionLabel('Zauber-Form'),
+              _sectionLabel(t.puzzleMagicShape),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -492,6 +561,29 @@ class _PreviewSettingsPanel extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 style.hint,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.55),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _sectionLabel(t.puzzleHand),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final h in PuzzleHandedness.values)
+                    _PreviewChip(
+                      label: handLabel(h),
+                      selected: handedness == h,
+                      onTap: () => onHandedness(h),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                handHint(handedness),
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.55),
                   fontSize: 12,
@@ -651,61 +743,3 @@ class _PreviewActionButton extends StatelessWidget {
   }
 }
 
-class _PuzzleSeamPainter extends CustomPainter {
-  _PuzzleSeamPainter({
-    required this.aspect,
-    required this.seed,
-    required this.targetPieces,
-    required this.style,
-  });
-
-  final double aspect;
-  final int seed;
-  final int targetPieces;
-  final PuzzlePieceStyle style;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final grid = PuzzleScreen.gridForDisplayAspect(
-      aspect,
-      targetCount: targetPieces,
-    );
-    final layout = JigsawLayout(
-      columns: grid.cols,
-      rows: grid.rows,
-      style: style,
-      random: math.Random(seed),
-    );
-
-    final density = math.sqrt(targetPieces / 30.0).clamp(0.7, 2.2);
-    final shadow = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (2.6 / density).clamp(1.1, 2.6)
-      ..color = Colors.black.withValues(alpha: 0.45)
-      ..strokeJoin = StrokeJoin.round;
-    final seam = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (1.35 / density).clamp(0.7, 1.35)
-      ..color = Colors.white.withValues(alpha: 0.88)
-      ..strokeJoin = StrokeJoin.round;
-
-    for (var row = 0; row < layout.rows; row++) {
-      for (var col = 0; col < layout.columns; col++) {
-        final path = layout.piecePath(
-          col: col,
-          row: row,
-          boardSize: size,
-        );
-        canvas.drawPath(path, shadow);
-        canvas.drawPath(path, seam);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _PuzzleSeamPainter oldDelegate) =>
-      oldDelegate.aspect != aspect ||
-      oldDelegate.seed != seed ||
-      oldDelegate.targetPieces != targetPieces ||
-      oldDelegate.style != style;
-}

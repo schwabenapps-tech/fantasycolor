@@ -135,7 +135,8 @@ class StarWalletStore extends ChangeNotifier {
     await prefs.remove(_puzzleRewardedKey);
   }
 
-  static const adventUnlockCost = 25;
+  /// Fallback für Advent-Motive ohne Eintrag in star_economy (Event-Preise niedriger).
+  static const adventUnlockCost = 30;
 
   bool _isAdventLockedContent(String id, FavoriteKind kind) {
     final advent = AdventService.instance;
@@ -150,12 +151,19 @@ class StarWalletStore extends ChangeNotifier {
     return !StickerCollectionStore.silvesterPackRevealedCached;
   }
 
+  /// 1.-Advent-Puzzle nur über Geschenkbox / Sticker — kein Stern-Kauf.
+  bool _isFirstAdventLockedPuzzle(String id, FavoriteKind kind) {
+    if (kind != FavoriteKind.puzzle) return false;
+    return AdventService.isFirstAdventPuzzle(id);
+  }
+
   bool requiresStars(String id, FavoriteKind kind) {
     final unlocked =
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return false;
-    // Silvester-Puzzle nur über die Box — kein Stern-Kauf.
+    // Silvester-/1.-Advent-Puzzle nur über die Box — kein Stern-Kauf.
     if (_isSilvesterLockedPuzzle(id, kind)) return false;
+    if (_isFirstAdventLockedPuzzle(id, kind)) return false;
     final eco = _economy;
     if (eco != null && eco.isLocked(id, kind)) return true;
     // Advent-Motive: im Event-Screen gesperrt, bis Türchen / Sterne / Werbung.
@@ -164,6 +172,7 @@ class StarWalletStore extends ChangeNotifier {
 
   int? unlockCost(String id, FavoriteKind kind) {
     if (_isSilvesterLockedPuzzle(id, kind)) return null;
+    if (_isFirstAdventLockedPuzzle(id, kind)) return null;
     final fromEco = _economy?.costFor(id, kind);
     if (fromEco != null) return fromEco;
     if (_isAdventLockedContent(id, kind)) return adventUnlockCost;
@@ -175,6 +184,7 @@ class StarWalletStore extends ChangeNotifier {
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return true;
     if (_isSilvesterLockedPuzzle(id, kind)) return false;
+    if (_isFirstAdventLockedPuzzle(id, kind)) return false;
     final ecoLocked = _economy?.isLocked(id, kind) ?? false;
     if (!ecoLocked && !_isAdventLockedContent(id, kind)) return true;
     return false;

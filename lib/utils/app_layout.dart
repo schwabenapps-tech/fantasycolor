@@ -69,7 +69,11 @@ class AppLayout {
 
   double get puzzleTrayHeight => isTablet ? 160.0 : 142.0;
 
-  double get puzzleSideTrayWidth => isTablet ? 148.0 : 118.0;
+  /// Landscape Easy: einspurig, große Teile.
+  double get puzzleSideTrayWidth => isTablet ? 156.0 : 128.0;
+
+  /// Landscape Medium/Pro: zweispurig.
+  double get puzzleSideTrayWidthDense => isTablet ? 228.0 : 196.0;
 
   int favoritesCrossAxisCount({required bool landscape}) {
     if (isLargeTablet) return landscape ? 5 : 4;

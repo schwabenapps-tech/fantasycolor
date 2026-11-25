@@ -149,30 +149,54 @@ extension PuzzlePieceStyleX on PuzzlePieceStyle {
       };
 }
 
-/// Persistierte Puzzle-Settings (Stückzahl + Stil).
+/// Landscape-Tray: rechts für Rechtshänder, links für Linkshänder.
+enum PuzzleHandedness {
+  rightHanded,
+  leftHanded,
+}
+
+extension PuzzleHandednessX on PuzzleHandedness {
+  /// Tray auf der rechten Seite?
+  bool get trayOnRight => this == PuzzleHandedness.rightHanded;
+}
+
+/// Persistierte Puzzle-Settings (Stückzahl + Stil + Händigkeit).
 class PuzzlePreferences {
   PuzzlePreferences._();
 
   static const _difficultyKey = 'puzzle_difficulty_v1';
   static const _styleKey = 'puzzle_piece_style_v1';
+  static const _handednessKey = 'puzzle_handedness_v1';
 
-  static Future<({PuzzleDifficulty difficulty, PuzzlePieceStyle style})>
-      load() async {
+  static Future<
+      ({
+        PuzzleDifficulty difficulty,
+        PuzzlePieceStyle style,
+        PuzzleHandedness handedness,
+      })> load() async {
     final prefs = await SharedPreferences.getInstance();
     final difficulty = _parseDifficulty(prefs.getString(_difficultyKey)) ??
         PuzzleDifficulty.medium30;
     final style =
         _parseStyle(prefs.getString(_styleKey)) ?? PuzzlePieceStyle.jigsaw;
-    return (difficulty: difficulty, style: style);
+    final handedness = _parseHandedness(prefs.getString(_handednessKey)) ??
+        PuzzleHandedness.rightHanded;
+    return (
+      difficulty: difficulty,
+      style: style,
+      handedness: handedness,
+    );
   }
 
   static Future<void> save({
     required PuzzleDifficulty difficulty,
     required PuzzlePieceStyle style,
+    required PuzzleHandedness handedness,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_difficultyKey, difficulty.name);
     await prefs.setString(_styleKey, style.name);
+    await prefs.setString(_handednessKey, handedness.name);
   }
 
   static PuzzleDifficulty? _parseDifficulty(String? raw) {
@@ -187,6 +211,14 @@ class PuzzlePreferences {
     if (raw == null) return null;
     for (final s in PuzzlePieceStyle.values) {
       if (s.name == raw) return s;
+    }
+    return null;
+  }
+
+  static PuzzleHandedness? _parseHandedness(String? raw) {
+    if (raw == null) return null;
+    for (final h in PuzzleHandedness.values) {
+      if (h.name == raw) return h;
     }
     return null;
   }

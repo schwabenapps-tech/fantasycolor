@@ -18,6 +18,7 @@ import '../utils/app_layout.dart';
 import '../utils/image_source.dart';
 import '../widgets/advent_gift_overlay.dart';
 import '../widgets/silver_back_button.dart';
+import '../widgets/sticker_reveal_overlay.dart';
 import '../widgets/winter_atmosphere_overlay.dart';
 
 /// 25 Weihnachtskugel-Türchen mit Öffnen / Rückblick.
@@ -165,21 +166,29 @@ class _AdventCalendarScreenState extends State<AdventCalendarScreen> {
               ],
             ),
           ),
-          if (_activeDoor != null && _reviewRewards == null)
-            AdventGiftOverlay(
-              day: _activeDoor!,
-              onFinished: (rewards) =>
-                  unawaited(_onGiftFinished(_activeDoor!, rewards)),
-            ),
-          if (_activeDoor != null && _reviewRewards != null)
-            AdventReviewOverlay(
-              day: _activeDoor!,
-              rewards: _reviewRewards!,
-              onClose: () => setState(() {
-                _activeDoor = null;
-                _reviewRewards = null;
-              }),
-            ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _activeDoor == null
+                ? const SizedBox.shrink(key: ValueKey('advent-none'))
+                : _reviewRewards == null
+                    ? AdventGiftOverlay(
+                        key: ValueKey('advent-gift-$_activeDoor'),
+                        day: _activeDoor!,
+                        onFinished: (rewards) =>
+                            unawaited(_onGiftFinished(_activeDoor!, rewards)),
+                      )
+                    : AdventReviewOverlay(
+                        key: ValueKey('advent-review-$_activeDoor'),
+                        day: _activeDoor!,
+                        rewards: _reviewRewards!,
+                        onClose: () => setState(() {
+                          _activeDoor = null;
+                          _reviewRewards = null;
+                        }),
+                      ),
+          ),
         ],
       ),
     );
@@ -335,12 +344,12 @@ class _DoorBaubleState extends State<_DoorBauble>
           final angle = _shouldSway
               ? math.sin(_sway.value * math.pi * 2) * 0.11
               : 0.0;
-          // Heutiges (noch zu öffnen): etwas größer + Pulse.
-          final scale =
-              _todayHighlight ? 1.08 + (_pulse.value * 0.07) : 1.0;
-          final glowStrength = _todayHighlight
-              ? 0.35 + _pulse.value * 0.45
+          // Heute: sanftes Atmen + Glow (wie Home-Advent-Button), kein Kreis-Ring.
+          final breath = _todayHighlight
+              ? (0.5 + 0.5 * math.sin(_pulse.value * math.pi * 2))
               : 0.0;
+          final scale = _todayHighlight ? 1.0 + 0.06 * breath : 1.0;
+          final glow = _todayHighlight ? 0.45 + 0.5 * breath : 0.0;
 
           return Transform.rotate(
             angle: angle,
@@ -358,25 +367,28 @@ class _DoorBaubleState extends State<_DoorBauble>
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      if (glowStrength > 0)
+                      if (glow > 0)
                         Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFFD56A)
-                                      .withValues(alpha: glowStrength),
-                                  blurRadius: 18,
-                                  spreadRadius: 2,
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFFF4C8)
-                                      .withValues(alpha: glowStrength * 0.55),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ],
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFFFD56A)
+                                        .withValues(alpha: glow),
+                                    blurRadius: 16 + 14 * breath,
+                                    spreadRadius: 2 + 4 * breath,
+                                  ),
+                                  BoxShadow(
+                                    color: const Color(0xFFFFF4C8)
+                                        .withValues(alpha: glow * 0.55),
+                                    blurRadius: 8 + 6 * breath,
+                                    spreadRadius: 1 + 2 * breath,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -390,26 +402,6 @@ class _DoorBaubleState extends State<_DoorBauble>
                           ),
                         ),
                       ),
-                      if (_todayHighlight)
-                        Positioned.fill(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Color.lerp(
-                                    const Color(0xFFFFD56A),
-                                    const Color(0xFFFFF4C8),
-                                    _pulse.value,
-                                  )!
-                                      .withValues(alpha: 0.55 + _pulse.value * 0.35),
-                                  width: 2.2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
                       // Optische Mitte der Kugel (unter dem Aufhänger).
                       Transform.translate(
                         offset: const Offset(0, 10),
@@ -649,13 +641,8 @@ class _AdventReviewOverlayState extends State<AdventReviewOverlay> {
                                               widget.rewards[i],
                                               t,
                                             ),
-                                            subtitle: widget.rewards[i]
-                                                        .type ==
-                                                    AdventRewardType.sticker
-                                                ? null
-                                                : _pagesById[
-                                                        widget.rewards[i].id]
-                                                    ?.title,
+                                            // Keine Dateinamen unter den Geschenken.
+                                            subtitle: null,
                                             assetPath: _assetPathFor(
                                               widget.rewards[i],
                                               store,
@@ -670,17 +657,7 @@ class _AdventReviewOverlayState extends State<AdventReviewOverlay> {
                             },
                           ),
               ),
-              TextButton(
-                onPressed: widget.onClose,
-                child: Text(
-                  t.streakQuestClose,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
+              GoldenYayButton(onPressed: widget.onClose),
             ],
           ),
         ),

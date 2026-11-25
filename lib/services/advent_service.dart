@@ -15,7 +15,7 @@ class AdventService extends ChangeNotifier {
   static const _unlockedPuzzleKey = 'advent_unlocked_puzzle_v1';
   /// Epoch bumpen → Claims/Unlocks einmalig löschen (Inhalt neu befüllen).
   static const _progressEpochKey = 'advent_progress_epoch_v1';
-  static const _progressEpoch = 2;
+  static const _progressEpoch = 5;
 
   bool _ready = false;
   Map<int, List<AdventReward>> _claims = {};
@@ -26,14 +26,22 @@ class AdventService extends ChangeNotifier {
   bool get isReady => _ready;
 
   /// TEMP: Winter-Hub-UI erzwingen (nur für lokale Tests).
-  /// Advent-Türchen starten immer erst ab 1.12. (echtes Datum).
   static const bool debugForceWinterTest = false;
 
-  /// Kalenderdatum für Türchen / Advent-Season (immer echt, kein Fake-25.12.).
-  static DateTime _effectiveNow([DateTime? now]) => now ?? DateTime.now();
+  /// TEMP Debug: Fake-Datum nur in Debug-Builds — vor Store-Release auf null!
+  static final DateTime? debugFakeDate = null;
 
-  /// Exklusiv über Weihnachts-Geschenkbox am 1. Advent (nicht als Türchen).
+  /// Kalenderdatum für Türchen / Advent-Season.
+  static DateTime _effectiveNow([DateTime? now]) {
+    if (debugFakeDate != null) return debugFakeDate!;
+    return now ?? DateTime.now();
+  }
+
+  /// 1.-Advent-Sticker: Geschenkbox am 1. Adventssonntag; Türchen 23 als Catch-up.
   static const firstAdventStickerId = 'winter_advent_1';
+
+  /// 1.-Advent-Puzzle — mit dem 1.-Advent-Sticker freischalten (Geschenkbox).
+  static const firstAdventPuzzleId = '1_adventpuzzle';
 
   /// Nur am 31.12. über Silvester-Box / Daily Gift — nie im Adventskalender.
   /// Bis die Silvester-Box geöffnet wurde: nicht im Album sichtbar.
@@ -53,6 +61,8 @@ class AdventService extends ChangeNotifier {
 
   static bool isSilvesterPuzzle(String id) => silvesterPuzzleIds.contains(id);
 
+  static bool isFirstAdventPuzzle(String id) => id == firstAdventPuzzleId;
+
   /// 1. Adventssonntag (vier Sonntage vor Weihnachten, lokal).
   static DateTime firstAdventDate(int year) {
     final christmas = DateTime(year, 12, 25);
@@ -69,7 +79,7 @@ class AdventService extends ChangeNotifier {
 
   /// Winter-Hub-UI: ab Mitte November Vorschau, Dez, bis 6.1.
   static bool isWinterHubUi([DateTime? now]) {
-    if (debugForceWinterTest) return true;
+    if (debugForceWinterTest || debugFakeDate != null) return true;
     final n = now ?? DateTime.now();
     if (n.month == 12) return true;
     if (n.month == 1 && n.day <= 6) return true;
@@ -129,6 +139,21 @@ class AdventService extends ChangeNotifier {
 
   Set<String> get unlockedColoringIds => Set.unmodifiable(_unlockedColoring);
   Set<String> get unlockedPuzzleIds => Set.unmodifiable(_unlockedPuzzle);
+
+  /// 1.-Advent-Puzzle freischalten (Geschenkbox / Türchen-23-Sticker).
+  Future<void> unlockFirstAdventPuzzle() async {
+    if (_unlockedPuzzle.contains(firstAdventPuzzleId)) return;
+    _unlockedPuzzle.add(firstAdventPuzzleId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _unlockedPuzzleKey,
+      _unlockedPuzzle.toList()..sort(),
+    );
+    notifyListeners();
+  }
+
+  bool get isFirstAdventPuzzleUnlocked =>
+      _unlockedPuzzle.contains(firstAdventPuzzleId);
 
   /// Alle in advent_2026.json gesetzten Ausmal-/Puzzle-IDs (für Event-Screen).
   Set<String> get configuredColoringIds => {

@@ -119,6 +119,23 @@ ORDER = [
     "F852A578-3E7A-4FCD-BE7F-261F05382432.png",
     "F8CBF316-96BF-4807-8B7D-BF65F98805BA.png",
     "FA4449EC-6920-40D6-9906-60E71B19422B.png",
+    # Winter / Merry Christmas 2026 — fee_clean_73…87
+    "Beste Freundinnen beim Eislaufen.png",
+    "Chibi-Fee mit Tiermütze – bereinigte Linien.png",
+    "Chibi-Fee mit Violine und Musiknoten.png",
+    "Chibi-Feen im Schneeballspaß.png",
+    "Chibi-Kinder auf dem Winters leiten.png",
+    "Märchenschloss mit geschlossenem Wasserfall.png",
+    "Niedliche Lebkuchenhütte im Winterzauber.png",
+    "Niedliches Weihnachtsgeschenk mit Kuschelhase.png",
+    "Ornamentale Glocken mit Winterdekoration.png",
+    "Ornate Schmetterlinge und Schneeflocken.png",
+    "Sack mit glatten Linien.png",
+    "Schwarz-weiße Linienkunst mit geschlossenem Flügelkonturstrich.png",
+    "Symmetrischer Weihnachtskranz mit Schneeflocken.png",
+    "Weihnachtsfee mit Süßigkeiten und Strümpfen.png",
+    "Winterliches Lebkuchenhaus mit Feenmädchen.png",
+
 ]
 
 

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../models/coloring_page.dart';
 import '../models/puzzle_settings.dart';
 import '../painting/jigsaw_layout.dart';
+import '../painting/puzzle_etch_painter.dart';
 import '../l10n/app_strings.dart';
 import '../providers/favorites_store.dart';
 import '../providers/feedback_survey_store.dart';
@@ -105,6 +106,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
   PuzzleDifficulty _difficulty = PuzzleDifficulty.medium30;
   PuzzlePieceStyle _pieceStyle = PuzzlePieceStyle.jigsaw;
+  PuzzleHandedness _handedness = PuzzleHandedness.rightHanded;
 
   late int _cols;
   late int _rows;
@@ -132,7 +134,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   late final AnimationController _introController;
   late final TransformationController _boardTransform;
 
-  /// Deal-Intro: Vollbild → Shatter → Teile in den Tray.
+  /// Deal-Intro: Vollbild → Einritzen → Split → Teile in den Tray.
   bool _introDone = false;
   bool _introStarted = false;
   bool _recentRecorded = false;
@@ -147,12 +149,15 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     return a;
   }
 
-  int get _placedCount => _board.whereType<int>().length;
+  /// Hochkant-Motive: nur Portrait (Landscape ist unhandlich).
+  bool get _lockPortraitOrientation => _displayAspect < 0.92;
 
   @override
   void initState() {
     super.initState();
-    unawaited(AppOrientations.enterPlay());
+    unawaited(
+      AppOrientations.enterPlay(lockPortrait: _lockPortraitOrientation),
+    );
     _imageProvider =
         widget.customImage ?? imageProviderFor(widget.puzzle.assetPath);
     _revealController = AnimationController(
@@ -173,7 +178,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
     _introController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2800),
+      duration: const Duration(milliseconds: 4200),
     );
     _boardTransform = TransformationController();
     _popController.addStatusListener((status) {
@@ -207,13 +212,19 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     final forced = widget.initialDifficulty;
     final nextDifficulty = forced ?? saved.difficulty;
     final nextStyle = saved.style;
-    if (nextDifficulty == _difficulty && nextStyle == _pieceStyle) {
+    final nextHand = saved.handedness;
+    if (nextDifficulty == _difficulty &&
+        nextStyle == _pieceStyle &&
+        nextHand == _handedness) {
       return;
     }
     setState(() {
+      final needsReset =
+          nextDifficulty != _difficulty || nextStyle != _pieceStyle;
       _difficulty = nextDifficulty;
       _pieceStyle = nextStyle;
-      _reset();
+      _handedness = nextHand;
+      if (needsReset) _reset();
     });
   }
 
@@ -308,6 +319,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   Future<void> _runIntro() async {
     HapticFeedback.lightImpact();
     try {
+      // Kurz vor dem Split nochmal Tippen-Feel.
+      unawaited(Future<void>.delayed(const Duration(milliseconds: 1650), () {
+        if (mounted && !_introDone) HapticFeedback.selectionClick();
+      }));
       await _introController.forward(from: 0);
     } catch (_) {
       return;
@@ -332,6 +347,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     var draftTier = _difficulty.tier;
     var draftDifficulty = _difficulty;
     var draftStyle = _pieceStyle;
+    var draftHandedness = _handedness;
 
     final applied = await showGeneralDialog<bool>(
       context: context,
@@ -350,7 +366,16 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
             child: StatefulBuilder(
               builder: (context, setSheetState) {
+                final t = AppStrings.of(context);
                 final pieceChoices = PuzzleDifficulty.forTier(draftTier);
+                String handLabel(PuzzleHandedness h) => switch (h) {
+                      PuzzleHandedness.rightHanded => t.puzzleHandRight,
+                      PuzzleHandedness.leftHanded => t.puzzleHandLeft,
+                    };
+                String handHint(PuzzleHandedness h) => switch (h) {
+                      PuzzleHandedness.rightHanded => t.puzzleHandRightHint,
+                      PuzzleHandedness.leftHanded => t.puzzleHandLeftHint,
+                    };
                 return Center(
                   child: Material(
                     color: Colors.transparent,
@@ -396,10 +421,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                'Puzzle-Zauber',
+                              Text(
+                                t.puzzleMagicTitle,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Color(0xFFFFE7A0),
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
@@ -408,7 +433,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Wie magisch soll dein Puzzle sein?',
+                                t.puzzleMagicSubtitle,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.7),
@@ -419,7 +444,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'Abenteuer-Stufe',
+                                  t.puzzleAdventureTier,
                                   style: TextStyle(
                                     color: const Color(0xFFFFD56A)
                                         .withValues(alpha: 0.9),
@@ -456,7 +481,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'Teile',
+                                  t.puzzlePieces,
                                   style: TextStyle(
                                     color: const Color(0xFFFFD56A)
                                         .withValues(alpha: 0.9),
@@ -487,7 +512,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                               if (draftTier.allowsZoom) ...[
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Tipp: Mit zwei Fingern zoomen',
+                                  t.puzzleZoomTip,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.55),
@@ -499,7 +524,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'Zauber-Form',
+                                  t.puzzleMagicShape,
                                   style: TextStyle(
                                     color: const Color(0xFFFFD56A)
                                         .withValues(alpha: 0.9),
@@ -534,12 +559,53 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                   fontSize: 12,
                                 ),
                               ),
+                              const SizedBox(height: 14),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  t.puzzleHand,
+                                  style: TextStyle(
+                                    color: const Color(0xFFFFD56A)
+                                        .withValues(alpha: 0.9),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  for (final h in PuzzleHandedness.values)
+                                    _SettingsChip(
+                                      label: handLabel(h),
+                                      selected: draftHandedness == h,
+                                      onTap: () {
+                                        HapticFeedback.selectionClick();
+                                        setSheetState(
+                                          () => draftHandedness = h,
+                                        );
+                                      },
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                handHint(draftHandedness),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontSize: 12,
+                                ),
+                              ),
                               const SizedBox(height: 18),
                               Row(
                                 children: [
                                   Expanded(
                                     child: _FantasyDialogButton(
-                                      label: AppStrings.of(context).back,
+                                      label: t.back,
                                       filled: false,
                                       onPressed: () =>
                                           Navigator.pop(context, false),
@@ -548,7 +614,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: _FantasyDialogButton(
-                                      label: AppStrings.of(context).letsGo,
+                                      label: t.letsGo,
                                       filled: true,
                                       onPressed: () =>
                                           Navigator.pop(context, true),
@@ -572,14 +638,18 @@ class _PuzzleScreenState extends State<PuzzleScreen>
 
     if (applied == true && mounted) {
       setState(() {
+        final needsReset =
+            draftDifficulty != _difficulty || draftStyle != _pieceStyle;
         _difficulty = draftDifficulty;
         _pieceStyle = draftStyle;
-        _reset();
+        _handedness = draftHandedness;
+        if (needsReset) _reset();
       });
       unawaited(
         PuzzlePreferences.save(
           difficulty: draftDifficulty,
           style: draftStyle,
+          handedness: draftHandedness,
         ),
       );
     }
@@ -739,8 +809,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     });
   }
 
-  Size _fitBoard(Size maxSize) {
-    const padFraction = _JigsawBoard.padFraction;
+  Size _fitBoard(Size maxSize, {double? padFraction}) {
+    final pad = padFraction ?? _JigsawBoard.padFraction;
     final aspect = _displayAspect;
     if (aspect <= 0 ||
         maxSize.width <= 0 ||
@@ -754,19 +824,19 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     late double boardH;
 
     if (aspect >= 1) {
-      boardW = maxSize.width / (1 + 2 * padFraction);
+      boardW = maxSize.width / (1 + 2 * pad);
       boardH = boardW / aspect;
-      final framedH = boardH + 2 * boardW * padFraction;
+      final framedH = boardH + 2 * boardW * pad;
       if (framedH > maxSize.height) {
-        boardH = maxSize.height / (1 + 2 * aspect * padFraction);
+        boardH = maxSize.height / (1 + 2 * aspect * pad);
         boardW = boardH * aspect;
       }
     } else {
-      boardH = maxSize.height / (1 + 2 * padFraction);
+      boardH = maxSize.height / (1 + 2 * pad);
       boardW = boardH * aspect;
-      final framedW = boardW + 2 * boardH * padFraction;
+      final framedW = boardW + 2 * boardH * pad;
       if (framedW > maxSize.width) {
-        boardW = maxSize.width / (1 + 2 * padFraction / aspect);
+        boardW = maxSize.width / (1 + 2 * pad / aspect);
         boardH = boardW / aspect;
       }
     }
@@ -774,23 +844,58 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     return Size(boardW, boardH);
   }
 
-  /// Board-Größe aus dem verfügbaren Platz; Tray hat eigene, lesbare Höhe.
-  ({Size boardSize, double trayHeight}) _layoutBoardAndTray(Size area) {
+  /// Board-Größe + Tray: Portrait unten, Landscape seitlich.
+  ({Size boardSize, double trayExtent, bool sideTray, int trayColumns})
+      _layoutBoardAndTray(
+    Size area, {
+    required bool includeTray,
+  }) {
     final layout = AppLayout.of(context);
-    // Tray groß genug für erkennbare Teile, aber nicht dominant.
-    // clamp-Grenzen müssen lower ≤ upper sein (Landscape: niedrige Höhe).
-    final preferred = layout.isTablet ? 160.0 : 142.0;
+    final sideTray = includeTray && area.width > area.height;
+    // Medium/Pro: zweispurig; Easy: einspurig große Teile.
+    final trayColumns =
+        sideTray && _difficulty.tier != PuzzleTier.easy ? 2 : 1;
+
+    if (sideTray) {
+      final preferred = trayColumns == 2
+          ? layout.puzzleSideTrayWidthDense
+          : layout.puzzleSideTrayWidth;
+      final maxTray = math.max(120.0, area.width * 0.42);
+      final trayWidth = preferred.clamp(120.0, maxTray);
+      final boardMax = Size(
+        math.max(0, area.width - trayWidth),
+        math.max(80, area.height),
+      );
+      return (
+        boardSize: _fitBoard(boardMax),
+        trayExtent: trayWidth,
+        sideTray: true,
+        trayColumns: trayColumns,
+      );
+    }
+
+    // Portrait / ohne Tray: Tray unten mit lesbarer Höhe.
+    final preferred = layout.puzzleTrayHeight;
     final maxTray = math.max(72.0, area.height * 0.27);
-    final trayHeight = preferred.clamp(72.0, maxTray);
+    final trayHeight =
+        includeTray ? preferred.clamp(72.0, maxTray) : 0.0;
     final boardMax = Size(
       math.max(0, area.width - 24),
       math.max(80, area.height - trayHeight - 8),
     );
-    final boardSize = _fitBoard(boardMax);
-    return (boardSize: boardSize, trayHeight: trayHeight);
+    return (
+      boardSize: _fitBoard(boardMax),
+      trayExtent: trayHeight,
+      sideTray: false,
+      trayColumns: 1,
+    );
   }
 
-  Widget _buildBoard(Size maxSize, {required Size boardSize}) {
+  Widget _buildBoard(
+    Size maxSize, {
+    required Size boardSize,
+    Alignment alignment = Alignment.center,
+  }) {
     final pad = math.max(boardSize.width, boardSize.height) *
         _JigsawBoard.padFraction;
     final framed = Size(
@@ -823,31 +928,45 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     );
 
     if (!_difficulty.allowsZoom) {
-      return Center(child: board);
+      return Align(alignment: alignment, child: board);
     }
 
     // Reset-Chip via ListenableBuilder: kein setState am Parent während Pinch
     // (sonst rebuildet InteractiveViewer und der Zoom springt).
+    final zoomChipRight = alignment.x <= 0;
     return Stack(
       fit: StackFit.expand,
       children: [
         ClipRect(
-          child: InteractiveViewer(
-            transformationController: _boardTransform,
-            minScale: 1,
-            maxScale: 3.8,
-            constrained: true,
-            // Kein alignment: sonst driftet Pinch-Zoom vom Fokuspunkt weg.
-            boundaryMargin: const EdgeInsets.all(48),
-            clipBehavior: Clip.hardEdge,
-            onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
-            child: Center(
-              child: SizedBox(
-                width: framed.width,
-                height: framed.height,
-                child: board,
-              ),
-            ),
+          child: ListenableBuilder(
+            listenable: _boardTransform,
+            builder: (context, _) {
+              final zoomed =
+                  _boardTransform.value.getMaxScaleOnAxis() > 1.05;
+              return InteractiveViewer(
+                transformationController: _boardTransform,
+                minScale: 1,
+                maxScale: 3.8,
+                constrained: true,
+                // Ohne Zoom nicht verschieben — sonst „schwimmt“ das Feld.
+                panEnabled: zoomed,
+                scaleEnabled: true,
+                // Kein alignment: sonst driftet Pinch-Zoom vom Fokuspunkt weg.
+                boundaryMargin: zoomed
+                    ? const EdgeInsets.all(48)
+                    : EdgeInsets.zero,
+                clipBehavior: Clip.hardEdge,
+                onInteractionEnd: (_) => _onBoardZoomInteractionEnd(),
+                child: Align(
+                  alignment: alignment,
+                  child: SizedBox(
+                    width: framed.width,
+                    height: framed.height,
+                    child: board,
+                  ),
+                ),
+              );
+            },
           ),
         ),
         ListenableBuilder(
@@ -858,7 +977,8 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             }
             return Positioned(
               top: 4,
-              right: 4,
+              left: zoomChipRight ? null : 4,
+              right: zoomChipRight ? 4 : null,
               child: _ZoomResetChip(onPressed: _resetBoardZoom),
             );
           },
@@ -885,10 +1005,25 @@ class _PuzzleScreenState extends State<PuzzleScreen>
             alignment: Alignment.center,
           ),
           SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final area = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                final landscape = area.width > area.height;
+                final play = _layoutBoardAndTray(
+                  area,
+                  includeTray: !_solved,
+                );
+                final trayExtent = play.trayExtent;
+                final sideTray = play.sideTray && landscape;
+                final trayColumns = play.trayColumns;
+                final trayOnRight = !sideTray || _handedness.trayOnRight;
+
+                // Zurück + Settings immer oben links (auch bei Linkshänder-Tray).
+                final controls = Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
                   child: Row(
                     children: [
                       SilverBackButton(
@@ -918,119 +1053,173 @@ class _PuzzleScreenState extends State<PuzzleScreen>
                           ),
                         ),
                       ),
-                      const Spacer(),
-                      _ProgressChip(
-                        placed: _placedCount,
-                        total: _pieceCount,
-                      ),
-                      const Spacer(),
-                      SilverBackButton(
-                        size: 40,
-                        iconSize: 20,
-                        icon: Icons.refresh_rounded,
-                        onPressed: () {
-                          _resetBoardZoom();
-                          setState(_reset);
-                        },
-                      ),
+                      if (!sideTray && !_solved) ...[
+                        const Spacer(),
+                        // Gleiche Anzeige wie Landscape-Tray: Rest / Gesamt.
+                        _ProgressChip(
+                          remaining: _tray.length,
+                          total: _pieceCount,
+                        ),
+                        const Spacer(),
+                        const SizedBox(width: 98),
+                      ],
                     ],
                   ),
-                ),
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final area = Size(
-                        constraints.maxWidth,
-                        constraints.maxHeight,
-                      );
-                      final layout = _layoutBoardAndTray(area);
-                      final boardSize = layout.boardSize;
-                      final trayHeight = layout.trayHeight;
-                      final boardMax = Size(
+                );
+
+                // Landscape: Fit in die verfügbare Fläche (1:1 / Quer / Hoch).
+                // Links- und Rechtshänder: Abstand unter Buttons fest reservieren.
+                // Portrait: Tray unten, Controls + Zähler in der Top-Bar.
+                const controlsH = 56.0;
+                const landscapeBoardShift = 39.0;
+                final boardTopShift =
+                    sideTray ? landscapeBoardShift : 0.0;
+                final boardColumnSize = sideTray
+                    ? Size(
+                        math.max(
+                          0,
+                          area.width - (_solved ? 0 : trayExtent) - 2,
+                        ),
+                        math.max(80, area.height),
+                      )
+                    : Size(
                         math.max(0, area.width - 24),
                         math.max(
                           80,
-                          area.height - (_solved ? 0 : trayHeight) - 8,
+                          area.height -
+                              controlsH -
+                              (_solved ? 0 : trayExtent) -
+                              8,
                         ),
                       );
+                // Fit-Fläche: bei Rechtshänder oben Shift abziehen, dann pad top.
+                final boardArea = Size(
+                  boardColumnSize.width,
+                  math.max(80, boardColumnSize.height - boardTopShift),
+                );
+                final displayBoardSize = _fitBoard(boardArea);
 
-                      if (boardSize != Size.zero) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _maybeStartIntro(boardSize);
-                        });
-                      }
+                if (displayBoardSize != Size.zero) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _maybeStartIntro(displayBoardSize);
+                  });
+                }
 
-                      final showIntro = !_introDone && !_solved;
+                final showIntro = !_introDone && !_solved;
+                // 1:1 → zentriert; Querformat-Puzzle → weiter zum Außenrand.
+                final boardAlign = !sideTray
+                    ? Alignment.center
+                    : (_displayAspect >= 0.92 && _displayAspect <= 1.08)
+                        ? Alignment.center
+                        : (_displayAspect > 1.08
+                            ? Alignment(
+                                trayOnRight ? -0.7 : 0.7,
+                                -1.0, // oben in der Fit-Fläche (unter dem Shift)
+                              )
+                            : Alignment.center);
 
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          IgnorePointer(
-                            ignoring: showIntro,
-                            child: Opacity(
-                              opacity: showIntro ? 0 : 1,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        12,
-                                        4,
-                                        12,
-                                        4,
-                                      ),
-                                      child: boardSize == Size.zero
-                                          ? const SizedBox.shrink()
-                                          : _buildBoard(
-                                              boardMax,
-                                              boardSize: _solved
-                                                  ? _fitBoard(boardMax)
-                                                  : boardSize,
-                                            ),
-                                    ),
-                                  ),
-                                  if (!_solved)
-                                    SizedBox(
-                                      height: trayHeight,
-                                      child: Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          10,
-                                          0,
-                                          10,
-                                          8,
-                                        ),
-                                        child: _JigsawTray(
-                                          tray: _tray,
-                                          layout: _layout,
-                                          imageProvider: _imageProvider,
-                                          rotatePortrait: _rotatePortrait,
-                                          boardSize: boardSize,
-                                          onDragRejected: _rejectDrop,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
+                final boardBody = Padding(
+                  padding: sideTray
+                      ? EdgeInsets.fromLTRB(2, boardTopShift, 2, 2)
+                      : const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                  child: displayBoardSize == Size.zero
+                      ? const SizedBox.shrink()
+                      : _buildBoard(
+                          boardArea,
+                          boardSize: displayBoardSize,
+                          alignment: boardAlign,
+                        ),
+                );
+
+                final trayWidget = !_solved
+                    ? _JigsawTray(
+                        tray: _tray,
+                        layout: _layout,
+                        imageProvider: _imageProvider,
+                        rotatePortrait: _rotatePortrait,
+                        boardSize: displayBoardSize,
+                        axis: sideTray ? Axis.vertical : Axis.horizontal,
+                        columns: trayColumns,
+                        largePieces: sideTray &&
+                            _difficulty.tier == PuzzleTier.easy,
+                        showCount: sideTray,
+                        remainingCount: _tray.length,
+                        totalCount: _pieceCount,
+                        onDragRejected: _rejectDrop,
+                      )
+                    : null;
+
+                late final Widget playBody;
+                if (sideTray) {
+                  // Linkshänder: Tray unter Zurück/Settings.
+                  final trayPane = SizedBox(
+                    width: trayExtent,
+                    child: Padding(
+                      padding: trayOnRight
+                          ? const EdgeInsets.fromLTRB(0, 4, 8, 8)
+                          : const EdgeInsets.fromLTRB(8, controlsH, 0, 8),
+                      child: trayWidget,
+                    ),
+                  );
+                  final boardColumn = Expanded(child: boardBody);
+                  playBody = Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: trayOnRight
+                        ? [boardColumn, trayPane]
+                        : [trayPane, boardColumn],
+                  );
+                } else {
+                  playBody = Column(
+                    children: [
+                      controls,
+                      Expanded(child: boardBody),
+                      if (trayWidget != null)
+                        SizedBox(
+                          height: trayExtent,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                            child: trayWidget,
                           ),
-                          if (showIntro && boardSize != Size.zero)
-                            Positioned.fill(
-                              child: _PuzzleDealIntro(
-                                animation: _introController,
-                                layout: _layout,
-                                trayOrder: _tray,
-                                imageProvider: _imageProvider,
-                                rotatePortrait: _rotatePortrait,
-                                boardSize: boardSize,
-                                trayHeight: trayHeight,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
+                        ),
+                    ],
+                  );
+                }
+
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    IgnorePointer(
+                      ignoring: showIntro,
+                      child: Opacity(
+                        opacity: showIntro ? 0 : 1,
+                        child: playBody,
+                      ),
+                    ),
+                    // Landscape: Buttons immer oben links, unabhängig vom Tray.
+                    if (sideTray)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: controls,
+                      ),
+                    if (showIntro && displayBoardSize != Size.zero)
+                      Positioned.fill(
+                        child: _PuzzleDealIntro(
+                          animation: _introController,
+                          layout: _layout,
+                          trayOrder: _tray,
+                          imageProvider: _imageProvider,
+                          rotatePortrait: _rotatePortrait,
+                          boardSize: displayBoardSize,
+                          trayExtent: trayExtent,
+                          sideTray: sideTray,
+                          trayOnRight: trayOnRight,
+                          boardTopInset: boardTopShift,
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           if (_celebrating)
@@ -1061,7 +1250,7 @@ class _PuzzleScreenState extends State<PuzzleScreen>
   }
 }
 
-/// Intro: volles Bild → Puzzle-Teile lösen sich → fliegen in den Tray.
+/// Intro: Bild → Nähte einritzen → sauber splitten → Teile in den Tray.
 class _PuzzleDealIntro extends StatelessWidget {
   const _PuzzleDealIntro({
     required this.animation,
@@ -1070,7 +1259,10 @@ class _PuzzleDealIntro extends StatelessWidget {
     required this.imageProvider,
     required this.rotatePortrait,
     required this.boardSize,
-    required this.trayHeight,
+    required this.trayExtent,
+    required this.sideTray,
+    this.trayOnRight = true,
+    this.boardTopInset = 0,
   });
 
   final Animation<double> animation;
@@ -1079,7 +1271,10 @@ class _PuzzleDealIntro extends StatelessWidget {
   final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
-  final double trayHeight;
+  final double trayExtent;
+  final bool sideTray;
+  final bool trayOnRight;
+  final double boardTopInset;
 
   static const _padFraction = _JigsawBoard.padFraction;
 
@@ -1089,48 +1284,94 @@ class _PuzzleDealIntro extends StatelessWidget {
       animation: animation,
       builder: (context, _) {
         final t = animation.value.clamp(0.0, 1.0);
-        // 0.00–0.22 Preview, 0.18–0.42 Shatter, 0.40–0.95 Fly, 0.88–1.00 Fade.
-        final previewOpacity = 1.0 - ((t - 0.18) / 0.14).clamp(0.0, 1.0);
-        final piecesVisible = t >= 0.16;
-        final flyT = ((t - 0.40) / 0.52).clamp(0.0, 1.0);
-        final shatterT = ((t - 0.18) / 0.22).clamp(0.0, 1.0);
-        final settleOpacity = 1.0 - ((t - 0.88) / 0.12).clamp(0.0, 1.0);
+        // 0.00–0.08 Hold, 0.05–0.40 Etch, 0.38–0.52 Split,
+        // 0.48–0.94 Fly, 0.90–1.00 Fade.
+        final etchT = Curves.easeInOutCubic.transform(
+          ((t - 0.05) / 0.35).clamp(0.0, 1.0),
+        );
+        final previewOpacity = 1.0 - ((t - 0.40) / 0.12).clamp(0.0, 1.0);
+        final piecesVisible = t >= 0.38;
+        final splitT = Curves.easeOutCubic.transform(
+          ((t - 0.38) / 0.14).clamp(0.0, 1.0),
+        );
+        final flyT = ((t - 0.48) / 0.46).clamp(0.0, 1.0);
+        final settleOpacity = 1.0 - ((t - 0.90) / 0.10).clamp(0.0, 1.0);
 
         return LayoutBuilder(
           builder: (context, constraints) {
             final area = Size(constraints.maxWidth, constraints.maxHeight);
-            final boardAreaH = math.max(0.0, area.height - trayHeight);
+            final boardAreaW = sideTray
+                ? math.max(0.0, area.width - trayExtent)
+                : area.width;
+            final boardAreaH = sideTray
+                ? math.max(0.0, area.height - boardTopInset)
+                : math.max(0.0, area.height - trayExtent);
+            final boardAreaLeft =
+                sideTray && !trayOnRight ? trayExtent : 0.0;
             final pad =
                 math.max(boardSize.width, boardSize.height) * _padFraction;
             final framed = Size(
               boardSize.width + pad * 2,
               boardSize.height + pad * 2,
             );
-            final boardLeft = (area.width - framed.width) / 2;
-            final boardTop = (boardAreaH - framed.height) / 2;
+            final boardLeft = boardAreaLeft + (boardAreaW - framed.width) / 2;
+            final boardTop =
+                boardTopInset + (boardAreaH - framed.height) / 2;
             final imageOrigin = Offset(boardLeft + pad, boardTop + pad);
 
-            final trayTop = boardAreaH;
-            final trayInnerH = math.max(40.0, trayHeight - 8);
             final maxPiece = layout.maxPieceSize(boardSize: boardSize);
-            final slotH = trayInnerH * 0.68;
-            final fit = math.min(
-              slotH / math.max(maxPiece.height, 1),
-              (area.width * 0.16) / math.max(maxPiece.width, 1),
-            );
-            final trayPieceW = maxPiece.width * fit;
-            final trayPieceH = maxPiece.height * fit;
+            late final double trayPieceW;
+            late final double trayPieceH;
+            late final double step;
+            late final double trayOriginLeft;
+            late final double trayOriginTop;
+
+            if (sideTray) {
+              final trayInnerW = math.max(40.0, trayExtent - 8);
+              final slotW = trayInnerW * 0.72;
+              final fit = math.min(
+                slotW / math.max(maxPiece.width, 1),
+                (area.height * 0.16) / math.max(maxPiece.height, 1),
+              );
+              trayPieceW = maxPiece.width * fit;
+              trayPieceH = maxPiece.height * fit;
+              final n = trayOrder.length;
+              final usableH = math.max(trayPieceH, area.height - 28);
+              step = n <= 1
+                  ? 0.0
+                  : math.min(
+                      trayPieceH * 0.72,
+                      (usableH - trayPieceH) / (n - 1),
+                    );
+              final colHeight = trayPieceH + step * math.max(0, n - 1);
+              final trayRailLeft = trayOnRight ? boardAreaW : 0.0;
+              trayOriginLeft =
+                  trayRailLeft + (trayExtent - trayPieceW) / 2;
+              trayOriginTop = (area.height - colHeight) / 2;
+            } else {
+              final trayInnerH = math.max(40.0, trayExtent - 8);
+              final slotH = trayInnerH * 0.68;
+              final fit = math.min(
+                slotH / math.max(maxPiece.height, 1),
+                (area.width * 0.16) / math.max(maxPiece.width, 1),
+              );
+              trayPieceW = maxPiece.width * fit;
+              trayPieceH = maxPiece.height * fit;
+              final n = trayOrder.length;
+              final usableW = math.max(trayPieceW, area.width - 28);
+              step = n <= 1
+                  ? 0.0
+                  : math.min(
+                      trayPieceW * 0.72,
+                      (usableW - trayPieceW) / (n - 1),
+                    );
+              final rowWidth = trayPieceW + step * math.max(0, n - 1);
+              trayOriginLeft = (area.width - rowWidth) / 2;
+              trayOriginTop =
+                  boardAreaH + (trayInnerH - trayPieceH) / 2;
+            }
 
             final n = trayOrder.length;
-            final usableW = math.max(trayPieceW, area.width - 28);
-            final step = n <= 1
-                ? 0.0
-                : math.min(
-                    trayPieceW * 0.72,
-                    (usableW - trayPieceW) / (n - 1),
-                  );
-            final rowWidth = trayPieceW + step * math.max(0, n - 1);
-            final rowLeft = (area.width - rowWidth) / 2;
 
             return IgnorePointer(
               child: Stack(
@@ -1145,9 +1386,21 @@ class _PuzzleDealIntro extends StatelessWidget {
                       opacity: previewOpacity,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: _PuzzleImageLayer(
-                          imageProvider: imageProvider,
-                          rotatePortrait: rotatePortrait,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _PuzzleImageLayer(
+                              imageProvider: imageProvider,
+                              rotatePortrait: rotatePortrait,
+                            ),
+                            if (etchT > 0.001)
+                              CustomPaint(
+                                painter: PuzzleEtchPainter(
+                                  progress: etchT,
+                                  layout: layout,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -1158,11 +1411,15 @@ class _PuzzleDealIntro extends StatelessWidget {
                         trayIndex: trayIndex,
                         pieceId: trayOrder[trayIndex],
                         imageOrigin: imageOrigin,
-                        shatterT: shatterT,
+                        splitT: splitT,
                         flyT: flyT,
                         settleOpacity: settleOpacity,
-                        trayLeft: rowLeft + trayIndex * step,
-                        trayTop: trayTop + (trayInnerH - trayPieceH) / 2,
+                        trayLeft: sideTray
+                            ? trayOriginLeft
+                            : trayOriginLeft + trayIndex * step,
+                        trayTop: sideTray
+                            ? trayOriginTop + trayIndex * step
+                            : trayOriginTop,
                         trayPieceW: trayPieceW,
                         trayPieceH: trayPieceH,
                       ),
@@ -1179,7 +1436,7 @@ class _PuzzleDealIntro extends StatelessWidget {
     required int trayIndex,
     required int pieceId,
     required Offset imageOrigin,
-    required double shatterT,
+    required double splitT,
     required double flyT,
     required double settleOpacity,
     required double trayLeft,
@@ -1201,11 +1458,15 @@ class _PuzzleDealIntro extends StatelessWidget {
     final cy = imageOrigin.dy + boardSize.height / 2;
     final pieceCx = startLeft + bounds.width / 2;
     final pieceCy = startTop + bounds.height / 2;
-    final explode = Offset(pieceCx - cx, pieceCy - cy) * (0.08 * shatterT);
+    final delta = Offset(pieceCx - cx, pieceCy - cy);
+    final dist = delta.distance;
+    final dir = dist > 0.5 ? delta / dist : Offset.zero;
+    // Sauberer Split: leicht nach außen heben, kein wildes Explodieren.
+    final separate = dir * (7.0 * splitT);
 
     final startRect = Rect.fromLTWH(
-      startLeft + explode.dx,
-      startTop + explode.dy,
+      startLeft + separate.dx,
+      startTop + separate.dy,
       bounds.width,
       bounds.height,
     );
@@ -1216,8 +1477,18 @@ class _PuzzleDealIntro extends StatelessWidget {
       trayPieceH,
     );
 
-    final delay = (trayIndex / math.max(1, trayOrder.length)) * 0.35;
-    final localFly = ((flyT - delay) / (1.0 - delay * 0.85)).clamp(0.0, 1.0);
+    // Von innen nach außen in den Tray legen (wie beim Einritzen).
+    final cxCell = (layout.columns - 1) / 2.0;
+    final cyCell = (layout.rows - 1) / 2.0;
+    final cellDist = math.sqrt(
+      (col - cxCell) * (col - cxCell) + (row - cyCell) * (row - cyCell),
+    );
+    final maxCell = math
+        .sqrt(cxCell * cxCell + cyCell * cyCell)
+        .clamp(1.0, 99.0);
+    final delay = (cellDist / maxCell) * 0.32;
+    final localFly =
+        ((flyT - delay) / math.max(0.35, 1.0 - delay * 0.7)).clamp(0.0, 1.0);
     final curved = Curves.easeInOutCubic.transform(localFly);
 
     final left = startRect.left + (endRect.left - startRect.left) * curved;
@@ -1226,8 +1497,12 @@ class _PuzzleDealIntro extends StatelessWidget {
     final height =
         startRect.height + (endRect.height - startRect.height) * curved;
 
+    // Kaum Twist — wirkt ordentlicher beim Ablegen.
     final twist =
-        (1.0 - curved) * shatterT * ((trayIndex.isEven ? 1 : -1) * 0.12);
+        (1.0 - curved) * splitT * ((trayIndex.isEven ? 1 : -1) * 0.04);
+    final liftScale = 1.0 + 0.04 * splitT * (1.0 - curved);
+
+    final appear = Curves.easeOut.transform(splitT.clamp(0.0, 1.0));
 
     return Positioned(
       left: left,
@@ -1235,21 +1510,24 @@ class _PuzzleDealIntro extends StatelessWidget {
       width: width,
       height: height,
       child: Opacity(
-        opacity: settleOpacity,
+        opacity: (settleOpacity * appear).clamp(0.0, 1.0),
         child: Transform.rotate(
           angle: twist,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: bounds.width,
-              height: bounds.height,
-              child: _JigsawPieceVisual(
-                pieceIndex: pieceId,
-                layout: layout,
-                imageProvider: imageProvider,
-                rotatePortrait: rotatePortrait,
-                boardSize: boardSize,
-                withShadow: true,
+          child: Transform.scale(
+            scale: liftScale,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: bounds.width,
+                height: bounds.height,
+                child: _JigsawPieceVisual(
+                  pieceIndex: pieceId,
+                  layout: layout,
+                  imageProvider: imageProvider,
+                  rotatePortrait: rotatePortrait,
+                  boardSize: boardSize,
+                  withShadow: true,
+                ),
               ),
             ),
           ),
@@ -1280,14 +1558,18 @@ class _ZoomResetChip extends StatelessWidget {
               color: const Color(0xFFFFD56A).withValues(alpha: 0.55),
             ),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.zoom_out_map_rounded, color: Colors.white, size: 18),
-              SizedBox(width: 6),
+              const Icon(
+                Icons.zoom_out_map_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
               Text(
-                'Ganzes Bild',
-                style: TextStyle(
+                AppStrings.of(context).fullImage,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -1430,42 +1712,6 @@ class _SettingsChip extends StatelessWidget {
     );
   }
 }
-
-class _ProgressChip extends StatelessWidget {
-  const _ProgressChip({
-    required this.placed,
-    required this.total,
-  });
-
-  final int placed;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E2A44).withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Text(
-          '$placed / $total',
-          style: const TextStyle(
-            color: Color(0xFFE8EEF8),
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.4,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 
 class _PuzzleImageLayer extends StatelessWidget {
   const _PuzzleImageLayer({
@@ -1882,6 +2128,12 @@ class _JigsawTray extends StatelessWidget {
     required this.rotatePortrait,
     required this.boardSize,
     required this.onDragRejected,
+    this.axis = Axis.horizontal,
+    this.columns = 1,
+    this.largePieces = false,
+    this.showCount = true,
+    this.remainingCount = 0,
+    this.totalCount = 0,
   });
 
   final List<int> tray;
@@ -1889,6 +2141,12 @@ class _JigsawTray extends StatelessWidget {
   final ImageProvider imageProvider;
   final bool rotatePortrait;
   final Size boardSize;
+  final Axis axis;
+  final int columns;
+  final bool largePieces;
+  final bool showCount;
+  final int remainingCount;
+  final int totalCount;
   final void Function(int nearSlot) onDragRejected;
 
   @override
@@ -1896,12 +2154,152 @@ class _JigsawTray extends StatelessWidget {
     // Einheitliche Skalierung: alle Teile passen in denselben Max-Slot
     // (sonst wirken Teile mit mehr Zapfen kleiner — und der Tray „ändert“ Größe).
     final maxPiece = layout.maxPieceSize(boardSize: boardSize);
+    final vertical = axis == Axis.vertical;
+    final cols = vertical ? columns.clamp(1, 2) : 1;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final slotH = math.max(78.0, (constraints.maxHeight - 14) * 0.68);
         final aspect = maxPiece.width / math.max(maxPiece.height, 1);
-        final slotW = slotH * aspect;
+        late final double slotW;
+        late final double slotH;
+        if (vertical && cols == 2) {
+          slotW = math.max(48.0, (constraints.maxWidth - 18) / 2);
+          slotH = slotW / aspect;
+        } else if (vertical) {
+          final fill = largePieces ? 0.94 : 0.82;
+          slotW = math.max(68.0, (constraints.maxWidth - 12) * fill);
+          slotH = slotW / aspect;
+        } else {
+          // Unterer Tray: Teile größer, Tray-Höhe unverändert.
+          slotH = math.max(82.0, (constraints.maxHeight - 10) * 0.90);
+          slotW = slotH * aspect;
+        }
+
+        Widget pieceAt(int index) {
+          final pieceId = tray[index];
+          return Center(
+            child: _TrayJigsawPiece(
+              pieceId: pieceId,
+              layout: layout,
+              imageProvider: imageProvider,
+              rotatePortrait: rotatePortrait,
+              boardSize: boardSize,
+              slotWidth: slotW,
+              slotHeight: slotH,
+              maxPieceSize: maxPiece,
+              onDragRejected: onDragRejected,
+            ),
+          );
+        }
+
+        final countLabel = totalCount > 0
+            ? '$remainingCount / $totalCount'
+            : '$remainingCount';
+
+        final countChip = Padding(
+          padding: EdgeInsets.fromLTRB(
+            vertical ? 8 : 12,
+            vertical ? 8 : 4,
+            vertical ? 8 : 4,
+            vertical ? 4 : 4,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E2A44).withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFFFD56A).withValues(alpha: 0.4),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.extension_rounded,
+                    size: 14,
+                    color: const Color(0xFFFFD56A).withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    countLabel,
+                    style: const TextStyle(
+                      color: Color(0xFFE8EEF8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final empty = Center(
+          child: Icon(
+            Icons.extension_rounded,
+            color: Colors.white.withValues(alpha: 0.35),
+            size: 28,
+          ),
+        );
+
+        late final Widget scroller;
+        if (tray.isEmpty) {
+          scroller = empty;
+        } else if (vertical && cols == 2) {
+          scroller = GridView.builder(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(6, 4, 6, 10),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 6,
+              childAspectRatio: (slotW / math.max(slotH, 1)).clamp(0.45, 2.2),
+            ),
+            itemCount: tray.length,
+            itemBuilder: (context, index) => pieceAt(index),
+          );
+        } else {
+          scroller = ListView.separated(
+            scrollDirection: axis,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: vertical
+                ? const EdgeInsets.fromLTRB(6, 4, 6, 10)
+                : const EdgeInsets.fromLTRB(8, 4, 14, 6),
+            itemCount: tray.length,
+            separatorBuilder: (_, _) => SizedBox(
+              width: vertical ? 0 : 10,
+              height: vertical ? 10 : 0,
+            ),
+            itemBuilder: (context, index) => pieceAt(index),
+          );
+        }
+
+        late final Widget body;
+        if (!showCount) {
+          body = scroller;
+        } else if (vertical) {
+          body = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(child: countChip),
+              Expanded(child: scroller),
+            ],
+          );
+        } else {
+          body = Row(
+            children: [
+              countChip,
+              Expanded(child: scroller),
+            ],
+          );
+        }
 
         return DecoratedBox(
           decoration: BoxDecoration(
@@ -1909,42 +2307,55 @@ class _JigsawTray extends StatelessWidget {
             color: Colors.black.withValues(alpha: 0.3),
             border: Border.all(color: Colors.white24),
           ),
-          child: tray.isEmpty
-              ? Center(
-                  child: Icon(
-                    Icons.extension_rounded,
-                    color: Colors.white.withValues(alpha: 0.35),
-                    size: 28,
-                  ),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  itemCount: tray.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final pieceId = tray[index];
-                    return Center(
-                      child: _TrayJigsawPiece(
-                        pieceId: pieceId,
-                        layout: layout,
-                        imageProvider: imageProvider,
-                        rotatePortrait: rotatePortrait,
-                        boardSize: boardSize,
-                        slotWidth: slotW,
-                        slotHeight: slotH,
-                        maxPieceSize: maxPiece,
-                        onDragRejected: onDragRejected,
-                      ),
-                    );
-                  },
-                ),
+          child: body,
         );
       },
+    );
+  }
+}
+
+class _ProgressChip extends StatelessWidget {
+  const _ProgressChip({
+    required this.remaining,
+    required this.total,
+  });
+
+  final int remaining;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2A44).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFFFD56A).withValues(alpha: 0.45),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.extension_rounded,
+              size: 15,
+              color: const Color(0xFFFFD56A).withValues(alpha: 0.9),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              '$remaining / $total',
+              style: const TextStyle(
+                color: Color(0xFFE8EEF8),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

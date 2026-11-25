@@ -71,7 +71,7 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
             IgnorePointer(
               child: AnimatedBuilder(
                 animation: _confetti,
-                builder: (context, _) => _StickerConfettiRain(
+                builder: (context, _) => GiftConfettiRain(
                   progress: _confetti.value,
                   intensity: 1,
                 ),
@@ -130,7 +130,7 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                         ),
                                       ),
                                       const SizedBox(height: 16),
-                                      _GoldenYayButton(
+                                      GoldenYayButton(
                                         onPressed: widget.onDismiss,
                                       ),
                                     ],
@@ -174,7 +174,7 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
                                   ),
                                 ),
                                 const SizedBox(height: 22),
-                                _GoldenYayButton(onPressed: widget.onDismiss),
+                                GoldenYayButton(onPressed: widget.onDismiss),
                               ],
                             ),
                     ),
@@ -189,8 +189,9 @@ class _StickerRevealOverlayState extends State<StickerRevealOverlay>
   }
 }
 
-class _GoldenYayButton extends StatelessWidget {
-  const _GoldenYayButton({required this.onPressed});
+/// Goldener „Yay!“-Button für Geschenk-/Sticker-Reveals.
+class GoldenYayButton extends StatelessWidget {
+  const GoldenYayButton({super.key, required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -246,10 +247,12 @@ class _GoldenYayButton extends StatelessWidget {
   }
 }
 
-class _StickerConfettiRain extends StatelessWidget {
-  const _StickerConfettiRain({
+/// Konfetti-/Funken-Regen für Geschenk-Reveals.
+class GiftConfettiRain extends StatelessWidget {
+  const GiftConfettiRain({
+    super.key,
     required this.progress,
-    required this.intensity,
+    this.intensity = 1,
   });
 
   final double progress;

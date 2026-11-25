@@ -165,6 +165,38 @@
     {
       "id": "fee_clean_08",
       "cost": 85
+    },
+    {
+      "id": "fee_clean_73",
+      "cost": 35
+    },
+    {
+      "id": "fee_clean_75",
+      "cost": 40
+    },
+    {
+      "id": "fee_clean_77",
+      "cost": 35
+    },
+    {
+      "id": "fee_clean_79",
+      "cost": 40
+    },
+    {
+      "id": "fee_clean_81",
+      "cost": 35
+    },
+    {
+      "id": "fee_clean_83",
+      "cost": 40
+    },
+    {
+      "id": "fee_clean_85",
+      "cost": 35
+    },
+    {
+      "id": "fee_clean_87",
+      "cost": 40
     }
   ],
   "locked_puzzle": [
@@ -403,6 +435,90 @@
     {
       "id": "vier_feen_beim_herbstpicknick",
       "cost": 110
+    },
+    {
+      "id": "3_adventpuzzle",
+      "cost": 50
+    },
+    {
+      "id": "4_adventpuzzle",
+      "cost": 45
+    },
+    {
+      "id": "zuckerfeen_in_der_winterlichen_backstube",
+      "cost": 45
+    },
+    {
+      "id": "eisfee_auf_dem_funkelnden_frostsee",
+      "cost": 50
+    },
+    {
+      "id": "froehlicher_schneeballkampf_im_winterwald",
+      "cost": 45
+    },
+    {
+      "id": "magischer_iglu-bau_im_winterglanz",
+      "cost": 45
+    },
+    {
+      "id": "glitzernde_weihnachtsfeen_am_kristallbaum",
+      "cost": 50
+    },
+    {
+      "id": "blonder_junge_vor_warmer_holzwand",
+      "cost": 45
+    },
+    {
+      "id": "fee_mit_ros_goldenen_herzfluegeln_im_weihnachtlichen_atelier",
+      "cost": 45
+    },
+    {
+      "id": "feenmusiker_im_verschneiten_weihnachtszauber",
+      "cost": 50
+    },
+    {
+      "id": "fuenf_feen_im_rosigen_eiszauber",
+      "cost": 45
+    },
+    {
+      "id": "kristallfee_am_gefrorenen_see",
+      "cost": 45
+    },
+    {
+      "id": "kristallfee_in_der_winterlichen_schmuckwerkstatt",
+      "cost": 50
+    },
+    {
+      "id": "leuchtende_fee_im_verschneiten_zauberwald",
+      "cost": 45
+    },
+    {
+      "id": "maerchenhafte_schneiderin_im_winteratelier",
+      "cost": 45
+    },
+    {
+      "id": "silberhaariger_schneefluegel_im_schnee",
+      "cost": 50
+    },
+    {
+      "id": "sternenfee_im_verschneiten_zauberwald",
+      "cost": 45
+    },
+    {
+      "id": "winterfeen_am_gefrorenen_see",
+      "cost": 45
+    },
+    {
+      "id": "winterfeen_im_magischen_schneelicht",
+      "cost": 50
+    },
+    {
+      "id": "winterliche_schneemannszene_im_zauberwald",
+      "cost": 45
+    },
+    {
+      "id": "winterlicher_feen-kranzworkshop",
+      "cost": 45
     }
   ]
 }
