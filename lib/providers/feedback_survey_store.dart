@@ -130,19 +130,4 @@ class FeedbackSurveyStore extends ChangeNotifier {
     }
   }
 
-  /// Nur Debug/Test: Umfrage wieder anzeigbar machen.
-  Future<void> debugReset() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_coloringThreeStarKey);
-    await prefs.remove('feedback_three_star_count_v1');
-    await prefs.remove(_puzzleDoneKey);
-    await prefs.remove(_doneKey);
-    await prefs.remove(_reviewAskedKey);
-    _coloringThreeStarCount = 0;
-    _puzzleDone = false;
-    _done = false;
-    _reviewAsked = false;
-    _ready = true;
-    notifyListeners();
-  }
 }

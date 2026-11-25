@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,14 +9,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../app_version.dart';
 import '../l10n/app_strings.dart';
-import '../providers/feedback_survey_store.dart';
 import '../services/analytics_service.dart';
 import '../services/audio_service.dart';
 import '../services/consent_service.dart';
 import '../services/device_id_service.dart';
 import '../services/store_config.dart';
 import '../utils/app_layout.dart';
-import '../widgets/feedback_survey_overlay.dart';
 import '../widgets/silver_back_button.dart';
 
 /// App settings: music, support, about / artwork credit.
@@ -152,30 +149,6 @@ class SettingsScreen extends StatelessWidget {
                                   subtitle: t.rateAppSub,
                                   onTap: () => _openStorePage(context),
                                 ),
-                                if (kDebugMode) ...[
-                                  const Divider(height: 8),
-                                  _SettingsTile(
-                                    icon: Icons.emoji_emotions_outlined,
-                                    title: 'Umfrage testen (Debug)',
-                                    subtitle:
-                                        'Öffnet den Zufriedenheits-Bogen',
-                                    onTap: () => unawaited(
-                                      FeedbackSurveyOverlay.show(context),
-                                    ),
-                                  ),
-                                  const Divider(height: 8),
-                                  _SettingsTile(
-                                    icon: Icons.restart_alt_rounded,
-                                    title: 'Umfrage zurücksetzen (Debug)',
-                                    subtitle:
-                                        'Zähler + „erledigt“ löschen',
-                                    onTap: () => unawaited(
-                                      context
-                                          .read<FeedbackSurveyStore>()
-                                          .debugReset(),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                           ),
