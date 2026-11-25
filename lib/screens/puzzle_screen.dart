@@ -632,8 +632,10 @@ class _PuzzleScreenState extends State<PuzzleScreen>
     await quest.claimProgressRewards(wallet);
 
     if (!mounted) return;
-    // Umfrage-Flag schon hier — auch wenn später per System-Back verlassen.
-    await context.read<FeedbackSurveyStore>().recordPuzzleCompleted();
+    // Umfrage-Zähler schon hier — auch wenn später per System-Back verlassen.
+    if (rating >= 3) {
+      await context.read<FeedbackSurveyStore>().recordPuzzleThreeStar();
+    }
     if (!mounted) return;
     // Fertiges Motiv kurz in Ruhe zeigen.
     await Future<void>.delayed(const Duration(milliseconds: 550));
