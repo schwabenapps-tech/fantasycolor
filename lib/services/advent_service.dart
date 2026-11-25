@@ -15,7 +15,7 @@ class AdventService extends ChangeNotifier {
   static const _unlockedPuzzleKey = 'advent_unlocked_puzzle_v1';
   /// Epoch bumpen → Claims/Unlocks einmalig löschen (Inhalt neu befüllen).
   static const _progressEpochKey = 'advent_progress_epoch_v1';
-  static const _progressEpoch = 5;
+  static const _progressEpoch = 6;
 
   bool _ready = false;
   Map<int, List<AdventReward>> _claims = {};
@@ -164,6 +164,13 @@ class AdventService extends ChangeNotifier {
   Set<String> get configuredPuzzleIds => {
         for (final d in _doors.values)
           if (d.puzzleId != null && d.puzzleId!.isNotEmpty) d.puzzleId!,
+        firstAdventPuzzleId,
+      };
+
+  Set<String> get configuredStickerIds => {
+        for (final d in _doors.values)
+          if (d.stickerId != null && d.stickerId!.isNotEmpty) d.stickerId!,
+        firstAdventStickerId,
       };
 
   bool isConfiguredColoring(String id) => configuredColoringIds.contains(id);
@@ -204,7 +211,7 @@ class AdventService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Alle Türchen-Claims und Advent-Unlocks löschen (Sticker-Album unberührt).
+  /// Türchen-Claims + Advent-Geschenke (Wallet-Unlocks + Advent-Stickers) löschen.
   Future<void> resetProgress({SharedPreferences? prefs}) async {
     final p = prefs ?? await SharedPreferences.getInstance();
     _claims = {};
@@ -213,6 +220,32 @@ class AdventService extends ChangeNotifier {
     await p.remove(_claimsKey);
     await p.remove(_unlockedColoringKey);
     await p.remove(_unlockedPuzzleKey);
+
+    // Sterne-Wallet: Advent-Ausmalbilder/Puzzles wieder sperren.
+    const walletColoringKey = 'star_unlocked_coloring_v1';
+    const walletPuzzleKey = 'star_unlocked_puzzle_v1';
+    final adventColoring = configuredColoringIds;
+    final adventPuzzle = configuredPuzzleIds;
+    final walletColoring = [
+      for (final id in p.getStringList(walletColoringKey) ?? const <String>[])
+        if (!adventColoring.contains(id)) id,
+    ];
+    final walletPuzzle = [
+      for (final id in p.getStringList(walletPuzzleKey) ?? const <String>[])
+        if (!adventPuzzle.contains(id)) id,
+    ];
+    await p.setStringList(walletColoringKey, walletColoring);
+    await p.setStringList(walletPuzzleKey, walletPuzzle);
+
+    // Sticker-Besitz nur für Advent-Türchen-Stickers entfernen.
+    const ownedKey = 'sticker_owned_ids_v1';
+    final adventStickers = configuredStickerIds;
+    final owned = [
+      for (final id in p.getStringList(ownedKey) ?? const <String>[])
+        if (!adventStickers.contains(id)) id,
+    ];
+    await p.setStringList(ownedKey, owned);
+
     notifyListeners();
   }
 
