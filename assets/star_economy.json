@@ -168,35 +168,105 @@
     },
     {
       "id": "fee_clean_73",
-      "cost": 35
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_74",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_75",
-      "cost": 40
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_76",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_77",
-      "cost": 35
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_78",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_79",
-      "cost": 40
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_80",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_81",
-      "cost": 35
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_82",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_83",
-      "cost": 40
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_84",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_85",
-      "cost": 35
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_86",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     },
     {
       "id": "fee_clean_87",
-      "cost": 40
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_88",
+      "cost": 65,
+      "event_cost": 35,
+      "event_id": "winter-2026"
+    },
+    {
+      "id": "fee_clean_89",
+      "cost": 85,
+      "event_cost": 40,
+      "event_id": "winter-2026"
     }
   ],
   "locked_puzzle": [

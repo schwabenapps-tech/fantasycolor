@@ -315,7 +315,7 @@ class _AdventGiftOverlayState extends State<AdventGiftOverlay>
           onDismiss: () => unawaited(_continueAfterReveal()),
         );
       } else {
-        body = _ContentReveal(
+        body = GiftContentReveal(
           title: _revealTitle ?? t.adventRewardColoring,
           subtitle: _revealSubtitle,
           page: _revealPage,
@@ -465,8 +465,10 @@ class _PlannedGift {
   final ColoringPage? page;
 }
 
-class _ContentReveal extends StatefulWidget {
-  const _ContentReveal({
+/// Reveal für Ausmal-/Puzzle-Geschenke (Advent + Silvester).
+class GiftContentReveal extends StatefulWidget {
+  const GiftContentReveal({
+    super.key,
     required this.title,
     required this.onContinue,
     this.subtitle,
@@ -481,10 +483,10 @@ class _ContentReveal extends StatefulWidget {
   final VoidCallback onContinue;
 
   @override
-  State<_ContentReveal> createState() => _ContentRevealState();
+  State<GiftContentReveal> createState() => _GiftContentRevealState();
 }
 
-class _ContentRevealState extends State<_ContentReveal>
+class _GiftContentRevealState extends State<GiftContentReveal>
     with TickerProviderStateMixin {
   late final AnimationController _confetti;
   late final AnimationController _pop;

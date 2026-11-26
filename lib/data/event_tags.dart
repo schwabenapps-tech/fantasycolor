@@ -36,6 +36,9 @@ class EventTags {
 
   static EventTags? _cache;
 
+  /// Sync-Zugriff für Wallet/Preise (null bis [load] lief).
+  static EventTags? get cachedOrNull => _cache;
+
   static Future<EventTags> load() async {
     if (_cache != null) return _cache!;
     try {
@@ -58,8 +61,8 @@ class EventTags {
         featuredColoring: _stringList(json['featured_coloring']),
         halloweenPuzzle: _stringSet(json['halloween_puzzle']),
         featuredPuzzle: _stringList(json['featured_puzzle']),
-        newSinceColoring: _dateMap(json['new_since_coloring']),
-        newSincePuzzle: _dateMap(json['new_since_puzzle']),
+        newSinceColoring: _pruneNewSince(_dateMap(json['new_since_coloring'])),
+        newSincePuzzle: _pruneNewSince(_dateMap(json['new_since_puzzle'])),
       );
     } catch (_) {
       _cache = EventTags._(
@@ -77,6 +80,15 @@ class EventTags {
 
   /// Nur für Tests / Hot-Reload nach Asset-Update.
   static void clearCache() => _cache = null;
+
+  /// Abgelaufene Bundle-New-Daten verwerfen (Badge max. [newBadgeDuration]).
+  static Map<String, DateTime> _pruneNewSince(Map<String, DateTime> raw) {
+    final now = DateTime.now();
+    return {
+      for (final e in raw.entries)
+        if (_isNew(e.value, now: now)) e.key: e.value,
+    };
+  }
 
   bool isHalloweenColoring(String id) => halloweenColoring.contains(id);
   bool isHalloweenPuzzle(String id) => halloweenPuzzle.contains(id);
@@ -172,10 +184,12 @@ class EventTags {
 
   static const winterEventId = 'winter-2026';
 
-  /// Winter-/Weihnachts-Remote-Packs → immer ins Merry-Christmas-Event.
+  /// Winter-/Weihnachts-/Silvester-Remote-Packs → immer ins Merry-Christmas-Event.
   static String _eventMergeId(String packId) {
     final lower = packId.toLowerCase();
-    if (lower.contains('winter') || lower.contains('christmas')) {
+    if (lower.contains('winter') ||
+        lower.contains('christmas') ||
+        lower.contains('silvester')) {
       return winterEventId;
     }
     return packId;
@@ -254,16 +268,21 @@ class EventTags {
     final past = <GallerySection>[];
 
     final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
+    final silvesterColoringIds =
+        RemotePackService.instance.silvesterGiftColoringIds();
     final firstAdventPuzzleOpen =
         AdventService.instance.isFirstAdventPuzzleUnlocked;
+    final advent = AdventService.instance;
     for (final event in allEvents()) {
       if (event.isUpcoming()) continue;
       final ids = event.idsFor(coloring: coloring);
       final eventPages = <ColoringPage>[
         for (final id in ids)
           if (byId.containsKey(id))
-            if (coloring ||
-                ((!AdventService.isSilvesterPuzzle(id) || silvesterOpen) &&
+            if (coloring
+                ? (!advent.isHiddenAdventColoringGift(id) &&
+                    (!silvesterColoringIds.contains(id) || silvesterOpen))
+                : ((!AdventService.isSilvesterPuzzle(id) || silvesterOpen) &&
                     (!AdventService.isFirstAdventPuzzle(id) ||
                         firstAdventPuzzleOpen)))
               byId[id]!,
@@ -271,6 +290,15 @@ class EventTags {
       if (eventPages.isEmpty) continue;
       for (final p in eventPages) {
         claimed.add(p.id);
+      }
+      // Versteckte Kalender-/Silvester-Ausmalbilder nicht in der Standard-Galerie.
+      if (coloring) {
+        for (final id in ids) {
+          if (advent.isHiddenAdventColoringGift(id)) claimed.add(id);
+          if (!silvesterOpen && silvesterColoringIds.contains(id)) {
+            claimed.add(id);
+          }
+        }
       }
       final section = GallerySection(
         id: event.id,
@@ -291,6 +319,9 @@ class EventTags {
     // Silvester-/1.-Advent-Puzzles nicht in der Standard-Galerie, bis freigeschaltet.
     if (!coloring && !silvesterOpen) {
       claimed.addAll(AdventService.silvesterPuzzleIds);
+    }
+    if (coloring && !silvesterOpen) {
+      claimed.addAll(silvesterColoringIds);
     }
     if (!coloring && !firstAdventPuzzleOpen) {
       claimed.add(AdventService.firstAdventPuzzleId);
@@ -375,17 +406,19 @@ class EventTags {
     bool coloring = true,
   }) {
     final silvesterOpen = StickerCollectionStore.silvesterPackRevealedCached;
+    final silvesterColoringIds =
+        RemotePackService.instance.silvesterGiftColoringIds();
     final firstAdventPuzzleOpen =
         AdventService.instance.isFirstAdventPuzzleUnlocked;
-    final filtered = (!coloring)
-        ? [
-            for (final p in pages)
-              if ((!AdventService.isSilvesterPuzzle(p.id) || silvesterOpen) &&
-                  (!AdventService.isFirstAdventPuzzle(p.id) ||
-                      firstAdventPuzzleOpen))
-                p,
-          ]
-        : pages;
+    final filtered = [
+      for (final p in pages)
+        if (coloring
+            ? (silvesterOpen || !silvesterColoringIds.contains(p.id))
+            : ((!AdventService.isSilvesterPuzzle(p.id) || silvesterOpen) &&
+                (!AdventService.isFirstAdventPuzzle(p.id) ||
+                    firstAdventPuzzleOpen)))
+          p,
+    ];
     final byId = {for (final p in filtered) p.id: p};
     final newPages = sortNewestFirst(
       [

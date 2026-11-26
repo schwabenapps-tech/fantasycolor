@@ -36,6 +36,52 @@ python3 scripts/upload_r2_pack.py \
   --ends-at 2026-11-02
 ```
 
+### Ausmalbilder nachliefern (mit Sternen-Sperre)
+
+Ausmalbilder dauern länger — neue Dateien später hochladen. Die App liest aus dem Manifest, was **neu** ist (14 Tage Badge, außer Event-Packs) und ob Motive **gesperrt** oder **frei** sind:
+
+```bash
+python3 scripts/upload_r2_pack.py \
+  --pack-id winter-coloring-extra \
+  --title "Merry Christmas" \
+  --source ~/Desktop/neue-ausmalbilder \
+  --as-coloring \
+  --starts-at 2026-11-15 \
+  --ends-at 2027-01-06 \
+  --coloring-cost 85 \
+  --coloring-event-cost 40 \
+  --free besonders_niedliches_motiv.png
+```
+
+### Silvester-Ausmalbilder (Extra-Boxen am 31.12.)
+
+Pack-ID **muss** `silvester` enthalten. Jede heruntergeladene PNG wird am Silvester-Tag als **zusätzliche Geschenkbox** gezeigt (neben Sticker + den 2 Bundle-Puzzles). Bis die Box geöffnet wurde, bleiben die Motive unsichtbar/gesperrt.
+
+```bash
+python3 scripts/upload_r2_pack.py \
+  --pack-id silvester-2026 \
+  --title "Silvester Surprise" \
+  --source ~/Desktop/silvester-ausmalbilder \
+  --as-coloring \
+  --starts-at 2026-12-31 \
+  --ends-at 2027-01-06
+```
+
+Weitere Motive später nachladen: gleichen `--pack-id` erneut mit dem Ordner (Merge). Upload idealerweise **bevor** Nutzer die Silvester-Box öffnen.
+
+Optional fein pro Datei: `--locks locks.json`
+
+```json
+{
+  "coloring": {
+    "fee_extra_01.png": { "cost": 85, "event_cost": 35 },
+    "fee_extra_02.png": { "cost": 0 }
+  }
+}
+```
+
+`cost: 0` = frei. Während `starts_at`…`ends_at` gilt `event_cost`, danach der Normalpreis.
+
 Images already in the app bundle are **skipped** (no duplicates):
 
 - Coloring: `assets/coloring_pages/*` **and** `coloring_source_map.json` keys+values

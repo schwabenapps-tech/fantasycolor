@@ -424,6 +424,7 @@ class _HubScreenState extends State<HubScreen>
                             ? () => _openAlbumKind(StickerAlbumKind.winter)
                             : null,
                         onAdvent: winterUi ? _openAdvent : null,
+                        onAdventLongPress: null,
                         onPrint: _openPrint,
                         onSettings: _openSettings,
                       ),
@@ -577,11 +578,13 @@ class _HubTopBar extends StatefulWidget {
     required this.onSettings,
     this.onOpenWinterAlbum,
     this.onAdvent,
+    this.onAdventLongPress,
   });
 
   final VoidCallback onOpenClassicAlbum;
   final VoidCallback? onOpenWinterAlbum;
   final VoidCallback? onAdvent;
+  final VoidCallback? onAdventLongPress;
   final VoidCallback onPrint;
   final VoidCallback onSettings;
 
@@ -652,6 +655,7 @@ class _HubTopBarState extends State<_HubTopBar> {
                           SizedBox(width: albumAdventGap),
                           _AdventMenuButton(
                             onPressed: widget.onAdvent!,
+                            onLongPress: widget.onAdventLongPress,
                             compact: tight,
                             micro: micro,
                           ),
@@ -1331,7 +1335,8 @@ class _HomeTabState extends State<_HomeTab> {
     final tags = widget.catalog.tags;
     final favorites = context.watch<FavoritesStore>();
     final recent = context.watch<RecentContentStore>();
-    final advent = context.watch<AdventService>();
+    // Advent-Unlocks / Season → Hub neu bauen (Sperren, Event-Zeile).
+    context.watch<AdventService>();
     final pixelReady = context.watch<PixelReadyStore>();
     final coloringProgress = context.watch<ColoringProgressStore>();
     final allColoring = tags.sortNewestFirst(
@@ -1385,32 +1390,16 @@ class _HomeTabState extends State<_HomeTab> {
       ],
     };
 
+    // Event-Motive und Advent-Geschenke gehören nicht unter „Neu“ —
+    // nur echte New-Badges (max. 14 Tage), nie dauerhaft.
     final taggedNewColoring = allColoring
         .where((p) => tags.isNewColoring(p.id) && !eventPageIds.contains(p.id))
         .toList();
     final taggedNewPuzzles = allPuzzles
         .where((p) => tags.isNewPuzzle(p.id) && !eventPageIds.contains(p.id))
         .toList();
-    // Advent-Freischaltungen nur in „Neu“, wenn sie keinem Event gehören
-    // (Winter/Merry Christmas bleibt in der Event-Zeile oben).
-    final adventColoring = _pagesForIds(
-      allColoring,
-      advent.unlockedColoringIds,
-    ).where((p) => !eventPageIds.contains(p.id));
-    final adventPuzzles = _pagesForIds(
-      allPuzzles,
-      advent.unlockedPuzzleIds,
-    ).where((p) => !eventPageIds.contains(p.id));
-    final newColoring = <ColoringPage>[
-      ...{
-        for (final p in [...taggedNewColoring, ...adventColoring]) p.id: p,
-      }.values,
-    ];
-    final newPuzzles = <ColoringPage>[
-      ...{
-        for (final p in [...taggedNewPuzzles, ...adventPuzzles]) p.id: p,
-      }.values,
-    ];
+    final newColoring = taggedNewColoring;
+    final newPuzzles = taggedNewPuzzles;
     final taggedNewIds = {
       for (final p in taggedNewColoring) p.id,
       for (final p in taggedNewPuzzles) p.id,
@@ -1918,11 +1907,13 @@ class _StickerBookButton extends StatelessWidget {
 class _AdventMenuButton extends StatefulWidget {
   const _AdventMenuButton({
     required this.onPressed,
+    this.onLongPress,
     this.compact = false,
     this.micro = false,
   });
 
   final VoidCallback onPressed;
+  final VoidCallback? onLongPress;
   final bool compact;
   final bool micro;
 
@@ -1978,6 +1969,7 @@ class _AdventMenuButtonState extends State<_AdventMenuButton>
       label: t.adventCalendar,
       child: GestureDetector(
         onTap: widget.onPressed,
+        onLongPress: widget.onLongPress,
         child: SizedBox(
           width: size,
           height: size,

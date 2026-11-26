@@ -135,6 +135,9 @@ ORDER = [
     "Symmetrischer Weihnachtskranz mit Schneeflocken.png",
     "Weihnachtsfee mit Süßigkeiten und Strümpfen.png",
     "Winterliches Lebkuchenhaus mit Feenmädchen.png",
+    # Winter Extra 26. Nov. — fee_clean_88…89
+    "Merry Christmas Fee und Junge mit Geschenk.png",
+    "Chibi im Kuschelwinter mit Erkaeltung.png",
 
 ]
 
@@ -328,20 +331,31 @@ def _merge_event_tags(
         data["featured_puzzle"] = featured_puzzle
 
     # Neu-Badge-Daten: nur frisch syncte IDs bekommen „heute“.
+    # Event-Motive (winter/halloween/…) nie unter Home-„Neu“.
     if new_since_key is not None:
         since_raw = data.get(new_since_key)
         since: dict[str, str] = {}
         if isinstance(since_raw, dict):
             since = {str(k): str(v) for k, v in since_raw.items()}
         today = date.today().isoformat()
+        event_ids = _all_event_content_ids(
+            data,
+            coloring=new_since_key.endswith("coloring"),
+        )
         for nid in new_ids or []:
-            since[str(nid)] = today
+            sid = str(nid)
+            if sid in event_ids:
+                since.pop(sid, None)
+                continue
+            since[sid] = today
         if valid_ids is not None:
             since = {k: v for k, v in since.items() if k in valid_ids}
-        # Älter als 30 Tage aus JSON räumen (Badge ohnehin nach 7 Tagen weg).
-        cutoff = date.today() - timedelta(days=30)
+        # Älter als Badge-Fenster (+ Puffer) aus JSON räumen.
+        cutoff = date.today() - timedelta(days=14)
         pruned: dict[str, str] = {}
         for k, v in since.items():
+            if k in event_ids:
+                continue
             try:
                 d = datetime.strptime(v[:10], "%Y-%m-%d").date()
             except ValueError:
@@ -356,23 +370,45 @@ def _merge_event_tags(
     )
 
 
+def _all_event_content_ids(data: dict[str, object], *, coloring: bool) -> set[str]:
+    out: set[str] = set()
+    events = data.get("events")
+    if isinstance(events, list):
+        key = "coloring_ids" if coloring else "puzzle_ids"
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            ids = ev.get(key)
+            if isinstance(ids, list):
+                out.update(str(x) for x in ids)
+    legacy = data.get("halloween_coloring" if coloring else "halloween_puzzle")
+    if isinstance(legacy, list):
+        out.update(str(x) for x in legacy)
+    return out
+
+
 def _sync_event_ids(
     data: dict[str, object],
     *,
     coloring_ids: list[str] | None = None,
     puzzle_ids: list[str] | None = None,
 ) -> None:
-    """Schreibt Halloween-IDs auch in events[0] (Event-Hub-Katalog)."""
+    """Schreibt Halloween-IDs in das halloween-*-Event (nicht pauschal events[0])."""
     events = data.get("events")
     if not isinstance(events, list) or not events:
         return
-    first = events[0]
-    if not isinstance(first, dict):
+    target = None
+    for ev in events:
+        if isinstance(ev, dict) and "halloween" in str(ev.get("id", "")).lower():
+            target = ev
+            break
+    if target is None:
+        # Kein Halloween-Event mehr — Legacy-Listen reichen.
         return
     if coloring_ids is not None:
-        first["coloring_ids"] = list(coloring_ids)
+        target["coloring_ids"] = list(coloring_ids)
     if puzzle_ids is not None:
-        first["puzzle_ids"] = list(puzzle_ids)
+        target["puzzle_ids"] = list(puzzle_ids)
 
 
 if __name__ == "__main__":

@@ -445,6 +445,92 @@ def upload_pack(
     return uploaded
 
 
+def build_pack_locks(
+    pack_id: str,
+    files: list[str],
+    *,
+    coloring_cost: int | None,
+    coloring_event_cost: int | None,
+    puzzle_cost: int | None,
+    puzzle_event_cost: int | None,
+    locks_file: Path | None,
+    free_stems: set[str],
+) -> list[dict]:
+    """Sternen-Locks fürs Manifest — App erkennt Neu + Sperre/Frei ohne Store-Update."""
+    locks: list[dict] = []
+    overrides: dict[str, dict] = {}
+    if locks_file is not None:
+        raw = json.loads(locks_file.read_text(encoding="utf-8"))
+        # Format A: { "coloring": { "foo.png": {"cost": 85, "event_cost": 35} } }
+        # Format B: [ {"section":"coloring","file":"foo.png","cost":85} ]
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, dict) and item.get("file"):
+                    key = f"{item.get('section', 'coloring')}:{normalize_name(str(item['file']))}"
+                    overrides[key] = item
+        elif isinstance(raw, dict):
+            for section in ("coloring", "puzzle"):
+                section_map = raw.get(section)
+                if not isinstance(section_map, dict):
+                    continue
+                for name, spec in section_map.items():
+                    key = f"{section}:{normalize_name(str(name))}"
+                    if isinstance(spec, dict):
+                        overrides[key] = {
+                            "section": section,
+                            "file": str(name),
+                            **spec,
+                        }
+                    elif isinstance(spec, (int, float)):
+                        overrides[key] = {
+                            "section": section,
+                            "file": str(name),
+                            "cost": int(spec),
+                        }
+
+    for relative in files:
+        parts = relative.split("/")
+        if len(parts) < 4:
+            continue
+        section = parts[2]
+        if section not in ("coloring", "puzzle"):
+            continue
+        file_name = parts[-1]
+        stem = normalize_name(file_name)
+        if stem in free_stems or normalize_name(Path(file_name).stem) in free_stems:
+            locks.append(
+                {
+                    "section": section,
+                    "file": file_name,
+                    "cost": 0,
+                }
+            )
+            continue
+        key = f"{section}:{stem}"
+        if key in overrides:
+            spec = overrides[key]
+            entry = {
+                "section": section,
+                "file": file_name,
+                "cost": int(spec.get("cost") or 0),
+            }
+            if spec.get("event_cost") is not None:
+                entry["event_cost"] = int(spec["event_cost"])
+            locks.append(entry)
+            continue
+        if section == "coloring" and coloring_cost is not None:
+            entry = {"section": section, "file": file_name, "cost": int(coloring_cost)}
+            if coloring_event_cost is not None:
+                entry["event_cost"] = int(coloring_event_cost)
+            locks.append(entry)
+        elif section == "puzzle" and puzzle_cost is not None:
+            entry = {"section": section, "file": file_name, "cost": int(puzzle_cost)}
+            if puzzle_event_cost is not None:
+                entry["event_cost"] = int(puzzle_event_cost)
+            locks.append(entry)
+    return locks
+
+
 def upsert_manifest(
     manifest: dict,
     pack_id: str,
@@ -453,6 +539,7 @@ def upsert_manifest(
     starts_at: str | None,
     ends_at: str | None,
     released_at: str | None = None,
+    locks: list[dict] | None = None,
 ) -> dict:
     packs = list(manifest.get("packs") or [])
     # Drop empty packs and rebuild this pack.
@@ -465,9 +552,11 @@ def upsert_manifest(
             "files": files,
         }
         existing_version = 0
+        existing_locks = None
         for old in manifest.get("packs") or []:
             if old.get("id") == pack_id:
                 existing_version = int(old.get("version") or 0)
+                existing_locks = old.get("locks")
                 break
         entry["version"] = existing_version + 1 if existing_version else 1
         if starts_at:
@@ -476,6 +565,10 @@ def upsert_manifest(
             entry["ends_at"] = ends_at
         if released_at:
             entry["released_at"] = released_at
+        if locks is not None:
+            entry["locks"] = locks
+        elif existing_locks:
+            entry["locks"] = existing_locks
         packs.append(entry)
     manifest["packs"] = packs
     manifest["version"] = int(manifest.get("version") or 0) + 1
@@ -524,7 +617,44 @@ def main() -> int:
     parser.add_argument(
         "--released-at",
         default=None,
-        help="Home/New badge start date YYYY-MM-DD (defaults to today)",
+        help="Home/New badge start date YYYY-MM-DD (defaults to today). "
+        "Event-Packs (starts/ends) erscheinen nie unter Home-Neu.",
+    )
+    parser.add_argument(
+        "--coloring-cost",
+        type=int,
+        default=None,
+        help="Default Stern-Preis für alle Ausmalbilder im Pack (nach Event: Normalpreis)",
+    )
+    parser.add_argument(
+        "--coloring-event-cost",
+        type=int,
+        default=None,
+        help="Günstigerer Stern-Preis während starts_at..ends_at",
+    )
+    parser.add_argument(
+        "--puzzle-cost",
+        type=int,
+        default=None,
+        help="Default Stern-Preis für alle Puzzles im Pack",
+    )
+    parser.add_argument(
+        "--puzzle-event-cost",
+        type=int,
+        default=None,
+        help="Günstigerer Puzzle-Preis während des Event-Fensters",
+    )
+    parser.add_argument(
+        "--free",
+        action="append",
+        default=[],
+        help="Stem/Dateiname der frei bleiben soll (mehrfach nutzbar)",
+    )
+    parser.add_argument(
+        "--locks",
+        type=Path,
+        default=None,
+        help="Optional locks.json mit per-Datei cost/event_cost",
     )
     parser.add_argument(
         "--dry-run",
@@ -628,6 +758,32 @@ def main() -> int:
         from datetime import date
 
         released_at = args.released_at or date.today().isoformat()
+        locks_path = args.locks.expanduser().resolve() if args.locks else None
+        if locks_path is not None and not locks_path.is_file():
+            raise SystemExit(f"Locks file not found: {locks_path}")
+        free_stems = {normalize_name(x) for x in (args.free or [])}
+        want_locks = (
+            args.coloring_cost is not None
+            or args.puzzle_cost is not None
+            or locks_path is not None
+            or bool(free_stems)
+        )
+        locks = (
+            build_pack_locks(
+                args.pack_id,
+                files,
+                coloring_cost=args.coloring_cost,
+                coloring_event_cost=args.coloring_event_cost,
+                puzzle_cost=args.puzzle_cost,
+                puzzle_event_cost=args.puzzle_event_cost,
+                locks_file=locks_path,
+                free_stems=free_stems,
+            )
+            if want_locks
+            else None
+        )
+        if locks is not None:
+            print(f"Locks: {len(locks)} entries")
         manifest = upsert_manifest(
             manifest,
             args.pack_id,
@@ -636,6 +792,7 @@ def main() -> int:
             args.starts_at,
             args.ends_at,
             released_at=released_at,
+            locks=locks,
         )
 
         local_manifest = Path(tmp) / "manifest.json"

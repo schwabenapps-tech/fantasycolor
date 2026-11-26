@@ -172,19 +172,37 @@ class StickerCollectionStore extends ChangeNotifier {
   /// Einmalige Silvester-Box am 31.12. noch verfügbar?
   bool get canUseSilvesterGiftBox {
     if (!AdventService.isNewYearsEve()) return false;
-    final year = DateTime.now().year;
+    final year = AdventService.debugEffectiveNow().year;
     return _silvesterBoxUsedYear != year;
   }
 
   /// Verbrauch der einmaligen Silvester-Box (sofort, damit Folge-Overlays klassisch bleiben).
   Future<bool> consumeSilvesterGiftBox() async {
     if (!canUseSilvesterGiftBox) return false;
-    final year = DateTime.now().year;
+    final year = AdventService.debugEffectiveNow().year;
     _silvesterBoxUsedYear = year;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_silvesterBoxUsedYearKey, year);
     notifyListeners();
     return true;
+  }
+
+  /// Debug/Demo: Silvester-Box + Pack-Reveal zurücksetzen.
+  Future<void> resetSilvesterDemoState() async {
+    await _ensureReady();
+    _silvesterBoxUsedYear = null;
+    _silvesterPackRevealed = false;
+    silvesterPackRevealedCached = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_silvesterBoxUsedYearKey);
+    await prefs.remove(_silvesterPackRevealedKey);
+    // Silvester-Sticker Besitz entfernen, damit die Box wieder anbieten kann.
+    _owned.removeAll(AdventService.silvesterStickerIds);
+    await prefs.setStringList(
+      _ownedKey,
+      _owned.toList(growable: false)..sort(),
+    );
+    notifyListeners();
   }
 
   /// Nach Öffnen der Silvester-Box: Pack sichtbar (Sticker im Album, Puzzle im Event).

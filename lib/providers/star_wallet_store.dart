@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/event_tags.dart';
 import '../data/star_economy.dart';
 import '../services/advent_service.dart';
+import '../services/remote_pack_service.dart';
 import 'favorites_store.dart';
 import 'sticker_collection_store.dart';
 
@@ -145,10 +147,13 @@ class StarWalletStore extends ChangeNotifier {
         : advent.isConfiguredColoring(id);
   }
 
-  bool _isSilvesterLockedPuzzle(String id, FavoriteKind kind) {
-    if (kind != FavoriteKind.puzzle) return false;
-    if (!AdventService.isSilvesterPuzzle(id)) return false;
-    return !StickerCollectionStore.silvesterPackRevealedCached;
+  /// Silvester-Puzzle/-Coloring nur über die Geschenkbox — kein Stern-Kauf.
+  bool _isSilvesterGiftLocked(String id, FavoriteKind kind) {
+    if (StickerCollectionStore.silvesterPackRevealedCached) return false;
+    if (kind == FavoriteKind.puzzle) {
+      return AdventService.isSilvesterPuzzle(id);
+    }
+    return RemotePackService.instance.isSilvesterGiftColoring(id);
   }
 
   /// 1.-Advent-Puzzle nur über Geschenkbox / Sticker — kein Stern-Kauf.
@@ -157,24 +162,60 @@ class StarWalletStore extends ChangeNotifier {
     return AdventService.isFirstAdventPuzzle(id);
   }
 
+  /// Event-Rabatt aktiv? Bundle (`event_id`) oder Remote-Pack-Fenster.
+  bool _eventPricingActive(String id, FavoriteKind kind) {
+    final eventId = _economy?.eventIdFor(id, kind);
+    if (eventId == EventTags.winterEventId ||
+        (eventId != null &&
+            (eventId.contains('winter') || eventId.contains('christmas')))) {
+      return AdventService.isWinterHubUi();
+    }
+    if (eventId != null && eventId.isNotEmpty) {
+      final tags = EventTags.cachedOrNull;
+      if (tags != null) {
+        for (final e in tags.allEvents()) {
+          if (e.id == eventId) return e.isActive();
+        }
+      }
+    }
+    return RemotePackService.instance.isPageInActivePackEvent(id);
+  }
+
+  int? _economyUnlockCost(String id, FavoriteKind kind) {
+    final entry = _economy?.lockEntry(id, kind);
+    if (entry == null) return null;
+    if (entry.eventCost != null && _eventPricingActive(id, kind)) {
+      return entry.eventCost;
+    }
+    return entry.cost;
+  }
+
   bool requiresStars(String id, FavoriteKind kind) {
     final unlocked =
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return false;
     // Silvester-/1.-Advent-Puzzle nur über die Box — kein Stern-Kauf.
-    if (_isSilvesterLockedPuzzle(id, kind)) return false;
+    if (_isSilvesterGiftLocked(id, kind)) return false;
     if (_isFirstAdventLockedPuzzle(id, kind)) return false;
     final eco = _economy;
     if (eco != null && eco.isLocked(id, kind)) return true;
+    if (RemotePackService.instance.isPageLocked(id, coloring: kind == FavoriteKind.coloring)) {
+      return true;
+    }
     // Advent-Motive: im Event-Screen gesperrt, bis Türchen / Sterne / Werbung.
     return _isAdventLockedContent(id, kind);
   }
 
   int? unlockCost(String id, FavoriteKind kind) {
-    if (_isSilvesterLockedPuzzle(id, kind)) return null;
+    if (_isSilvesterGiftLocked(id, kind)) return null;
     if (_isFirstAdventLockedPuzzle(id, kind)) return null;
-    final fromEco = _economy?.costFor(id, kind);
+    final fromEco = _economyUnlockCost(id, kind);
     if (fromEco != null) return fromEco;
+    final fromRemote = RemotePackService.instance.lockCostFor(
+      id,
+      coloring: kind == FavoriteKind.coloring,
+    );
+    if (fromRemote != null) return fromRemote;
     if (_isAdventLockedContent(id, kind)) return adventUnlockCost;
     return null;
   }
@@ -183,10 +224,16 @@ class StarWalletStore extends ChangeNotifier {
     final unlocked =
         kind == FavoriteKind.puzzle ? _unlockedPuzzle : _unlockedColoring;
     if (unlocked.contains(id)) return true;
-    if (_isSilvesterLockedPuzzle(id, kind)) return false;
+    if (_isSilvesterGiftLocked(id, kind)) return false;
     if (_isFirstAdventLockedPuzzle(id, kind)) return false;
     final ecoLocked = _economy?.isLocked(id, kind) ?? false;
-    if (!ecoLocked && !_isAdventLockedContent(id, kind)) return true;
+    final remoteLocked = RemotePackService.instance.isPageLocked(
+      id,
+      coloring: kind == FavoriteKind.coloring,
+    );
+    if (!ecoLocked && !remoteLocked && !_isAdventLockedContent(id, kind)) {
+      return true;
+    }
     return false;
   }
 

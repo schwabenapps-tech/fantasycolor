@@ -10,6 +10,7 @@ import '../data/event_catalog.dart';
 import '../data/sticker_catalog.dart';
 import '../models/coloring_page.dart';
 import '../utils/image_source.dart';
+import 'advent_service.dart';
 
 /// Lädt Pack-Manifest + Dateien von Cloudflare R2.
 class RemotePackService extends ChangeNotifier {
@@ -46,6 +47,9 @@ class RemotePackService extends ChangeNotifier {
 
   List<RemotePack> _packs = const [];
   List<RemotePack> get packs => List.unmodifiable(_packs);
+
+  /// pageId → Lock (aus Manifest `locks`); cost 0 = bewusst frei.
+  final Map<String, RemotePageLock> _pageLocks = {};
 
   /// Remote-Seiten-ID → Datum, ab dem sie als „neu“ gelten.
   Map<String, DateTime> _newSince = {};
@@ -138,6 +142,7 @@ class RemotePackService extends ChangeNotifier {
       await _cacheManifest(remote);
 
       _packs = remote.packs;
+      _rebuildPageLocks();
       _indexLoaded = true;
       final afterSignature = _packsSignature(_packs);
       if (changed || beforeSignature != afterSignature) {
@@ -162,6 +167,8 @@ class RemotePackService extends ChangeNotifier {
     if (_isWithinNewBadge(stored, now: now)) return true;
 
     for (final pack in _packs) {
+      // Event-Packs: nie unter Home-„Neu“ — nur im Event-Hub.
+      if (pack.startsAt != null || pack.endsAt != null) continue;
       final released = pack.releasedAt;
       if (!_isWithinNewBadge(released, now: now)) continue;
       for (final relative in pack.files) {
@@ -170,6 +177,59 @@ class RemotePackService extends ChangeNotifier {
       }
     }
     return false;
+  }
+
+  RemotePack? packForPage(String pageId) {
+    for (final pack in _packs) {
+      for (final relative in pack.files) {
+        if (!_isTrackedRemoteFile(relative)) continue;
+        if (_matchesRemotePageId(pack.id, relative, pageId)) return pack;
+      }
+    }
+    return null;
+  }
+
+  bool isPageInActivePackEvent(String pageId, {DateTime? now}) {
+    final pack = packForPage(pageId);
+    if (pack == null) return false;
+    if (pack.startsAt == null && pack.endsAt == null) return false;
+    return ContentEvent(
+      id: pack.id,
+      title: pack.title,
+      startsAt: pack.startsAt,
+      endsAt: pack.endsAt,
+    ).isActive(now: now);
+  }
+
+  /// Sternen-Sperre aus Remote-Manifest (`locks`).
+  bool isPageLocked(String pageId, {required bool coloring}) {
+    return lockCostFor(pageId, coloring: coloring) != null;
+  }
+
+  /// Effektiver Stern-Preis (Event-Rabatt wenn Pack-Fenster aktiv).
+  /// `null` = nicht gesperrt / frei.
+  int? lockCostFor(String pageId, {required bool coloring}) {
+    final lock = _pageLocks[pageId];
+    if (lock == null) return null;
+    if (lock.section == 'coloring' && !coloring) return null;
+    if (lock.section == 'puzzle' && coloring) return null;
+    final inEvent = isPageInActivePackEvent(pageId);
+    if (inEvent && lock.eventCost != null) {
+      return lock.eventCost! > 0 ? lock.eventCost : null;
+    }
+    if (lock.cost <= 0) return null;
+    return lock.cost;
+  }
+
+  void _rebuildPageLocks() {
+    _pageLocks.clear();
+    for (final pack in _packs) {
+      for (final lock in pack.locks) {
+        final id = lock.resolvePageId(pack.id);
+        if (id.isEmpty) continue;
+        _pageLocks[id] = lock;
+      }
+    }
   }
 
   /// Remote-Page-/Sticker-IDs beginnen mit `remote_`.
@@ -188,6 +248,8 @@ class RemotePackService extends ChangeNotifier {
   }
 
   void _rememberNewPages(RemotePack pack, {bool forceFresh = false}) {
+    // Event-Packs gehören nicht unter Home-„Neu“.
+    if (pack.startsAt != null || pack.endsAt != null) return;
     final released = pack.releasedAt ?? DateTime.now();
     final day = DateTime(released.year, released.month, released.day);
     for (final relative in pack.files) {
@@ -409,6 +471,46 @@ class RemotePackService extends ChangeNotifier {
     ];
   }
 
+  /// IDs aus Silvester-Remote-Packs (Pack-ID enthält „silvester“).
+  Set<String> silvesterGiftColoringIds() {
+    return {
+      for (final pack in _packs)
+        if (AdventService.isSilvesterRemotePack(pack.id))
+          for (final f in pack.files)
+            if (f.contains('/coloring/')) remotePageId(pack.id, f),
+    };
+  }
+
+  bool isSilvesterGiftColoring(String id) =>
+      silvesterGiftColoringIds().contains(id);
+
+  /// Bereits heruntergeladene Silvester-Ausmalbilder (für Extra-Boxen).
+  Future<List<ColoringPage>> silvesterGiftColoringPages() async {
+    await _ensureIndexLoaded();
+    final root = await _packsRoot();
+    final out = <ColoringPage>[];
+    for (final pack in _packs) {
+      if (!AdventService.isSilvesterRemotePack(pack.id)) continue;
+      for (final relative in pack.files) {
+        if (!relative.contains('/coloring/')) continue;
+        final fileName = relative.split('/').last;
+        final file = File('${root.path}/${pack.id}/coloring/$fileName');
+        if (!await file.exists()) continue;
+        final size = await _pngSize(file);
+        out.add(
+          ColoringPage(
+            id: remotePageId(pack.id, relative),
+            title: ColoringPage.titleFromPath(file.path),
+            assetPath: file.path,
+            width: size.$1,
+            height: size.$2,
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
   static String remotePageId(String packId, String relative) {
     final stem = relative.split('/').last.replaceAll(
           RegExp(r'\.(png|jpg|jpeg|webp)$', caseSensitive: false),
@@ -457,6 +559,7 @@ class RemotePackService extends ChangeNotifier {
     final cached = await _readCachedManifest();
     if (cached != null) {
       _packs = cached.packs;
+      _rebuildPageLocks();
     }
     final prefs = await SharedPreferences.getInstance();
     _newSince = _readNewSince(prefs);
@@ -494,20 +597,7 @@ class RemotePackService extends ChangeNotifier {
       jsonEncode({
         'version': manifest.version,
         'packs': [
-          for (final p in manifest.packs)
-            {
-              'id': p.id,
-              'version': p.version,
-              'title': p.title,
-              'files': p.files,
-              if (p.startsAt != null)
-                'starts_at': p.startsAt!.toIso8601String().split('T').first,
-              if (p.endsAt != null)
-                'ends_at': p.endsAt!.toIso8601String().split('T').first,
-              if (p.releasedAt != null)
-                'released_at':
-                    p.releasedAt!.toIso8601String().split('T').first,
-            },
+          for (final p in manifest.packs) p.toJson(),
         ],
       }),
     );
@@ -641,6 +731,52 @@ class RemotePackService extends ChangeNotifier {
   }
 }
 
+/// Sternen-Lock für ein Remote-Motiv (Manifest `locks`).
+class RemotePageLock {
+  const RemotePageLock({
+    required this.section,
+    required this.fileOrStem,
+    required this.cost,
+    this.eventCost,
+  });
+
+  /// `coloring` oder `puzzle`.
+  final String section;
+
+  /// Dateiname (`foo.png`) oder Stem — wird zur Remote-Page-ID aufgelöst.
+  final String fileOrStem;
+  final int cost;
+  final int? eventCost;
+
+  String resolvePageId(String packId) {
+    if (fileOrStem.startsWith('remote_')) return fileOrStem;
+    final name = fileOrStem.contains('/')
+        ? fileOrStem.split('/').last
+        : fileOrStem;
+    final withExt = name.contains('.') ? name : '$name.png';
+    return RemotePackService.remotePageId(
+      packId,
+      'packs/$packId/$section/$withExt',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'section': section,
+        'file': fileOrStem,
+        'cost': cost,
+        if (eventCost != null) 'event_cost': eventCost,
+      };
+
+  factory RemotePageLock.fromJson(Map<String, dynamic> json) {
+    return RemotePageLock(
+      section: json['section']?.toString() ?? 'coloring',
+      fileOrStem: (json['file'] ?? json['id'] ?? json['stem'] ?? '').toString(),
+      cost: (json['cost'] as num?)?.toInt() ?? 0,
+      eventCost: (json['event_cost'] as num?)?.toInt(),
+    );
+  }
+}
+
 class RemotePack {
   const RemotePack({
     required this.id,
@@ -650,6 +786,7 @@ class RemotePack {
     this.startsAt,
     this.endsAt,
     this.releasedAt,
+    this.locks = const [],
   });
 
   final String id;
@@ -662,12 +799,41 @@ class RemotePack {
   /// Ab diesem Datum gelten Pack-Motive als „neu“ (Home / Badges).
   final DateTime? releasedAt;
 
+  /// Optionale Sternen-Sperren (Ausmalen länger → nachträglich per CDN).
+  final List<RemotePageLock> locks;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'version': version,
+        'title': title,
+        'files': files,
+        if (startsAt != null)
+          'starts_at': startsAt!.toIso8601String().split('T').first,
+        if (endsAt != null)
+          'ends_at': endsAt!.toIso8601String().split('T').first,
+        if (releasedAt != null)
+          'released_at': releasedAt!.toIso8601String().split('T').first,
+        if (locks.isNotEmpty)
+          'locks': [for (final l in locks) l.toJson()],
+      };
+
   factory RemotePack.fromJson(Map<String, dynamic> json) {
     final files = <String>[];
     final rawFiles = json['files'];
     if (rawFiles is List) {
       for (final f in rawFiles) {
         files.add(f.toString());
+      }
+    }
+    final locks = <RemotePageLock>[];
+    final rawLocks = json['locks'];
+    if (rawLocks is List) {
+      for (final item in rawLocks) {
+        if (item is Map<String, dynamic>) {
+          locks.add(RemotePageLock.fromJson(item));
+        } else if (item is Map) {
+          locks.add(RemotePageLock.fromJson(Map<String, dynamic>.from(item)));
+        }
       }
     }
     return RemotePack(
@@ -678,6 +844,7 @@ class RemotePack {
       startsAt: ContentEvent.parseDate(json['starts_at']),
       endsAt: ContentEvent.parseDate(json['ends_at']),
       releasedAt: ContentEvent.parseDate(json['released_at']),
+      locks: locks,
     );
   }
 }

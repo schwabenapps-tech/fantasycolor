@@ -15,7 +15,7 @@ class AdventService extends ChangeNotifier {
   static const _unlockedPuzzleKey = 'advent_unlocked_puzzle_v1';
   /// Epoch bumpen → Claims/Unlocks einmalig löschen (Inhalt neu befüllen).
   static const _progressEpochKey = 'advent_progress_epoch_v1';
-  static const _progressEpoch = 6;
+  static const _progressEpoch = 8;
 
   bool _ready = false;
   Map<int, List<AdventReward>> _claims = {};
@@ -28,7 +28,7 @@ class AdventService extends ChangeNotifier {
   /// TEMP: Winter-Hub-UI erzwingen (nur für lokale Tests).
   static const bool debugForceWinterTest = false;
 
-  /// TEMP Debug: Fake-Datum nur in Debug-Builds — vor Store-Release auf null!
+  /// TEMP Debug: Fake-Datum nur für lokale Tests — Store-Builds: null lassen.
   static final DateTime? debugFakeDate = null;
 
   /// Kalenderdatum für Türchen / Advent-Season.
@@ -36,6 +36,9 @@ class AdventService extends ChangeNotifier {
     if (debugFakeDate != null) return debugFakeDate!;
     return now ?? DateTime.now();
   }
+
+  /// Für Stores/Overlays (Silvester-Jahr etc.) — respektiert [debugFakeDate].
+  static DateTime debugEffectiveNow([DateTime? now]) => _effectiveNow(now);
 
   /// 1.-Advent-Sticker: Geschenkbox am 1. Adventssonntag; Türchen 23 als Catch-up.
   static const firstAdventStickerId = 'winter_advent_1';
@@ -50,16 +53,23 @@ class AdventService extends ChangeNotifier {
     'winter_happy_new_year',
   };
 
+  /// Haupt-Sticker in der Silvester-Box (Welcome 2027).
+  static const firstSilvesterStickerId = 'winter_silvester_sticker';
+
   /// Silvester-Puzzles — erst nach Öffnen der Silvester-Box sichtbar/spielbar.
-  /// 1) mehrere Feen / Feuerwerk  2) zwei Feen mit Raketen
-  static const silvesterPuzzleIds = <String>{
+  /// Reihenfolge = Box 2 / Box 3.
+  static const silvesterPuzzleIds = <String>[
     'feen_bestaunen_das_feuerwerk_im_schnee',
     'silvester_zwei_feen_mit_feuerwerk',
-  };
+  ];
 
   static bool isSilvesterSticker(String id) => silvesterStickerIds.contains(id);
 
   static bool isSilvesterPuzzle(String id) => silvesterPuzzleIds.contains(id);
+
+  /// Remote-Pack-IDs mit „silvester“ → Ausmalbilder als Extra-Boxen am 31.12.
+  static bool isSilvesterRemotePack(String packId) =>
+      packId.toLowerCase().contains('silvester');
 
   static bool isFirstAdventPuzzle(String id) => id == firstAdventPuzzleId;
 
@@ -175,6 +185,18 @@ class AdventService extends ChangeNotifier {
 
   bool isConfiguredColoring(String id) => configuredColoringIds.contains(id);
   bool isConfiguredPuzzle(String id) => configuredPuzzleIds.contains(id);
+
+  /// Kalender-Ausmalbilder: bis zum Geschenk nicht im Home/Event-Hub.
+  /// Ab 26.12. (nach Kalender) wieder sichtbar — dann Sternen-Sperre.
+  bool isHiddenAdventColoringGift(String id, {DateTime? now}) {
+    if (!isConfiguredColoring(id)) return false;
+    if (_unlockedColoring.contains(id)) return false;
+    final n = _effectiveNow(now);
+    if (n.month == 12 && n.day >= 26) return false;
+    if (n.month == 1) return false;
+    // Nov-Vorschau + 1.–25.12.
+    return isWinterHubUi(n) || isAdventSeason(n);
+  }
 
   Future<void> load() async {
     try {

@@ -4,6 +4,32 @@ import 'package:flutter/services.dart';
 
 import '../providers/favorites_store.dart';
 
+/// Ein gesperrtes Motiv mit Normalpreis + optionalem Event-Preis.
+class StarLockEntry {
+  const StarLockEntry({
+    required this.cost,
+    this.eventCost,
+    this.eventId,
+  });
+
+  /// Preis nach Event-Ende (oder wenn kein Event aktiv).
+  final int cost;
+
+  /// Günstigerer Preis während [eventId] aktiv ist.
+  final int? eventCost;
+
+  /// z. B. `winter-2026` — steuert wann [eventCost] gilt.
+  final String? eventId;
+
+  factory StarLockEntry.fromJson(Map<String, dynamic> json) {
+    return StarLockEntry(
+      cost: (json['cost'] as num?)?.toInt() ?? 0,
+      eventCost: (json['event_cost'] as num?)?.toInt(),
+      eventId: json['event_id']?.toString(),
+    );
+  }
+}
+
 /// Belohnungen, Preise und gesperrte Motive (assets/star_economy.json).
 class StarEconomy {
   StarEconomy._({
@@ -14,10 +40,10 @@ class StarEconomy {
     required this.stickerCost,
     required this.stickerTempOwnedCost,
     required this.stickerTempNewCost,
-    required Map<String, int> lockedColoring,
-    required Map<String, int> lockedPuzzle,
-  })  : _lockedColoring = Map<String, int>.unmodifiable(lockedColoring),
-        _lockedPuzzle = Map<String, int>.unmodifiable(lockedPuzzle);
+    required Map<String, StarLockEntry> lockedColoring,
+    required Map<String, StarLockEntry> lockedPuzzle,
+  })  : _lockedColoring = Map<String, StarLockEntry>.unmodifiable(lockedColoring),
+        _lockedPuzzle = Map<String, StarLockEntry>.unmodifiable(lockedPuzzle);
 
   final Map<int, int> coloringStarRewards;
   final Map<int, double> coloringThresholds;
@@ -30,8 +56,8 @@ class StarEconomy {
   final int stickerTempOwnedCost;
   /// Ausmalen temp: noch nicht im Besitz.
   final int stickerTempNewCost;
-  final Map<String, int> _lockedColoring;
-  final Map<String, int> _lockedPuzzle;
+  final Map<String, StarLockEntry> _lockedColoring;
+  final Map<String, StarLockEntry> _lockedPuzzle;
 
   static StarEconomy? _cache;
 
@@ -55,47 +81,54 @@ class StarEconomy {
           int.parse(e.key): (e.value as num).toDouble(),
       },
       puzzleStarRewards: {
-        for (final e in puzzleMap.entries)
-          int.parse(e.key): (e.value as num).toInt(),
+        for (final e in puzzleMap.entries) int.parse(e.key): (e.value as num).toInt(),
       },
       rewardedAdReward: (rewards['rewarded_ad'] as num?)?.toInt() ?? 5,
       stickerCost: (rewards['sticker_cost'] as num?)?.toInt() ?? 150,
       stickerTempOwnedCost:
           (rewards['sticker_temp_owned_cost'] as num?)?.toInt() ?? 15,
       stickerTempNewCost: (rewards['sticker_temp_cost'] as num?)?.toInt() ?? 40,
-      lockedColoring: _idCostMap(json['locked_coloring']),
-      lockedPuzzle: _idCostMap(json['locked_puzzle']),
+      lockedColoring: _idLockMap(json['locked_coloring']),
+      lockedPuzzle: _idLockMap(json['locked_puzzle']),
     );
     return _cache!;
   }
 
-  static Map<String, int> _idCostMap(Object? raw) {
+  static Map<String, StarLockEntry> _idLockMap(Object? raw) {
     if (raw is! List) return {};
-    final out = <String, int>{};
+    final out = <String, StarLockEntry>{};
     for (final item in raw) {
       if (item is! Map) continue;
-      final id = item['id']?.toString();
-      final cost = item['cost'];
+      final map = Map<String, dynamic>.from(item);
+      final id = map['id']?.toString();
+      final cost = map['cost'];
       if (id == null || id.isEmpty || cost is! num) continue;
-      out[id] = cost.toInt();
+      out[id] = StarLockEntry.fromJson(map);
     }
     return out;
   }
 
-  bool isLocked(String id, FavoriteKind kind) {
-    final map = kind == FavoriteKind.puzzle ? _lockedPuzzle : _lockedColoring;
-    return map.containsKey(id);
-  }
-
-  int? costFor(String id, FavoriteKind kind) {
+  StarLockEntry? lockEntry(String id, FavoriteKind kind) {
     final map = kind == FavoriteKind.puzzle ? _lockedPuzzle : _lockedColoring;
     return map[id];
   }
 
+  bool isLocked(String id, FavoriteKind kind) {
+    return lockEntry(id, kind) != null;
+  }
+
+  /// Roh-Normalpreis (ohne Event-Rabatt).
+  int? costFor(String id, FavoriteKind kind) => lockEntry(id, kind)?.cost;
+
+  int? eventCostFor(String id, FavoriteKind kind) =>
+      lockEntry(id, kind)?.eventCost;
+
+  String? eventIdFor(String id, FavoriteKind kind) =>
+      lockEntry(id, kind)?.eventId;
+
   List<String> freeIds(FavoriteKind kind) {
     final locked =
         kind == FavoriteKind.puzzle ? _lockedPuzzle : _lockedColoring;
-    // Caller filtered against full catalog; expose locked set for exclusion.
     return locked.keys.toList(growable: false);
   }
 

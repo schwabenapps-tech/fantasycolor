@@ -93,6 +93,8 @@ class AppStrings {
   String get adventTapBox => _t('adventTapBox');
   String get adventOpenTwoBoxes => _t('adventOpenTwoBoxes');
   String get adventOpenThreeBoxes => _t('adventOpenThreeBoxes');
+  String silvesterOpenBoxes(int n) =>
+      _t('silvesterOpenBoxes').replaceAll('{n}', '$n');
   String adventBoxesLeft(int n) =>
       _t('adventBoxesLeft').replaceAll('{n}', '$n');
   String get packDownloadTitle => _t('packDownloadTitle');
@@ -317,6 +319,7 @@ const _en = {
   'adventTapBox': 'Tap the Christmas box!',
   'adventOpenTwoBoxes': 'Open both Christmas boxes!',
   'adventOpenThreeBoxes': 'Open all three Christmas boxes!',
+  'silvesterOpenBoxes': 'Open all {n} surprise boxes!',
   'adventBoxesLeft': '{n} left',
   'packDownloadTitle': 'Loading winter pack…',
   'packDownloadHint': 'New puzzles are arriving',
@@ -540,6 +543,7 @@ const _de = {
   'adventTapBox': 'Tippe auf die Weihnachtsbox!',
   'adventOpenTwoBoxes': 'Öffne beide Weihnachtsboxen!',
   'adventOpenThreeBoxes': 'Öffne alle drei Weihnachtsboxen!',
+  'silvesterOpenBoxes': 'Öffne alle {n} Überraschungsboxen!',
   'adventBoxesLeft': 'Noch {n}',
   'packDownloadTitle': 'Winterpaket wird geladen…',
   'packDownloadHint': 'Neue Puzzles kommen an',

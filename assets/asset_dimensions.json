@@ -434,6 +434,16 @@
       "path": "assets/coloring_pages/fee_clean_87.png",
       "width": 1254,
       "height": 1254
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_88.png",
+      "width": 1007,
+      "height": 1024
+    },
+    {
+      "path": "assets/coloring_pages/fee_clean_89.png",
+      "width": 1024,
+      "height": 1024
     }
   ],
   "print_templates": [
@@ -1246,8 +1256,8 @@
     },
     {
       "path": "assets/puzzle_images/feen_bestaunen_das_feuerwerk_im_schnee.png",
-      "width": 1280,
-      "height": 722
+      "width": 1670,
+      "height": 942
     },
     {
       "path": "assets/puzzle_images/feen_geleiten_schmetterlinge_ins_gewaechshaus.png",
@@ -1446,8 +1456,8 @@
     },
     {
       "path": "assets/puzzle_images/silvester_zwei_feen_mit_feuerwerk.png",
-      "width": 1280,
-      "height": 720
+      "width": 1672,
+      "height": 941
     },
     {
       "path": "assets/puzzle_images/sternenfee_im_verschneiten_zauberwald.png",
