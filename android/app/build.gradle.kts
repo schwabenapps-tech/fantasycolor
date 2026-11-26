@@ -52,6 +52,8 @@ android {
 
     buildTypes {
         release {
+            // Minify/R8 absichtlich aus — vor Upload kein Extra-Risiko.
+            // Keep-Rules liegen in proguard-rules.pro für später.
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
             } else {
@@ -77,5 +79,7 @@ dependencies {
     // in Release (Android 16 / AGP 9). Bekannter Fix: neuere WorkManager-Version erzwingen.
     // https://github.com/googleads/googleads-mobile-flutter/issues/1444
     implementation("androidx.work:work-runtime:2.11.2")
+    // flutter_local_notifications + R8: Gson ≥2.11 bringt Consumer-Keep-Rules für TypeToken.
+    implementation("com.google.code.gson:gson:2.11.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

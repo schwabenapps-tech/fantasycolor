@@ -144,7 +144,7 @@ class AudioService extends ChangeNotifier {
     _musicStateSub?.cancel();
 
     void onEnded() {
-      _enqueueMusic(() async {
+      unawaited(_enqueueMusic(() async {
         if (_advancing) return;
         if (!_musicWanted || _muted) return;
         // complete + state=completed können beide feuern — nur einmal wechseln.
@@ -162,7 +162,7 @@ class AudioService extends ChangeNotifier {
         } finally {
           _advancing = false;
         }
-      });
+      }));
     }
 
     _musicCompleteSub = player.onPlayerComplete.listen((_) => onEnded());
@@ -306,9 +306,8 @@ class AudioService extends ChangeNotifier {
     _keepAlive = Timer.periodic(const Duration(seconds: 12), (_) {
       if (!_musicWanted || _muted || !_ready || _interruptedByAd) return;
       final player = _music;
-      if (player == null) return;
-      final state = player.state;
-      if (state == PlayerState.playing) return;
+      if (player != null && player.state == PlayerState.playing) return;
+      // Auch bei null Player: _ensurePlayingUnlocked versucht recreate.
       unawaited(
         _enqueueMusic(() => _ensurePlayingUnlocked(force: false)),
       );
@@ -355,8 +354,13 @@ class AudioService extends ChangeNotifier {
   }
 
   Future<void> playLevelComplete() async {
-    await initialize();
-    if (_muted) return;
+    try {
+      await initialize();
+    } catch (e, st) {
+      debugPrint('AudioService.playLevelComplete init failed: $e\n$st');
+      return;
+    }
+    if (!_ready || _muted) return;
     final sfx = _sfx;
     if (sfx == null) return;
     try {
@@ -367,16 +371,24 @@ class AudioService extends ChangeNotifier {
     }
   }
 
+  /// Serialisiert Musik-Ops und schluckt Fehler — nie unhandled an Caller.
   Future<void> _enqueueMusic(Future<void> Function() op) {
-    final run = _musicGate.then((_) => op());
-    _musicGate = run.catchError((Object e, StackTrace st) {
-      debugPrint('AudioService queue error: $e\n$st');
-    });
-    return run;
+    Future<void> run() async {
+      try {
+        await op();
+      } catch (e, st) {
+        debugPrint('AudioService queue error: $e\n$st');
+      }
+    }
+
+    return _musicGate = _musicGate.then((_) => run());
   }
 
   Future<void> _ensurePlayingUnlocked({required bool force}) async {
     if (_muted || !_musicWanted || _interruptedByAd) return;
+    if (_music == null) {
+      await _recreateMusicPlayer();
+    }
     final player = _music;
     if (player == null) return;
 
@@ -477,25 +489,43 @@ class AudioService extends ChangeNotifier {
   }
 
   Future<void> _recreateMusicPlayer() async {
-    final ctx = AudioContextConfig(
-      route: AudioContextConfigRoute.system,
-      focus: AudioContextConfigFocus.gain,
-      respectSilence: false,
-      stayAwake: false,
-    ).build();
-    await _musicCompleteSub?.cancel();
+    try {
+      await _musicCompleteSub?.cancel();
+    } catch (_) {}
     _musicCompleteSub = null;
-    await _musicStateSub?.cancel();
+    try {
+      await _musicStateSub?.cancel();
+    } catch (_) {}
     _musicStateSub = null;
     try {
       await _music?.dispose();
     } catch (_) {}
-    _music = AudioPlayer();
-    await _music!.setAudioContext(ctx);
-    await _music!.setReleaseMode(ReleaseMode.stop);
-    await _music!.setVolume(_ambientVolume);
-    await _music!.setPlayerMode(PlayerMode.mediaPlayer);
-    _attachMusicCompleteHandlers(_music!);
+    _music = null;
+    _currentAsset = null;
+
+    try {
+      final ctx = AudioContextConfig(
+        route: AudioContextConfigRoute.system,
+        focus: AudioContextConfigFocus.gain,
+        respectSilence: false,
+        stayAwake: false,
+      ).build();
+      final player = AudioPlayer();
+      await player.setAudioContext(ctx);
+      await player.setReleaseMode(ReleaseMode.stop);
+      await player.setVolume(_ambientVolume);
+      await player.setPlayerMode(PlayerMode.mediaPlayer);
+      _music = player;
+      _attachMusicCompleteHandlers(player);
+    } catch (e, st) {
+      // Fail-soft: stille App statt AndroidAudioError-Crash.
+      debugPrint('AudioService._recreateMusicPlayer failed: $e\n$st');
+      try {
+        await _music?.dispose();
+      } catch (_) {}
+      _music = null;
+      _currentAsset = null;
+    }
   }
 
   @override

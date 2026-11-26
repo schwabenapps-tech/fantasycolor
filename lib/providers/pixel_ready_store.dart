@@ -12,6 +12,8 @@ class PixelReadyStore extends ChangeNotifier {
   static const _readyKey = 'pixel_ready_coloring_ids_v1';
   static const _unlockedKey = 'pixel_paint_unlocked_ids_v1';
   static const _stickerKey = 'pixel_sticker_rewarded_ids_v1';
+  /// Einmalig: frühere Auto-Unlocks der Dot-Art-Vorlagen zurücknehmen.
+  static const _startersAdLockAppliedKey = 'pixel_starters_require_ad_v1';
 
   final Set<String> _ids = {};
   final Set<String> _unlocked = {};
@@ -25,7 +27,7 @@ class PixelReadyStore extends ChangeNotifier {
   bool stickerRewarded(String id) => _stickerRewarded.contains(id);
   int get count => _ids.length;
 
-  /// Demo-Vorlagen immer in Dot Art + ohne Ad-Unlock.
+  /// Gebündelte Dot-Art-Demo-Vorlagen (sichtbar, aber Ad-Sperre wie üblich).
   static bool isPixelStarter(String id) =>
       ColoringProgressStore.pixelStarterIds.contains(id);
 
@@ -54,24 +56,29 @@ class PixelReadyStore extends ChangeNotifier {
   }
 
   Future<void> ensurePixelStarters() async {
+    final prefs = await SharedPreferences.getInstance();
     var changed = false;
     for (final id in ColoringProgressStore.pixelStarterIds) {
       if (!_ids.contains(id)) {
         _ids.add(id);
         changed = true;
       }
-      if (!_unlocked.contains(id)) {
-        _unlocked.add(id);
-        changed = true;
+    }
+    // Früher auto-unlocked — einmalig neu sperren (Werbung vor Malen).
+    if (!(prefs.getBool(_startersAdLockAppliedKey) ?? false)) {
+      for (final id in ColoringProgressStore.pixelStarterIds) {
+        _unlocked.remove(id);
       }
+      await prefs.setBool(_startersAdLockAppliedKey, true);
+      await prefs.setStringList(
+        _unlockedKey,
+        _unlocked.toList(growable: false)..sort(),
+      );
+      changed = true;
     }
     if (!changed) return;
     await _persistReady();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
-      _unlockedKey,
-      _unlocked.toList(growable: false)..sort(),
-    );
+    notifyListeners();
   }
 
   Future<void> markReady(String id) async {
