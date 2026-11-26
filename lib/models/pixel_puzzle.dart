@@ -10,7 +10,8 @@ enum PixelDifficulty {
   /// Feines Dot-Raster: längere Seite — Motiv bleibt deutlich erkennbar.
   int get maxSide => 256;
 
-  int get colorCount => 30;
+  /// Mehr Slots → ähnliche Lila-/Blau-/Grün-Töne bleiben getrennt.
+  int get colorCount => 36;
 
   /// Für Fortschritts-JSON und alte Speichernamen (`easy`/`medium`/`hard`).
   static PixelDifficulty fromStorageName(String? _) =>

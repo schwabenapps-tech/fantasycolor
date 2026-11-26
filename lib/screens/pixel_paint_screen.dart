@@ -635,7 +635,8 @@ class _PixelPaintScreenState extends State<PixelPaintScreen>
   }
 
   Future<void> _maybeOfferStickerAfterStars() async {
-    if (_completionRating < 2 || _stickerGiftShown || !mounted) return;
+    // Ein Sticker nach Abschluss (Fertig ab 1★), einmal pro Motiv.
+    if (_completionRating < 1 || _stickerGiftShown || !mounted) return;
     final ready = context.read<PixelReadyStore>();
     if (ready.stickerRewarded(widget.page.id)) return;
     _stickerGiftShown = true;
@@ -1214,13 +1215,7 @@ class _PixelGridPainter extends CustomPainter {
       final maxH = radius * 1.45;
       if (tp.width > maxW || tp.height > maxH) {
         final scale = math.min(maxW / tp.width, maxH / tp.height);
-        fontSize = fontSize * scale;
-        if (fontSize < 1.0) {
-          final empty = TextPainter(textDirection: TextDirection.ltr)
-            ..layout();
-          numberCache[number * 2 + (isTarget ? 1 : 0)] = empty;
-          return empty;
-        }
+        fontSize = (fontSize * scale).clamp(1.0, maxFont);
         tp = layoutAt(fontSize);
       }
 

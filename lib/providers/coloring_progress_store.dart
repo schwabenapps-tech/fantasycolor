@@ -15,6 +15,14 @@ class ColoringProgressStore extends ChangeNotifier {
   static const _hashesPrefsKey = 'colored_page_asset_hashes';
   static const _invalidateAppliedKey = 'coloring_invalidate_applied';
 
+  /// Fertige Demo-Ausmalungen für Dot Art (ohne selbst malen).
+  static const pixelStarterIds = <String>[
+    'fee_clean_05',
+    'fee_clean_24',
+  ];
+
+  static String pixelStarterAsset(String id) => 'assets/pixel_starters/$id.png';
+
   final Set<String> _ids = <String>{};
   final Map<String, int> _versions = <String, int>{};
   final Map<String, String> _assetHashes = <String, String>{};
@@ -66,9 +74,23 @@ class ColoringProgressStore extends ChangeNotifier {
     }
 
     await _invalidateStaleProgress(prefs);
+    await ensurePixelStarters();
 
     _ready = true;
     notifyListeners();
+  }
+
+  /// Fehlende Dot-Art-Vorlagen aus Bundle als Progress ablegen.
+  Future<void> ensurePixelStarters() async {
+    for (final id in pixelStarterIds) {
+      if (hasProgress(id)) continue;
+      try {
+        final data = await rootBundle.load(pixelStarterAsset(id));
+        await saveProgress(id, data.buffer.asUint8List());
+      } catch (e) {
+        debugPrint('ColoringProgressStore: pixel starter $id: $e');
+      }
+    }
   }
 
   /// Löscht Fortschritt nur für ausgetauschte Gallery (+ Hash-Mismatch).

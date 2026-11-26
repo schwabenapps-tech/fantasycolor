@@ -95,6 +95,7 @@ flutter:
   assets:
     - assets/images/
     - assets/coloring_pages/
+    - assets/pixel_starters/
     - assets/print_templates/
     - assets/puzzle_images/
     - assets/stickers/

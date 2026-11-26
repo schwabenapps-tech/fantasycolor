@@ -16,6 +16,11 @@
       "2": 2,
       "3": 3
     },
+    "pixel_stars": {
+      "1": 3,
+      "2": 5,
+      "3": 10
+    },
     "rewarded_ad": 5,
     "sticker_cost": 150,
     "sticker_temp_cost": 40,

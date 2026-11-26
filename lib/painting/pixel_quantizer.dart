@@ -16,11 +16,11 @@ class PixelQuantizer {
   PixelQuantizer._();
 
   /// Algo-Stand — bei Änderung Pixel-Saves invalidieren.
-  static const algoVersion = 8;
+  static const algoVersion = 9;
 
   /// CIE76 ΔE — darunter gilt „gleiche Farbe“ für die Palette.
-  /// Kleiner = mehr Farbnuancen bleiben erhalten.
-  static const mergeDeltaE = 11.0;
+  /// Kleiner = mehr Farbnuancen bleiben erhalten (Lila/Blau-Schattierungen).
+  static const mergeDeltaE = 7.0;
 
   static const lineArgb = 0xFF1A1A1A;
 
@@ -143,7 +143,7 @@ _QuantizeResult _quantizeIsolate(_QuantizeArgs args) {
   // Linie zuerst in die Palette, damit sie nicht „weggemerged“ wird.
   final paletteArgb = <int>[];
   final keyToPalette = <int, int>{};
-  final maxColors = args.colorCount.clamp(4, 40);
+  final maxColors = args.colorCount.clamp(4, 48);
 
   if (freq.containsKey(PixelQuantizer.lineArgb)) {
     keyToPalette[PixelQuantizer.lineArgb] = 0;
@@ -263,10 +263,10 @@ _CellSample _sampleCell(img.Image src, int x0, int y0, int x1, int y1) {
       }
 
       fillN++;
-      // Feinere Buckets (4er statt 8er) — Motivfarben bleiben klarer.
-      final br = (r >> 2) << 2;
-      final bg = (g >> 2) << 2;
-      final bb = (b >> 2) << 2;
+      // 2er-Buckets — Nuancen (z. B. Lila-Stufen) nicht vorab wegquantisieren.
+      final br = (r >> 1) << 1;
+      final bg = (g >> 1) << 1;
+      final bb = (b >> 1) << 1;
       final key = 0xFF000000 | (br << 16) | (bg << 8) | bb;
       // Zentrum zählt doppelt — mittlere Flächenfarbe gewinnt gegen Rand-AA.
       final weight = inCenter ? 2 : 1;
@@ -486,7 +486,11 @@ bool _isLineArgb(int argb) {
   return argb == PixelQuantizer.lineArgb || _isLineRgb(r, g, b);
 }
 
-/// Distanz: CIE76 + Hue-Druck; Linie und Füllfarbe nie zusammenführen.
+/// Distanz: CIE76 + Hue-/Helligkeits-Trennung; Linie und Füllfarbe nie mergen.
+///
+/// Früher wurden ähnliche Hues künstlich näher gezogen → zu wenige Nuancen.
+/// Jetzt: Hue-/Lightness-Unterschiede erhöhen die Distanz, damit z. B.
+/// Lavendel vs. Violett getrennt bleiben.
 double _paletteDistance(
   (double, double, double) a,
   (double, double, double) b,
@@ -497,14 +501,19 @@ double _paletteDistance(
   final lineB = _isLineArgb(argbB);
   if (lineA != lineB) return 999;
 
-  final de = _deltaE(a, b);
+  var de = _deltaE(a, b);
   final ha = _hueChroma(argbA);
   final hb = _hueChroma(argbB);
-  if (ha.$2 >= 25 && hb.$2 >= 25) {
+  if (ha.$2 >= 16 && hb.$2 >= 16) {
     final dh = _hueDiff(ha.$1, hb.$1);
     final dl = (a.$1 - b.$1).abs();
-    if (dh <= 20 && dl <= 22) {
-      return math.min(de, dh * 0.55 + dl * 0.35);
+    // Ab ~10° Hue-Diff: stärker trennen (Lila-Familie, Himmelblau vs. Türkis).
+    if (dh >= 10) {
+      de += (dh - 8) * 0.55;
+    }
+    // Gleicher Hue, aber klar hell/dunkel → Schatten vs. Licht getrennt halten.
+    if (dh <= 14 && dl >= 11) {
+      de += (dl - 9) * 0.4;
     }
   }
   return de;

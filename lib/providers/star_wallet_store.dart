@@ -350,7 +350,7 @@ class StarWalletStore extends ChangeNotifier {
     if (!_ready) await load();
     final eco = _economy;
     if (eco == null) return 0;
-    final gain = eco.currencyForColoringRating(rating);
+    final gain = eco.currencyForPixelRating(rating);
     final prev = _pixelRatings[id] ?? 0;
     if (rating > prev) {
       _pixelRatings[id] = rating;

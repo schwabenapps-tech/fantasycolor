@@ -327,6 +327,7 @@ const _en = {
   'notifyAdventBody': 'A Christmas bauble is waiting — come open today’s gift!',
   'stickerRulesBody':
       '• Finish a coloring page at 100% to earn a sticker (once per picture until reset) and unlock it for Dot Art. Daily finishes also unlock Dot Art.\n'
+      '• Finish a Dot Art → sticker (once per picture) + stars: 1★→3, 2★→5, 3★→10.\n'
       '• Solve a puzzle on Pro for a sticker — once. Easy and Medium do not give stickers.\n'
       '• Daily quests (bell): finish all tasks → stickers + bonus stars.\n'
       '• Advent calendar doors gift winter stickers.\n'
@@ -552,6 +553,7 @@ const _de = {
       'Eine Weihnachtskugel wartet — hol dir das Geschenk von heute!',
   'stickerRulesBody':
       '• Male ein Bild zu 100 % fertig aus → Sticker (einmal pro Bild, bis Reset) und freigeschaltet für Dot Art. Daily-fertig zählt auch für Dot Art.\n'
+      '• Dot Art fertig → Sticker (einmal pro Bild) + Sterne: 1★→3, 2★→5, 3★→10.\n'
       '• Puzzle auf Pro → Sticker (einmal). Easy und Medium geben keine.\n'
       '• Tägliche Aufgaben (Glocke): alle Tasks fertig → Sticker + Bonus-Sterne.\n'
       '• Adventskalender schenkt Winter-Stickers.\n'

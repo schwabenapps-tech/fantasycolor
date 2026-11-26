@@ -36,6 +36,7 @@ class StarEconomy {
     required this.coloringStarRewards,
     required this.coloringThresholds,
     required this.puzzleStarRewards,
+    required this.pixelStarRewards,
     required this.rewardedAdReward,
     required this.stickerCost,
     required this.stickerTempOwnedCost,
@@ -49,6 +50,8 @@ class StarEconomy {
   final Map<int, double> coloringThresholds;
   /// Puzzle: Easy=1 / Medium=2 / Pro=3 Sterne (Währung + Flug-Sterne).
   final Map<int, int> puzzleStarRewards;
+  /// Dot Art: 1★→3 / 2★→5 / 3★→10 Währungs-Sterne.
+  final Map<int, int> pixelStarRewards;
   final int rewardedAdReward;
   /// Klassik-Album: dauerhafter Besitz.
   final int stickerCost;
@@ -70,6 +73,8 @@ class StarEconomy {
         const {'1': 1, '2': 2, '3': 5};
     final puzzleMap = rewards['puzzle_stars'] as Map<String, dynamic>? ??
         const {'1': 1, '2': 2, '3': 3};
+    final pixelMap = rewards['pixel_stars'] as Map<String, dynamic>? ??
+        const {'1': 3, '2': 5, '3': 10};
     final thresh = rewards['coloring_thresholds'] as Map<String, dynamic>? ??
         const {'1': 0.50, '2': 0.80, '3': 1.0};
     _cache = StarEconomy._(
@@ -82,6 +87,9 @@ class StarEconomy {
       },
       puzzleStarRewards: {
         for (final e in puzzleMap.entries) int.parse(e.key): (e.value as num).toInt(),
+      },
+      pixelStarRewards: {
+        for (final e in pixelMap.entries) int.parse(e.key): (e.value as num).toInt(),
       },
       rewardedAdReward: (rewards['rewarded_ad'] as num?)?.toInt() ?? 5,
       stickerCost: (rewards['sticker_cost'] as num?)?.toInt() ?? 150,
@@ -152,4 +160,7 @@ class StarEconomy {
 
   int currencyForPuzzleRating(int rating) =>
       puzzleStarRewards[rating] ?? 0;
+
+  int currencyForPixelRating(int rating) =>
+      pixelStarRewards[rating] ?? 0;
 }

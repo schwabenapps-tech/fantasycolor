@@ -70,10 +70,13 @@ class _PixelGalleryScreenState extends State<PixelGalleryScreen>
     if (!progress.isReady) await progress.load();
     if (!wallet.isReady) await wallet.load();
     if (!ready.isReady) await ready.load();
+    await progress.ensurePixelStarters();
+    await ready.ensurePixelStarters();
     await ready.syncFromCompletedColoring(
       progressIds: progress.progressIds,
       coloringRating: wallet.coloringRating,
       extraIds: [
+        ...ColoringProgressStore.pixelStarterIds,
         for (final t in quest.tasks)
           if ((t.isColoring || t.isRecolor) && quest.isTaskDone(t)) t.pageId,
       ],

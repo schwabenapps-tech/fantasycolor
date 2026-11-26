@@ -248,6 +248,26 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
     await AdsService.showColoringFinishChoiceInterstitial();
   }
 
+  void _undoFromTop(BuildContext context) {
+    HapticFeedback.selectionClick();
+    final stickers = context.read<ColoringStickerPlacementsStore>();
+    final stickerUndo = stickers.canUndo(widget.page.id);
+    final paintUndo = _session.canUndo;
+    if (stickerUndo &&
+        (!paintUndo ||
+            stickers
+                .lastChangeAt(widget.page.id)
+                .isAfter(_session.lastChangeAt))) {
+      unawaited(stickers.undo(widget.page.id));
+      return;
+    }
+    if (paintUndo) {
+      _session.undo();
+    } else if (stickerUndo) {
+      unawaited(stickers.undo(widget.page.id));
+    }
+  }
+
   Future<void> _leaveScreen() async {
     _autoSaveTimer?.cancel();
     await _persistProgress(flatten: false);
@@ -543,35 +563,79 @@ class _ColoringPreviewScreenState extends State<ColoringPreviewScreen>
                           bottom: false,
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SilverBackButton(
-                                  onPressed: () => unawaited(_leaveScreen()),
-                                ),
-                                const Spacer(),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _RoundActionButton(
-                                      icon: Icons.download_rounded,
-                                      tooltip: t.saveToPhotos,
-                                      color: const Color(0xFF4A90E2),
-                                      onPressed: () =>
-                                          unawaited(_saveToPhotos()),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    // Immer sichtbar; Fertigstellen erst ab 90 %.
-                                    _RoundActionButton(
-                                      icon: Icons.check_rounded,
-                                      tooltip: t.done,
-                                      color: const Color(0xFF2ECC71),
-                                      onPressed: () =>
-                                          unawaited(_onDonePressed()),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            child: Builder(
+                              builder: (context) {
+                                final stickers = context
+                                    .watch<ColoringStickerPlacementsStore>();
+                                return AnimatedBuilder(
+                                  animation: _session,
+                                  builder: (context, _) {
+                                    final canUndo = _session.canUndo ||
+                                        stickers.canUndo(widget.page.id);
+                                    final eraseOn =
+                                        _session.tool == PaintTool.eraser;
+                                    final pct =
+                                        (_session.paintedCoverageRatio() * 100)
+                                            .round()
+                                            .clamp(0, 100);
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SilverBackButton(
+                                          onPressed: () =>
+                                              unawaited(_leaveScreen()),
+                                        ),
+                                        const Spacer(),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            _TopToolChip(
+                                              icon: Icons
+                                                  .auto_fix_off_rounded,
+                                              selected: eraseOn,
+                                              onPressed: () {
+                                                HapticFeedback
+                                                    .selectionClick();
+                                                _session.selectTool(
+                                                  eraseOn
+                                                      ? PaintTool.brush
+                                                      : PaintTool.eraser,
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _TopToolChip(
+                                              icon: Icons.replay_rounded,
+                                              enabled: canUndo,
+                                              onPressed: () =>
+                                                  _undoFromTop(context),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _CoveragePill(percent: pct),
+                                            const SizedBox(width: 10),
+                                            _RoundActionButton(
+                                              icon: Icons.download_rounded,
+                                              tooltip: t.saveToPhotos,
+                                              color: const Color(0xFF4A90E2),
+                                              onPressed: () =>
+                                                  unawaited(_saveToPhotos()),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            _RoundActionButton(
+                                              icon: Icons.check_rounded,
+                                              tooltip: t.done,
+                                              color: const Color(0xFF2ECC71),
+                                              onPressed: () =>
+                                                  unawaited(_onDonePressed()),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -653,5 +717,83 @@ class _RoundActionButton extends StatelessWidget {
     );
     if (tooltip == null) return button;
     return Tooltip(message: tooltip!, child: button);
+  }
+}
+
+class _TopToolChip extends StatelessWidget {
+  const _TopToolChip({
+    required this.icon,
+    required this.onPressed,
+    this.selected = false,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool selected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled || selected ? 1 : 0.4,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: enabled || selected ? onPressed : null,
+          borderRadius: BorderRadius.circular(18),
+          child: Ink(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: selected
+                  ? Colors.white.withValues(alpha: 0.92)
+                  : Colors.black.withValues(alpha: 0.45),
+              border: Border.all(
+                color: selected
+                    ? Colors.white
+                    : const Color(0xFFFFD56A).withValues(alpha: 0.45),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: selected ? const Color(0xFF243044) : Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CoveragePill extends StatelessWidget {
+  const _CoveragePill({required this.percent});
+
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.black.withValues(alpha: 0.45),
+        border: Border.all(
+          color: const Color(0xFFFFD56A).withValues(alpha: 0.5),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Text(
+          '$percent %',
+          style: const TextStyle(
+            color: Color(0xFFFFE7A0),
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
   }
 }

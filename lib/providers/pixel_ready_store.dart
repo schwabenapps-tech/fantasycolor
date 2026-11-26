@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'coloring_progress_store.dart';
+
 /// Fertig ausgemalte Bilder für Dot Art + Ad-Freischaltung + Sticker-Belohnung.
 class PixelReadyStore extends ChangeNotifier {
   PixelReadyStore();
@@ -23,6 +25,10 @@ class PixelReadyStore extends ChangeNotifier {
   bool stickerRewarded(String id) => _stickerRewarded.contains(id);
   int get count => _ids.length;
 
+  /// Demo-Vorlagen immer in Dot Art + ohne Ad-Unlock.
+  static bool isPixelStarter(String id) =>
+      ColoringProgressStore.pixelStarterIds.contains(id);
+
   /// Wie normales Ausmalen: 50 % / 80 % / 100 % → 1★ / 2★ / 3★.
   static int starRatingForFill(double fill) {
     if (fill >= 1.0) return 3;
@@ -42,8 +48,30 @@ class PixelReadyStore extends ChangeNotifier {
     _stickerRewarded
       ..clear()
       ..addAll(prefs.getStringList(_stickerKey) ?? const []);
+    await ensurePixelStarters();
     _ready = true;
     notifyListeners();
+  }
+
+  Future<void> ensurePixelStarters() async {
+    var changed = false;
+    for (final id in ColoringProgressStore.pixelStarterIds) {
+      if (!_ids.contains(id)) {
+        _ids.add(id);
+        changed = true;
+      }
+      if (!_unlocked.contains(id)) {
+        _unlocked.add(id);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    await _persistReady();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _unlockedKey,
+      _unlocked.toList(growable: false)..sort(),
+    );
   }
 
   Future<void> markReady(String id) async {
