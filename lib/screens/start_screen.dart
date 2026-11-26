@@ -693,24 +693,6 @@ class _FantasyPlayPainter extends CustomPainter {
         ..color = Colors.white.withValues(alpha: pressed ? 0.15 : 0.28)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.5),
     );
-
-    final gemAt = Offset(center.dx + radius * 0.12, center.dy);
-    canvas.drawCircle(
-      gemAt.translate(0, radius * 0.02),
-      radius * 0.04,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.4)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-    );
-    canvas.drawCircle(
-      gemAt,
-      radius * 0.038,
-      Paint()
-        ..shader = const RadialGradient(
-          center: Alignment(-0.35, -0.4),
-          colors: [Color(0xFFEAF7FF), Color(0xFF5EB7FF), Color(0xFF244A9A)],
-        ).createShader(Rect.fromCircle(center: gemAt, radius: radius * 0.038)),
-    );
   }
 
   void _drawTopSpecular(Canvas canvas, Offset center, double radius) {
